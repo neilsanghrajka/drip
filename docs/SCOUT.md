@@ -9,6 +9,25 @@ or build storefronts.
 
 ![Scout architecture](whiteboard/scout_architecture.svg)
 
+```mermaid
+flowchart LR
+  Runner["Vercel Sandbox Runner"]
+  Codex["Codex SDK Thread"]
+  Scout["$scout skill<br/>planner + cultural judge"]
+  XAgent["x-researcher<br/>uses $x-trends"]
+  ExaAgent["exa-researcher<br/>uses $exa-search"]
+  Evidence["Compact evidence<br/>signals + URLs"]
+  Output["scout-output.json"]
+
+  Runner --> Codex --> Scout
+  Scout --> XAgent
+  Scout --> ExaAgent
+  XAgent --> Evidence
+  ExaAgent --> Evidence
+  Evidence --> Scout
+  Scout --> Output
+```
+
 ## TL;DR
 
 The product prompt should stay lean:
