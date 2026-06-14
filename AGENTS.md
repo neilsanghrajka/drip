@@ -9,8 +9,8 @@
 
 ## Environment Variables
 - Whenever you add or change an env var, update `.env.example` in the same change.
-- Treat `.env`, `.env.local`, `.env.production.local`, `.vercel/`, and `.convex/` as private runtime config.
-- This repo's active local runtime config should live in one ignored `.env`; do not split sandbox or Convex selection values into `.env.local`.
+- Treat `.env`, any `.env.*` remnants/backups, `.vercel/`, and `.convex/` as private runtime config.
+- This repo's active local runtime config should live in one ignored `.env`; do not split sandbox or Convex selection values across multiple env files.
 - Never copy real env values, deploy keys, dashboard URLs, deployment IDs, or project IDs into commits, docs, screenshots, logs, or final responses.
 
 ## Verifying Your Work
