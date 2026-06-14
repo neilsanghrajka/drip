@@ -81,9 +81,17 @@ repo/
         config.toml
         agents/
           sandbox-verifier.toml
+          x-researcher.toml
+          exa-researcher.toml
       .agents/
         skills/
           agent-browser/
+            SKILL.md
+          scout/
+            SKILL.md
+          x-trends/
+            SKILL.md
+          exa-search/
             SKILL.md
 ```
 
@@ -160,8 +168,14 @@ WORKING_DIRECTORY=/vercel/sandbox/agent-workspace
 ```
 
 The runner starts Codex SDK with approval policy `never`, web search disabled,
-SDK network access disabled, and `sandboxMode: "danger-full-access"` inside the
-outer Vercel Sandbox isolation boundary.
+network access controlled by `DRIP_CODEX_NETWORK_ACCESS_ENABLED`, and
+`sandboxMode: "danger-full-access"` inside the outer Vercel Sandbox isolation
+boundary.
+
+When Scout writes `scout-output.json` in the agent workspace, the runner reads
+and parses that artifact after the Codex turn completes. The parsed JSON is
+attached to the terminal runner result as `scoutArtifact`; the runner does not
+rank, reorder, or reinterpret Scout candidates.
 
 ## Env Contract
 
@@ -185,6 +199,9 @@ Never commit or print real values for these names.
 | `OPENAI_API_KEY` or `CODEX_API_KEY` | Convex action/runtime | OpenAI auth source. The action passes `OPENAI_API_KEY` into the runner command. |
 | `CODEX_MODEL` | Convex action/runtime | Runtime override; default is `gpt-5.5`. |
 | `CODEX_REASONING_EFFORT` | Convex action/runtime | Runtime override; default is `low`. |
+| `DRIP_CODEX_NETWORK_ACCESS_ENABLED` | Convex action/runtime | Enables Codex SDK network access for API-backed skills such as Scout; default `false`. |
+| `EXA_API_KEY` | Convex action/runtime | Exa Search API key passed only into the Codex process when present. |
+| `X_BEARER_TOKEN` or `TWITTER_BEARER_TOKEN` | Convex action/runtime | X API app-only bearer token passed only into the Codex process when present. |
 | `DRIP_SANDBOX_RUNNER_TIMEOUT_MS` | Convex action | Detached runner command timeout. |
 | `DRIP_HEARTBEAT_MS` | Runner | Heartbeat interval. |
 
@@ -221,7 +238,12 @@ private runtime config only after the fork smoke passes.
 | `sandbox/runner/*` | Runner process, Codex SDK loop, Convex ingest client, and runner-local dependency manifest. |
 | `sandbox/codex-agent/.codex/config.toml` | Sandbox-only Codex defaults, agent registration, and skill registration. |
 | `sandbox/codex-agent/.codex/agents/sandbox-verifier.toml` | Custom subagent definition for sandbox verification. |
+| `sandbox/codex-agent/.codex/agents/x-researcher.toml` | Custom subagent definition for X trend signal collection. |
+| `sandbox/codex-agent/.codex/agents/exa-researcher.toml` | Custom subagent definition for Exa cultural context collection. |
 | `sandbox/codex-agent/.agents/skills/agent-browser/SKILL.md` | Browser automation skill stub copied into the agent workspace. |
+| `sandbox/codex-agent/.agents/skills/scout/SKILL.md` | Scout orchestration skill and structured output contract. |
+| `sandbox/codex-agent/.agents/skills/x-trends/SKILL.md` | Instruction-only X public-data research skill. |
+| `sandbox/codex-agent/.agents/skills/exa-search/SKILL.md` | Instruction-only generic Exa Search API skill. |
 | `scripts/setup_base_snapshot.ts` | Base snapshot creation, copy rules, install, smoke, and private env update. |
 | `src/convex/schema.ts` | `sandboxRuns` and `sandboxRunEvents` table shape. |
 | `src/convex/sandboxRuns.ts` | Control-plane queries/mutations and runner token checks. |

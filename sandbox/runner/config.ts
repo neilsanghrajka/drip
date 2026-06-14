@@ -1,5 +1,6 @@
 export type RunnerConfig = {
   codexReasoningEffort: ModelReasoningEffort;
+  codexNetworkAccessEnabled: boolean;
   convexUrl: string;
   heartbeatMs: number;
   ingestToken: string;
@@ -11,6 +12,11 @@ export type RunnerConfig = {
 
 export function readRunnerConfig(env: NodeJS.ProcessEnv = process.env) {
   return {
+    codexNetworkAccessEnabled: booleanEnv(
+      env,
+      "DRIP_CODEX_NETWORK_ACCESS_ENABLED",
+      false,
+    ),
     codexReasoningEffort: reasoningEffort(env.CODEX_REASONING_EFFORT),
     convexUrl: must(env, "CONVEX_URL"),
     heartbeatMs: numberEnv(env, "DRIP_HEARTBEAT_MS", 5000),
@@ -59,6 +65,20 @@ function numberEnv(env: NodeJS.ProcessEnv, name: string, fallback: number) {
     throw new Error(`${name} must be a finite number.`);
   }
   return parsed;
+}
+
+function booleanEnv(env: NodeJS.ProcessEnv, name: string, fallback: boolean) {
+  const raw = env[name];
+  if (!raw) {
+    return fallback;
+  }
+  if (raw === "1" || raw.toLowerCase() === "true") {
+    return true;
+  }
+  if (raw === "0" || raw.toLowerCase() === "false") {
+    return false;
+  }
+  throw new Error(`${name} must be true or false.`);
 }
 
 type ModelReasoningEffort = "minimal" | "low" | "medium" | "high" | "xhigh";

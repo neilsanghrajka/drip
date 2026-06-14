@@ -320,7 +320,12 @@ async function assertSandboxPayload(config: SetupConfig) {
     "runner/pnpm-workspace.yaml",
     "codex-agent/.codex/config.toml",
     "codex-agent/.codex/agents/sandbox-verifier.toml",
+    "codex-agent/.codex/agents/x-researcher.toml",
+    "codex-agent/.codex/agents/exa-researcher.toml",
     "codex-agent/.agents/skills/agent-browser/SKILL.md",
+    "codex-agent/.agents/skills/scout/SKILL.md",
+    "codex-agent/.agents/skills/x-trends/SKILL.md",
+    "codex-agent/.agents/skills/exa-search/SKILL.md",
   ]) {
     const stat = await lstat(path.join(sandboxPayloadRoot, relativePath));
     if (!stat.isFile()) {
@@ -760,7 +765,12 @@ async function main() {
   for (const file of [
     ".codex/config.toml",
     ".codex/agents/sandbox-verifier.toml",
+    ".codex/agents/x-researcher.toml",
+    ".codex/agents/exa-researcher.toml",
     ".agents/skills/agent-browser/SKILL.md",
+    ".agents/skills/scout/SKILL.md",
+    ".agents/skills/x-trends/SKILL.md",
+    ".agents/skills/exa-search/SKILL.md",
   ]) {
     await assertFile(path.join(agentWorkdir, file));
   }
@@ -783,7 +793,12 @@ async function main() {
   if (
     !config.includes('model = "gpt-5.5"') ||
     !config.includes('service_tier = "fast"') ||
-    !config.includes(agentWorkdir)
+    !config.includes(agentWorkdir) ||
+    !config.includes("x-researcher") ||
+    !config.includes("exa-researcher") ||
+    !config.includes("scout") ||
+    !config.includes("x-trends") ||
+    !config.includes("exa-search")
   ) {
     throw new Error("Codex config is missing expected defaults.");
   }
@@ -837,7 +852,12 @@ async function main() {
   for (const file of [
     ".codex/config.toml",
     ".codex/agents/sandbox-verifier.toml",
+    ".codex/agents/x-researcher.toml",
+    ".codex/agents/exa-researcher.toml",
     ".agents/skills/agent-browser/SKILL.md",
+    ".agents/skills/scout/SKILL.md",
+    ".agents/skills/x-trends/SKILL.md",
+    ".agents/skills/exa-search/SKILL.md",
   ]) {
     await access(path.join(agentWorkdir, file));
   }
@@ -875,7 +895,7 @@ async function main() {
     runtime: "sandbox-runtime",
     config: ".codex/config.toml",
     runner: runnerEntrypoint,
-    skill: ".agents/skills/agent-browser/SKILL.md",
+    skill: ".agents/skills/scout/SKILL.md",
     workdir: agentWorkdir
   };
 

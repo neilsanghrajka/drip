@@ -7,13 +7,33 @@ sandbox_mode = "workspace-write"
 trust_level = "trusted"
 
 [agents]
-max_threads = 2
+max_threads = 3
 max_depth = 1
 
 [agents.sandbox-verifier]
 description = "Verify sandbox config, skill availability, event flow, and smoke evidence."
 config_file = "agents/sandbox-verifier.toml"
 
+[agents.x-researcher]
+description = "Collect X trend and recent-post signals for Scout using X API bearer auth."
+config_file = "agents/x-researcher.toml"
+
+[agents.exa-researcher]
+description = "Collect source-backed web evidence for Scout using Exa Search API calls."
+config_file = "agents/exa-researcher.toml"
+
 [[skills.config]]
 path = "/vercel/sandbox/agent-workspace/.agents/skills/agent-browser"
+enabled = true
+
+[[skills.config]]
+path = "/vercel/sandbox/agent-workspace/.agents/skills/scout"
+enabled = true
+
+[[skills.config]]
+path = "/vercel/sandbox/agent-workspace/.agents/skills/x-trends"
+enabled = true
+
+[[skills.config]]
+path = "/vercel/sandbox/agent-workspace/.agents/skills/exa-search"
 enabled = true

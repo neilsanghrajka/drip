@@ -100,6 +100,11 @@ export const startSandboxRun = action({
           CODEX_MODEL: process.env.CODEX_MODEL ?? "gpt-5.5",
           CODEX_REASONING_EFFORT:
             process.env.CODEX_REASONING_EFFORT ?? "low",
+          DRIP_CODEX_NETWORK_ACCESS_ENABLED:
+            process.env.DRIP_CODEX_NETWORK_ACCESS_ENABLED ?? "false",
+          ...optionalEnv("EXA_API_KEY"),
+          ...optionalEnv("X_BEARER_TOKEN"),
+          ...optionalEnv("TWITTER_BEARER_TOKEN"),
           WORKING_DIRECTORY: sandboxAgentWorkdir(),
         },
         timeoutMs: numberEnv("DRIP_SANDBOX_RUNNER_TIMEOUT_MS", 300_000),
@@ -177,6 +182,11 @@ function requiredEnv(name: string) {
     throw new Error(`${name} is required.`);
   }
   return value;
+}
+
+function optionalEnv(name: string) {
+  const value = process.env[name];
+  return value ? { [name]: value } : {};
 }
 
 function openAiApiKey() {

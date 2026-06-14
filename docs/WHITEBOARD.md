@@ -12,6 +12,7 @@ Use this as a quick index for the images in `docs/whiteboard/`. The images are i
 - `whiteboard/convex_runs.jpg` - Convex run lifecycle and sandbox creation/start/get flow.
 - `whiteboard/sandbox_flow.jpg` - Coding sandbox loop across dashboard, modal sandbox, Convex, and Next.js UI.
 - `whiteboard/sandbox_loop.jpg` - Alternate close-up of the modal sandbox, Convex, backend, and UI loop.
+- `whiteboard/scout_architecture.svg` - Current Scout skill, subagent, source-skill, and output wiring.
 
 ## Product Spec
 
@@ -22,6 +23,6 @@ Use this as a quick index for the images in `docs/whiteboard/`. The images are i
 
 ## Employee Flows
 
-- `whiteboard/trendsetter_flow.jpg` - Trendsetter research and candidate idea flow.
+- `whiteboard/trendsetter_flow.jpg` - Scout research and candidate idea flow.
 - `whiteboard/employee_flows.jpg` - Fashion designer and performance marketer flows.
 - `whiteboard/developer_flow.jpg` - Developer flow from Codex work to implementation, deployment, and live website.

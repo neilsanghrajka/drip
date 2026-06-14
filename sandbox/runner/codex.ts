@@ -1,3 +1,6 @@
+import { readFile } from "node:fs/promises";
+import path from "node:path";
+
 import type { RunnerConfig } from "./config";
 import type { RunnerControlClient } from "./convex";
 
@@ -16,8 +19,22 @@ type ThreadEvent = {
 type CodexRunResult = {
   codexThreadId?: string;
   finalResponse: string;
+  scoutArtifact?: ScoutArtifactReadResult;
   usage: Usage | null;
 };
+
+type ScoutArtifactReadResult =
+  | {
+      path: string;
+      json: unknown;
+    }
+  | {
+      path: string;
+      error: {
+        message: string;
+        code?: string;
+      };
+    };
 
 export async function runCodexSdk({
   config,
@@ -71,20 +88,16 @@ export async function runCodexSdk({
     await maybeHeartbeat(true);
 
     const { Codex } = await import("@openai/codex-sdk");
+    const env = codexEnv();
     const codex = new Codex({
       apiKey: config.openAiApiKey,
-      env: {
-        HOME: process.env.HOME ?? "/tmp",
-        NODE_ENV: "production",
-        PATH: process.env.PATH ?? "/usr/bin:/bin",
-        TMPDIR: process.env.TMPDIR ?? "/tmp",
-      },
+      env,
     });
     const thread = codex.startThread({
       approvalPolicy: "never",
       model: config.model,
       modelReasoningEffort: config.codexReasoningEffort,
-      networkAccessEnabled: false,
+      networkAccessEnabled: config.codexNetworkAccessEnabled,
       sandboxMode: "danger-full-access",
       skipGitRepoCheck: true,
       webSearchMode: "disabled",
@@ -112,9 +125,15 @@ export async function runCodexSdk({
       await maybeHeartbeat();
     }
 
+    const scoutArtifact = await readScoutArtifact(config.workingDirectory);
+    if (scoutArtifact) {
+      await emit("runner.artifact", scoutArtifact);
+    }
+
     const result: CodexRunResult = {
       codexThreadId,
       finalResponse,
+      ...(scoutArtifact ? { scoutArtifact } : {}),
       usage,
     };
     await emit("runner.finished", result);
@@ -133,6 +152,63 @@ export async function runCodexSdk({
       throw error;
     }
   }
+}
+
+function codexEnv() {
+  const env: Record<string, string> = {
+    HOME: process.env.HOME ?? "/tmp",
+    NODE_ENV: "production",
+    PATH: runnerPath(),
+    TMPDIR: process.env.TMPDIR ?? "/tmp",
+  };
+
+  for (const name of ["EXA_API_KEY", "X_BEARER_TOKEN", "TWITTER_BEARER_TOKEN"]) {
+    const value = process.env[name];
+    if (value) {
+      env[name] = value;
+    }
+  }
+
+  if (!env.TWITTER_BEARER_TOKEN && env.X_BEARER_TOKEN) {
+    env.TWITTER_BEARER_TOKEN = env.X_BEARER_TOKEN;
+  }
+  if (!env.X_BEARER_TOKEN && env.TWITTER_BEARER_TOKEN) {
+    env.X_BEARER_TOKEN = env.TWITTER_BEARER_TOKEN;
+  }
+
+  return env;
+}
+
+async function readScoutArtifact(
+  workingDirectory: string,
+): Promise<ScoutArtifactReadResult | undefined> {
+  const artifactPath = path.join(workingDirectory, "scout-output.json");
+  try {
+    const text = await readFile(artifactPath, "utf8");
+    return {
+      path: artifactPath,
+      json: JSON.parse(text),
+    };
+  } catch (error) {
+    if (isNodeError(error) && error.code === "ENOENT") {
+      return undefined;
+    }
+    return {
+      path: artifactPath,
+      error: {
+        message: error instanceof Error ? error.message : String(error),
+        code: isNodeError(error) ? error.code : undefined,
+      },
+    };
+  }
+}
+
+function runnerPath() {
+  const currentPath = process.env.PATH ?? "/usr/bin:/bin";
+  const runnerNodeBin = `${process.cwd()}/node_modules/.bin`;
+  return currentPath.includes(runnerNodeBin)
+    ? currentPath
+    : `${runnerNodeBin}:${currentPath}`;
 }
 
 function absorbCodexEvent(
@@ -164,6 +240,10 @@ function absorbCodexEvent(
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function isNodeError(error: unknown): error is NodeJS.ErrnoException {
+  return error instanceof Error && "code" in error;
 }
 
 function isAgentMessageItem(
