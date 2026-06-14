@@ -24,12 +24,13 @@ judgment, JSON writing, and JSON validation.
 
 1. Convex starts a Vercel Sandbox from `BASE_SANDBOX_IMAGE`.
 2. The sandbox runner starts a Codex SDK thread in `/vercel/sandbox/agent-workspace`.
-3. Codex uses `$scout`.
-4. `$scout` spawns `x-researcher` and `exa-researcher` in parallel.
-5. Researchers return compact evidence only.
-6. `$scout` uses model judgment to choose the final candidates.
-7. `$scout` writes `scout-output.json`.
-8. The runner reads the artifact back as `scoutArtifact` without ranking or changing it.
+3. The runner sets `CODEX_HOME` to `/vercel/sandbox/agent-workspace/.codex` so Codex can load the sandbox skills and subagents.
+4. Codex uses `$scout`.
+5. `$scout` spawns `x-researcher` and `exa-researcher` in parallel.
+6. Researchers return compact evidence only.
+7. `$scout` uses model judgment to choose the final candidates.
+8. `$scout` writes `scout-output.json`.
+9. The runner reads the artifact back as `scoutArtifact` without ranking or changing it.
 
 ## Responsibility Map
 
@@ -73,6 +74,10 @@ scout.cultural-moments.v1
 ```
 
 Read the Scout skill for the exact JSON shape.
+
+For Scout runs, the runner treats a missing or invalid artifact as failure. A
+Codex turn is not enough by itself; Scout succeeds only when the JSON contract is
+met.
 
 ## Updating The Base Image
 

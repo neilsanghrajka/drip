@@ -88,7 +88,7 @@ export async function runCodexSdk({
     await maybeHeartbeat(true);
 
     const { Codex } = await import("@openai/codex-sdk");
-    const env = codexEnv();
+    const env = codexEnv(config.workingDirectory);
     const codex = new Codex({
       apiKey: config.openAiApiKey,
       env,
@@ -125,9 +125,13 @@ export async function runCodexSdk({
       await maybeHeartbeat();
     }
 
+    const scoutRun = isScoutRun(sandboxRun.task);
     const scoutArtifact = await readScoutArtifact(config.workingDirectory);
     if (scoutArtifact) {
       await emit("runner.artifact", scoutArtifact);
+    }
+    if (scoutRun) {
+      assertValidScoutArtifact(scoutArtifact);
     }
 
     const result: CodexRunResult = {
@@ -154,8 +158,9 @@ export async function runCodexSdk({
   }
 }
 
-function codexEnv() {
+function codexEnv(workingDirectory: string) {
   const env: Record<string, string> = {
+    CODEX_HOME: path.join(workingDirectory, ".codex"),
     HOME: process.env.HOME ?? "/tmp",
     NODE_ENV: "production",
     PATH: runnerPath(),
@@ -177,6 +182,28 @@ function codexEnv() {
   }
 
   return env;
+}
+
+function isScoutRun(task: string) {
+  return /\$scout\b/i.test(task) || /\bscout-output\.json\b/i.test(task);
+}
+
+function assertValidScoutArtifact(artifact: ScoutArtifactReadResult | undefined) {
+  if (!artifact) {
+    throw new Error("Scout run did not produce scout-output.json.");
+  }
+  if ("error" in artifact) {
+    throw new Error(`Scout artifact is invalid: ${artifact.error.message}`);
+  }
+  if (!isRecord(artifact.json)) {
+    throw new Error("Scout artifact must be a JSON object.");
+  }
+  if (artifact.json.schemaVersion !== "scout.cultural-moments.v1") {
+    throw new Error("Scout artifact schemaVersion must be scout.cultural-moments.v1.");
+  }
+  if (!Array.isArray(artifact.json.candidates)) {
+    throw new Error("Scout artifact candidates must be an array.");
+  }
 }
 
 async function readScoutArtifact(

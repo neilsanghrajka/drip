@@ -165,6 +165,7 @@ SDK, and points Codex at the configured agent workspace:
 
 ```text
 WORKING_DIRECTORY=/vercel/sandbox/agent-workspace
+CODEX_HOME=/vercel/sandbox/agent-workspace/.codex
 ```
 
 The runner starts Codex SDK with approval policy `never`, web search disabled,
@@ -175,7 +176,8 @@ boundary.
 When Scout writes `scout-output.json` in the agent workspace, the runner reads
 and parses that artifact after the Codex turn completes. The parsed JSON is
 attached to the terminal runner result as `scoutArtifact`; the runner does not
-rank, reorder, or reinterpret Scout candidates.
+rank, reorder, or reinterpret Scout candidates. For Scout runs, missing or
+invalid `scout-output.json` is a runner failure.
 
 ## Env Contract
 
