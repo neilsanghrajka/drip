@@ -1,5 +1,4 @@
 allowBuilds:
-  agent-browser: true
   esbuild: true
   msw: true
   sharp: true
