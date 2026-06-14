@@ -96,7 +96,7 @@ Development, or staging environment.
 The sandbox flow uses one reusable base snapshot:
 
 ```bash
-base_sandbox_image=
+BASE_SANDBOX_IMAGE=
 ```
 
 That private env var stores the active Vercel Sandbox snapshot ID. It is updated
@@ -107,7 +107,7 @@ scripts/setup_base_snapshot
 ```
 
 Testing and production use the same pattern: read
-`base_sandbox_image`, create a new Vercel Sandbox from that snapshot, pass
+`BASE_SANDBOX_IMAGE`, create a new Vercel Sandbox from that snapshot, pass
 run-specific secrets at runtime, run Codex, write results back to Convex, and
 stop the sandbox.
 

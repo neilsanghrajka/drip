@@ -10,6 +10,8 @@
 
 import type * as http from "../http.js";
 import type * as sandboxPrototype from "../sandboxPrototype.js";
+import type * as sandboxRunActions from "../sandboxRunActions.js";
+import type * as sandboxRuns from "../sandboxRuns.js";
 import type * as smoke from "../smoke.js";
 
 import type {
@@ -21,6 +23,8 @@ import type {
 declare const fullApi: ApiFromModules<{
   http: typeof http;
   sandboxPrototype: typeof sandboxPrototype;
+  sandboxRunActions: typeof sandboxRunActions;
+  sandboxRuns: typeof sandboxRuns;
   smoke: typeof smoke;
 }>;
 

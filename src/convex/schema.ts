@@ -10,7 +10,48 @@ const sandboxRunStatus = v.union(
   v.literal("failed"),
 );
 
+const sandboxControlRunStatus = v.union(
+  v.literal("queued"),
+  v.literal("provisioning"),
+  v.literal("running"),
+  v.literal("succeeded"),
+  v.literal("failed"),
+  v.literal("cancelled"),
+  v.literal("lost"),
+);
+
 export default defineSchema({
+  sandboxRuns: defineTable({
+    workspaceId: v.string(),
+    task: v.string(),
+    status: sandboxControlRunStatus,
+    sandboxId: v.optional(v.string()),
+    commandId: v.optional(v.string()),
+    codexThreadId: v.optional(v.string()),
+    ingestTokenHash: v.optional(v.string()),
+    cancelRequestedAt: v.optional(v.number()),
+    lastHeartbeatAt: v.optional(v.number()),
+    result: v.optional(v.any()),
+    error: v.optional(
+      v.object({
+        message: v.string(),
+        code: v.optional(v.string()),
+      }),
+    ),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_workspace_created", ["workspaceId", "createdAt"])
+    .index("by_status_updated", ["status", "updatedAt"]),
+
+  sandboxRunEvents: defineTable({
+    sandboxRunId: v.id("sandboxRuns"),
+    seq: v.number(),
+    type: v.string(),
+    payload: v.any(),
+    createdAt: v.number(),
+  }).index("by_sandbox_run_seq", ["sandboxRunId", "seq"]),
+
   sandboxPrototypeRuns: defineTable({
     externalRunId: v.string(),
     prompt: v.string(),
