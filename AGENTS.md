@@ -16,6 +16,11 @@
 - Locally: run `pnpm lint`, `pnpm typecheck`, and `pnpm build` when code changes.
 - Convex and production verification workflows live in `docs/CONVEX.md` and `docs/DEPLOYMENT.md`.
 
+## References
+- `docs/references/openai-codex/sdk/typescript/` is a read-only reference checkout of the official OpenAI Codex TypeScript SDK.
+- Use it only to inspect SDK APIs, samples, tests, event shapes, and package metadata.
+- Do not edit, format, refactor, or treat files under `docs/references/` as app source unless explicitly asked.
+
 ## Convex
 - Use Convex for backend functions and database work.
 - Use the Convex plugin for Convex setup guidance, scaling questions, and backend implementation advice.
