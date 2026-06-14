@@ -4,6 +4,7 @@ import {
   chmod,
   lstat,
   readFile,
+  readdir,
   writeFile,
 } from "node:fs/promises";
 import path from "node:path";
@@ -17,7 +18,13 @@ const repoRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "..",
 );
+const sandboxPayloadRoot = path.join(repoRoot, "sandbox");
+const runnerSourceRoot = path.join(sandboxPayloadRoot, "runner");
+const codexAgentSourceRoot = path.join(sandboxPayloadRoot, "codex-agent");
 const sandboxRoot = "/vercel/sandbox";
+const defaultRunnerCwd = "/vercel/sandbox/runner";
+const defaultRunnerEntrypoint = "index.ts";
+const defaultAgentWorkdir = "/vercel/sandbox/agent-workspace";
 const privateEnvFile = ".env.local";
 const privateEnvPath = path.join(repoRoot, privateEnvFile);
 const setupCommand = "pnpm run setup:base-snapshot";
@@ -36,8 +43,11 @@ type VercelSandbox = Awaited<ReturnType<typeof Sandbox.create>>;
 type VercelSnapshot = Awaited<ReturnType<VercelSandbox["snapshot"]>>;
 
 type SetupConfig = {
+  agentWorkdir: string;
   installTimeoutMs: number;
   packageManagerSpec: string;
+  runnerCwd: string;
+  runnerEntrypoint: string;
   sandboxRuntime: string;
   sandboxTimeoutMs: number;
   sandboxVcpus: number;
@@ -74,9 +84,8 @@ async function main() {
   redactionValues = redactionValuesFromEnv(env);
   primeProcessEnvForSandboxAuth(env);
 
-  const packageJson = await readPackageJson();
-  const config = readConfig(env, packageJson);
-  assertSnapshotDependencies(packageJson);
+  const runnerPackageJson = await readRunnerPackageJson();
+  const config = readConfig(env, runnerPackageJson);
 
   let baseSandbox: VercelSandbox | undefined;
   let forkSandbox: VercelSandbox | undefined;
@@ -87,18 +96,21 @@ async function main() {
     log("Checking private env target.");
     await assertPrivateEnvTarget();
 
+    log("Checking sandbox runtime payload.");
+    await assertSandboxPayload(config);
+
     log("Creating fresh Vercel Sandbox.");
     baseSandbox = await createSandbox(config, "base");
 
-    log("Copying git-listed repo files.");
-    await copyRepoFiles(baseSandbox);
+    log("Copying sandbox runtime payload.");
+    await copySandboxPayload(baseSandbox, config);
 
-    log("Installing pnpm dependencies in sandbox.");
+    log("Installing runner dependencies in sandbox.");
     await preparePnpm(baseSandbox, config);
-    await installDependencies(baseSandbox, config);
+    await installRunnerDependencies(baseSandbox, config);
 
     log("Running base image smoke.");
-    await runBaseSmoke(baseSandbox);
+    await runBaseSmoke(baseSandbox, config);
 
     log("Creating non-expiring snapshot.");
     snapshot = await baseSandbox.snapshot({ expiration: 0 });
@@ -107,8 +119,8 @@ async function main() {
     forkSandbox = await createSandbox(config, "fork", snapshot);
 
     log("Running fork smoke.");
-    await runForkSmoke(forkSandbox);
-    await readAndVerifyProof(forkSandbox);
+    await runForkSmoke(forkSandbox, config);
+    await readAndVerifyProof(forkSandbox, config);
 
     log("Updating private base image env.");
     await updateBaseSandboxImage(snapshot.snapshotId);
@@ -177,11 +189,13 @@ function unwrapEnvValue(value: string) {
   return trimmed;
 }
 
-async function readPackageJson(): Promise<PackageJson> {
-  return JSON.parse(await readFile(path.join(repoRoot, "package.json"), "utf8"));
+async function readRunnerPackageJson(): Promise<PackageJson> {
+  return JSON.parse(
+    await readFile(path.join(runnerSourceRoot, "package.json"), "utf8"),
+  );
 }
 
-function readConfig(env: EnvMap, packageJson: PackageJson): SetupConfig {
+function readConfig(env: EnvMap, runnerPackageJson: PackageJson): SetupConfig {
   const hasVercelToken = Boolean(env.VERCEL_TOKEN);
   const hasOidcToken = Boolean(env.VERCEL_OIDC_TOKEN);
   const missing = [
@@ -194,14 +208,23 @@ function readConfig(env: EnvMap, packageJson: PackageJson): SetupConfig {
     throw new MissingEnvError(missing);
   }
 
-  const packageManagerSpec = packageJson.packageManager;
+  const packageManagerSpec = runnerPackageJson.packageManager;
   if (!packageManagerSpec?.startsWith("pnpm@")) {
-    throw new Error("package.json must declare a pnpm packageManager.");
+    throw new Error("sandbox/runner/package.json must declare a pnpm packageManager.");
   }
 
+  assertRunnerDependencies(runnerPackageJson);
+
   return {
+    agentWorkdir: sandboxPathEnv(
+      env,
+      "DRIP_SANDBOX_AGENT_WORKDIR",
+      defaultAgentWorkdir,
+    ),
     installTimeoutMs: numberEnv(env, "DRIP_SANDBOX_INSTALL_TIMEOUT_MS", 600_000),
     packageManagerSpec,
+    runnerCwd: sandboxPathEnv(env, "DRIP_SANDBOX_RUNNER_CWD", defaultRunnerCwd),
+    runnerEntrypoint: runnerEntrypointEnv(env),
     sandboxRuntime: env.DRIP_SANDBOX_RUNTIME ?? "node24",
     sandboxTimeoutMs: numberEnv(env, "DRIP_SANDBOX_TIMEOUT_MS", 30 * 60 * 1000),
     sandboxVcpus: numberEnv(env, "DRIP_SANDBOX_VCPUS", 2),
@@ -226,15 +249,39 @@ function primeProcessEnvForSandboxAuth(env: EnvMap) {
   }
 }
 
-function assertSnapshotDependencies(packageJson: PackageJson) {
+function assertRunnerDependencies(packageJson: PackageJson) {
   const deps = {
     ...packageJson.dependencies,
     ...packageJson.devDependencies,
   };
-  for (const name of ["@openai/codex-sdk", "tsx"]) {
+  for (const name of ["@openai/codex-sdk", "convex", "tsx"]) {
     if (!deps[name]) {
-      throw new Error(`package.json must include ${name} for snapshot mode.`);
+      throw new Error(`sandbox/runner/package.json must include ${name}.`);
     }
+  }
+}
+
+function sandboxPathEnv(env: EnvMap, name: string, fallback: string) {
+  const value = env[name] ?? fallback;
+  assertSandboxAbsolutePath(name, value);
+  return value.replace(/\/+$/, "");
+}
+
+function runnerEntrypointEnv(env: EnvMap) {
+  const value = env.DRIP_SANDBOX_RUNNER_ENTRYPOINT ?? defaultRunnerEntrypoint;
+  if (value.startsWith("/") || value.includes("..") || value.trim() === "") {
+    throw new Error("DRIP_SANDBOX_RUNNER_ENTRYPOINT must be a relative file path.");
+  }
+  return toPosixPath(value);
+}
+
+function assertSandboxAbsolutePath(name: string, value: string) {
+  if (
+    !value.startsWith(`${sandboxRoot}/`) ||
+    value.includes("..") ||
+    value.includes("\0")
+  ) {
+    throw new Error(`${name} must be an absolute path under ${sandboxRoot}.`);
   }
 }
 
@@ -258,6 +305,31 @@ async function assertPrivateEnvTarget() {
       return;
     }
     throw error;
+  }
+}
+
+async function assertSandboxPayload(config: SetupConfig) {
+  for (const relativePath of [
+    "runner/index.ts",
+    "runner/config.ts",
+    "runner/codex.ts",
+    "runner/convex.ts",
+    "runner/types.ts",
+    "runner/package.json",
+    "runner/pnpm-lock.yaml",
+    "runner/pnpm-workspace.yaml",
+    "codex-agent/.codex/config.toml",
+    "codex-agent/.codex/agents/sandbox-verifier.toml",
+    "codex-agent/.agents/skills/agent-browser/SKILL.md",
+  ]) {
+    const stat = await lstat(path.join(sandboxPayloadRoot, relativePath));
+    if (!stat.isFile()) {
+      throw new Error(`Sandbox runtime payload is missing ${relativePath}.`);
+    }
+  }
+
+  if (config.runnerCwd === config.agentWorkdir) {
+    throw new Error("Runner cwd and agent workspace must be separate directories.");
   }
 }
 
@@ -295,22 +367,16 @@ async function createSandbox(
   });
 }
 
-async function copyRepoFiles(sandbox: VercelSandbox) {
-  const files = await gitListedFiles();
-  let batch: { content: Buffer; mode?: number; path: string }[] = [];
+async function copySandboxPayload(sandbox: VercelSandbox, config: SetupConfig) {
+  const files = await listSandboxPayloadFiles(config);
+  let batch: { content: Buffer; path: string }[] = [];
   let batchBytes = 0;
 
   for (const file of files) {
-    const absolutePath = path.join(repoRoot, file);
-    const stat = await lstat(absolutePath);
-    if (!stat.isFile()) {
-      continue;
-    }
-
-    const content = await readFile(absolutePath);
+    const content = await readFile(file.sourcePath);
     batch.push({
       content,
-      path: file,
+      path: file.sandboxPath,
     });
     batchBytes += content.byteLength;
 
@@ -326,61 +392,131 @@ async function copyRepoFiles(sandbox: VercelSandbox) {
   }
 }
 
-async function gitListedFiles() {
-  const { stdout } = await hostCommand("git", [
-    "ls-files",
-    "--cached",
-    "--others",
-    "--exclude-standard",
-    "-z",
-  ]);
-  return stdout
-    .split("\0")
-    .filter(Boolean)
-    .map(assertSafeGitListedFile)
-    .sort();
+async function listSandboxPayloadFiles(config: SetupConfig) {
+  const files: Array<{ sandboxPath: string; sourcePath: string }> = [];
+  await collectPayloadFiles({
+    files,
+    sandboxDestinationRoot: relativeSandboxPath(config.runnerCwd),
+    sourceRoot: runnerSourceRoot,
+  });
+  await collectPayloadFiles({
+    files,
+    sandboxDestinationRoot: relativeSandboxPath(config.agentWorkdir),
+    sourceRoot: codexAgentSourceRoot,
+  });
+  return files.sort((a, b) => a.sandboxPath.localeCompare(b.sandboxPath));
 }
 
-function assertSafeGitListedFile(file: string) {
-  const privatePath =
-    file === ".env" ||
-    (file.startsWith(".env.") && file !== ".env.example") ||
-    file.startsWith(".convex/") ||
-    file.startsWith(".git/") ||
-    file.startsWith(".next/") ||
-    file.startsWith(".pnpm-store/") ||
-    file.startsWith(".vercel/") ||
-    file.startsWith("build/") ||
-    file.startsWith("node_modules/") ||
-    file.startsWith("out/");
+async function collectPayloadFiles({
+  absoluteDirectory,
+  files,
+  relativeDirectory = "",
+  sandboxDestinationRoot,
+  sourceRoot,
+}: {
+  absoluteDirectory?: string;
+  files: Array<{ sandboxPath: string; sourcePath: string }>;
+  relativeDirectory?: string;
+  sandboxDestinationRoot: string;
+  sourceRoot: string;
+}) {
+  absoluteDirectory ??= path.join(sourceRoot, relativeDirectory);
+  const entries = await readdir(absoluteDirectory, { withFileTypes: true });
+  for (const entry of entries) {
+    const relativePath = path.join(relativeDirectory, entry.name);
+    const absolutePath = path.join(sourceRoot, relativePath);
+    assertSafePayloadPath(relativePath);
 
-  if (privatePath) {
-    throw new Error(`Refusing to copy private or generated path: ${file}`);
+    if (entry.isDirectory()) {
+      await collectPayloadFiles({
+        absoluteDirectory: absolutePath,
+        files,
+        relativeDirectory: relativePath,
+        sandboxDestinationRoot,
+        sourceRoot,
+      });
+      continue;
+    }
+
+    if (entry.isFile()) {
+      files.push({
+        sandboxPath: path.posix.join(
+          sandboxDestinationRoot,
+          toPosixPath(relativePath),
+        ),
+        sourcePath: absolutePath,
+      });
+    }
+  }
+}
+
+function assertSafePayloadPath(relativePath: string) {
+  const posixPath = toPosixPath(relativePath);
+  if (posixPath.includes("..") || path.isAbsolute(relativePath)) {
+    throw new Error(`Refusing to copy unexpected payload path: ${relativePath}`);
   }
 
-  return file;
+  const privatePath =
+    posixPath === ".env" ||
+    posixPath.startsWith(".env.") ||
+    posixPath.startsWith(".codex/secrets") ||
+    posixPath.includes("/.env") ||
+    posixPath === "node_modules" ||
+    posixPath.startsWith("node_modules/") ||
+    posixPath.includes("/node_modules/") ||
+    posixPath === ".git" ||
+    posixPath.startsWith(".git/") ||
+    posixPath.includes("/.git/") ||
+    posixPath === ".next" ||
+    posixPath.startsWith(".next/") ||
+    posixPath.includes("/.next/") ||
+    posixPath === "build" ||
+    posixPath.startsWith("build/") ||
+    posixPath.includes("/build/") ||
+    posixPath === "docs" ||
+    posixPath.startsWith("docs/") ||
+    posixPath.includes("/docs/") ||
+    posixPath === "out" ||
+    posixPath.startsWith("out/") ||
+    posixPath.includes("/out/");
+
+  if (privatePath) {
+    throw new Error(`Refusing to copy private or generated payload path: ${relativePath}`);
+  }
+}
+
+function toPosixPath(value: string) {
+  return value.split(path.sep).join(path.posix.sep);
+}
+
+function relativeSandboxPath(absolutePath: string) {
+  assertSandboxAbsolutePath("sandbox payload destination", absolutePath);
+  return absolutePath.slice(`${sandboxRoot}/`.length);
 }
 
 async function preparePnpm(sandbox: VercelSandbox, config: SetupConfig) {
   await runSandboxCommand(sandbox, "corepack enable", {
     cmd: "corepack",
     args: ["enable"],
-    cwd: sandboxRoot,
+    cwd: config.runnerCwd,
     timeoutMs: 60_000,
   });
   await runSandboxCommand(sandbox, "corepack prepare pnpm", {
     cmd: "corepack",
     args: ["prepare", config.packageManagerSpec, "--activate"],
-    cwd: sandboxRoot,
+    cwd: config.runnerCwd,
     timeoutMs: 120_000,
   });
 }
 
-async function installDependencies(sandbox: VercelSandbox, config: SetupConfig) {
-  await runSandboxCommand(sandbox, "pnpm install", {
+async function installRunnerDependencies(
+  sandbox: VercelSandbox,
+  config: SetupConfig,
+) {
+  await runSandboxCommand(sandbox, "pnpm install runner dependencies", {
     cmd: "pnpm",
-    args: ["install", "--frozen-lockfile"],
-    cwd: sandboxRoot,
+    args: ["install", "--frozen-lockfile", "--prod"],
+    cwd: config.runnerCwd,
     env: {
       CI: "1",
     },
@@ -388,11 +524,12 @@ async function installDependencies(sandbox: VercelSandbox, config: SetupConfig) 
   });
 }
 
-async function runBaseSmoke(sandbox: VercelSandbox) {
+async function runBaseSmoke(sandbox: VercelSandbox, config: SetupConfig) {
   const result = await runSandboxCommand(sandbox, "base smoke", {
     cmd: "node",
     args: ["--import", "tsx", "--eval", baseSmokeSource],
-    cwd: sandboxRoot,
+    cwd: config.runnerCwd,
+    env: smokeEnv(config),
     timeoutMs: 120_000,
   });
   if (!result.stdout.includes("base-smoke-ok")) {
@@ -400,11 +537,12 @@ async function runBaseSmoke(sandbox: VercelSandbox) {
   }
 }
 
-async function runForkSmoke(sandbox: VercelSandbox) {
+async function runForkSmoke(sandbox: VercelSandbox, config: SetupConfig) {
   const result = await runSandboxCommand(sandbox, "fork smoke", {
     cmd: "node",
     args: ["--import", "tsx", "--eval", forkSmokeSource],
-    cwd: sandboxRoot,
+    cwd: config.runnerCwd,
+    env: smokeEnv(config),
     timeoutMs: 120_000,
   });
   if (!result.stdout.includes("fork-smoke-ok")) {
@@ -412,14 +550,24 @@ async function runForkSmoke(sandbox: VercelSandbox) {
   }
 }
 
-async function readAndVerifyProof(sandbox: VercelSandbox) {
-  const content = await sandbox.readFileToBuffer({ path: proofFile });
+function smokeEnv(config: SetupConfig) {
+  return {
+    DRIP_SANDBOX_AGENT_WORKDIR: config.agentWorkdir,
+    DRIP_SANDBOX_RUNNER_ENTRYPOINT: config.runnerEntrypoint,
+  };
+}
+
+async function readAndVerifyProof(sandbox: VercelSandbox, config: SetupConfig) {
+  const content = await sandbox.readFileToBuffer({
+    path: proofFile,
+    cwd: config.agentWorkdir,
+  });
   if (!content) {
     throw new Error("Fork smoke proof file was not readable.");
   }
 
   const proof = JSON.parse(content.toString("utf8")) as unknown;
-  if (!isRecord(proof) || proof.ok !== true || proof.runner !== "codex-sdk") {
+  if (!isRecord(proof) || proof.ok !== true || proof.runtime !== "sandbox-runtime") {
     throw new Error("Fork smoke proof file failed validation.");
   }
 }
@@ -570,49 +718,179 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 const baseSmokeSource = String.raw`
-import { access, readFile } from "node:fs/promises";
+const { access, readFile } = require("node:fs/promises");
+const path = require("node:path");
 
-for (const file of [
-  "src/sandbox/runner/index.ts",
-  "src/sandbox/runner/config.ts",
-  "src/sandbox/runner/codex.ts",
-  "src/sandbox/runner/convex.ts",
-]) {
-  await access(file);
+const agentWorkdir = process.env.DRIP_SANDBOX_AGENT_WORKDIR;
+const runnerEntrypoint = process.env.DRIP_SANDBOX_RUNNER_ENTRYPOINT;
+if (!agentWorkdir || !runnerEntrypoint) {
+  throw new Error("Smoke env is missing runner or agent workspace paths.");
 }
 
-const packageJson = JSON.parse(await readFile("package.json", "utf8"));
-const deps = { ...packageJson.dependencies, ...packageJson.devDependencies };
-if (!deps["@openai/codex-sdk"] || !deps.tsx) {
-  throw new Error("Snapshot dependencies are missing.");
+async function assertFile(filePath) {
+  await access(filePath);
 }
 
-await import("@openai/codex-sdk");
-await import("./src/sandbox/runner/config.ts");
-await import("./src/sandbox/runner/codex.ts");
+async function assertMissing(filePath) {
+  try {
+    await access(filePath);
+  } catch (error) {
+    if (error && error.code === "ENOENT") {
+      return;
+    }
+    throw error;
+  }
+  throw new Error("Unexpected copied path: " + filePath);
+}
 
-console.log("base-smoke-ok");
+async function main() {
+  for (const file of [
+    runnerEntrypoint,
+    "config.ts",
+    "codex.ts",
+    "convex.ts",
+    "types.ts",
+    "package.json",
+    "pnpm-lock.yaml",
+    "pnpm-workspace.yaml",
+  ]) {
+    await assertFile(file);
+  }
+
+  for (const file of [
+    ".codex/config.toml",
+    ".codex/agents/sandbox-verifier.toml",
+    ".agents/skills/agent-browser/SKILL.md",
+  ]) {
+    await assertFile(path.join(agentWorkdir, file));
+  }
+
+  const packageJson = JSON.parse(await readFile("package.json", "utf8"));
+  const deps = { ...packageJson.dependencies, ...packageJson.devDependencies };
+  for (const name of ["@openai/codex-sdk", "convex", "tsx"]) {
+    if (!deps[name]) {
+      throw new Error("Runner dependency is missing: " + name);
+    }
+  }
+
+  await import("@openai/codex-sdk");
+  await import("./config.ts");
+  await import("./codex.ts");
+  await import("./convex.ts");
+  await import("./types.ts");
+
+  const config = await readFile(path.join(agentWorkdir, ".codex/config.toml"), "utf8");
+  if (
+    !config.includes('model = "gpt-5.5"') ||
+    !config.includes('service_tier = "fast"') ||
+    !config.includes(agentWorkdir)
+  ) {
+    throw new Error("Codex config is missing expected defaults.");
+  }
+
+  await assertMissing("/vercel/sandbox/src");
+  await assertMissing("/vercel/sandbox/package.json");
+  await assertMissing("/vercel/sandbox/pnpm-lock.yaml");
+  await assertMissing("/vercel/sandbox/docs");
+  await assertMissing("/vercel/sandbox/.env");
+  await assertMissing("/vercel/sandbox/.vercel");
+  await assertMissing("/vercel/sandbox/.convex");
+  await assertMissing("/vercel/sandbox/.next");
+  await assertMissing(path.join(agentWorkdir, "src"));
+  await assertMissing(path.join(agentWorkdir, "package.json"));
+  await assertMissing(path.join(agentWorkdir, "pnpm-lock.yaml"));
+  await assertMissing(path.join(agentWorkdir, "docs"));
+
+  console.log("base-smoke-ok");
+}
+
+main().catch((error) => {
+  console.error(error && error.stack ? error.stack : error);
+  process.exit(1);
+});
 `;
 
 const forkSmokeSource = String.raw`
-import { access, readFile, writeFile } from "node:fs/promises";
+const { access, readFile, writeFile } = require("node:fs/promises");
+const path = require("node:path");
 
-await access("src/sandbox/runner/index.ts");
-await import("@openai/codex-sdk");
-await import("./src/sandbox/runner/config.ts");
-
-const proof = {
-  ok: true,
-  runner: "codex-sdk",
-  source: "drip-phase-c-snapshot",
-  tsx: true
-};
-
-await writeFile("${proofFile}", JSON.stringify(proof), "utf8");
-const stored = JSON.parse(await readFile("${proofFile}", "utf8"));
-if (stored.ok !== true || stored.runner !== "codex-sdk" || stored.tsx !== true) {
-  throw new Error("Fork proof mismatch.");
+const agentWorkdir = process.env.DRIP_SANDBOX_AGENT_WORKDIR;
+const runnerEntrypoint = process.env.DRIP_SANDBOX_RUNNER_ENTRYPOINT;
+if (!agentWorkdir || !runnerEntrypoint) {
+  throw new Error("Smoke env is missing runner or agent workspace paths.");
 }
 
-console.log("fork-smoke-ok");
+async function main() {
+  for (const file of [
+    runnerEntrypoint,
+    "config.ts",
+    "codex.ts",
+    "convex.ts",
+    "types.ts",
+    "package.json",
+    "pnpm-lock.yaml",
+    "pnpm-workspace.yaml",
+  ]) {
+    await access(file);
+  }
+
+  for (const file of [
+    ".codex/config.toml",
+    ".codex/agents/sandbox-verifier.toml",
+    ".agents/skills/agent-browser/SKILL.md",
+  ]) {
+    await access(path.join(agentWorkdir, file));
+  }
+
+  await import("@openai/codex-sdk");
+  await import("./config.ts");
+
+  for (const file of [
+    "/vercel/sandbox/src",
+    "/vercel/sandbox/package.json",
+    "/vercel/sandbox/pnpm-lock.yaml",
+    "/vercel/sandbox/docs",
+    "/vercel/sandbox/.env",
+    "/vercel/sandbox/.vercel",
+    "/vercel/sandbox/.convex",
+    "/vercel/sandbox/.next",
+    path.join(agentWorkdir, "src"),
+    path.join(agentWorkdir, "package.json"),
+    path.join(agentWorkdir, "pnpm-lock.yaml"),
+    path.join(agentWorkdir, "docs"),
+  ]) {
+    try {
+      await access(file);
+    } catch (error) {
+      if (error && error.code === "ENOENT") {
+        continue;
+      }
+      throw error;
+    }
+    throw new Error("Unexpected copied path: " + file);
+  }
+
+  const proof = {
+    ok: true,
+    runtime: "sandbox-runtime",
+    config: ".codex/config.toml",
+    runner: runnerEntrypoint,
+    skill: ".agents/skills/agent-browser/SKILL.md",
+    workdir: agentWorkdir
+  };
+
+  const proofPath = path.join(agentWorkdir, "${proofFile}");
+  await writeFile(proofPath, JSON.stringify(proof), "utf8");
+  const stored = JSON.parse(await readFile(proofPath, "utf8"));
+  if (stored.ok !== true || stored.runtime !== "sandbox-runtime") {
+    throw new Error("Fork proof mismatch.");
+  }
+
+  console.log("fork-smoke-ok");
+}
+
+main().catch((error) => {
+  console.error(error && error.stack ? error.stack : error);
+  process.exit(1);
+});
 `;

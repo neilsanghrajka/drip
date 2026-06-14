@@ -111,6 +111,15 @@ Testing and production use the same pattern: read
 run-specific secrets at runtime, run Codex, write results back to Convex, and
 stop the sandbox.
 
+The base snapshot is prepared from the repo's top-level `sandbox/` payload:
+`sandbox/runner` becomes the runner process directory, and `sandbox/codex-agent`
+becomes the Codex agent workspace template.
+
+Convex product sandbox actions run outside Vercel's OIDC context, so their
+runtime env needs a durable `VERCEL_TOKEN` plus `VERCEL_TEAM_ID` and
+`VERCEL_PROJECT_ID`. A fresh `VERCEL_OIDC_TOKEN` can be useful for the local
+setup command, but it is not the product action credential.
+
 Do not commit real snapshot IDs, Vercel project/team IDs, sandbox URLs, or
 OpenAI credentials. Keep real values in local/private env configuration.
 

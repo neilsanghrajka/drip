@@ -8,7 +8,7 @@ import type {
   RunnerHeartbeat,
   RunnerIngestResult,
   RunnerSandboxRun,
-} from "../types";
+} from "./types";
 import type { RunnerConfig } from "./config";
 
 const getSandboxRunForRunner = makeFunctionReference<

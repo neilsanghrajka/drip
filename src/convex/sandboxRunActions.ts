@@ -9,10 +9,6 @@ import { v } from "convex/values";
 
 import type { Doc, Id } from "./_generated/dataModel";
 import { action } from "./_generated/server";
-import {
-  embeddedSandboxPackageJson,
-  embeddedSandboxRunnerSource,
-} from "../sandbox/runner/embedded";
 
 type SandboxRunDoc = Doc<"sandboxRuns">;
 
@@ -91,11 +87,10 @@ export const startSandboxRun = action({
 
     try {
       const sandbox = await createSandbox();
-      await bootstrapSandboxIfNeeded(sandbox);
       const command = await sandbox.runCommand({
         cmd: "node",
-        args: runnerCommandArgs(),
-        cwd: "/vercel/sandbox",
+        args: ["--import", "tsx", sandboxRunnerEntrypoint()],
+        cwd: sandboxRunnerCwd(),
         detached: true,
         env: {
           CONVEX_URL: runnerConvexUrl(),
@@ -105,6 +100,7 @@ export const startSandboxRun = action({
           CODEX_MODEL: process.env.CODEX_MODEL ?? "gpt-5.5",
           CODEX_REASONING_EFFORT:
             process.env.CODEX_REASONING_EFFORT ?? "low",
+          WORKING_DIRECTORY: sandboxAgentWorkdir(),
         },
         timeoutMs: numberEnv("DRIP_SANDBOX_RUNNER_TIMEOUT_MS", 300_000),
       });
@@ -132,96 +128,34 @@ export const startSandboxRun = action({
   },
 });
 
-async function bootstrapSandboxIfNeeded(
-  sandbox: Awaited<ReturnType<typeof Sandbox.create>>,
-) {
-  if (
-    process.env.BASE_SANDBOX_IMAGE &&
-    process.env.DRIP_SANDBOX_BOOTSTRAP !== "1"
-  ) {
-    return;
-  }
-
-  await sandbox.writeFiles([
-    {
-      path: "package.json",
-      content: embeddedSandboxPackageJson,
-    },
-    {
-      path: "runner.mjs",
-      content: embeddedSandboxRunnerSource,
-      mode: 0o755,
-    },
-  ]);
-
-  await runSandboxCommand(sandbox, "corepack enable", {
-    cmd: "corepack",
-    args: ["enable"],
-    cwd: "/vercel/sandbox",
-    timeoutMs: 60_000,
-  });
-  await runSandboxCommand(sandbox, "corepack prepare pnpm", {
-    cmd: "corepack",
-    args: ["prepare", "pnpm@11.3.0", "--activate"],
-    cwd: "/vercel/sandbox",
-    timeoutMs: 120_000,
-  });
-  await runSandboxCommand(sandbox, "Sandbox bootstrap install", {
-    cmd: "pnpm",
-    args: ["install", "--ignore-scripts", "--prod"],
-    cwd: "/vercel/sandbox",
-    timeoutMs: numberEnv("DRIP_SANDBOX_INSTALL_TIMEOUT_MS", 180_000),
-  });
-}
-
-function runnerCommandArgs() {
-  if (
-    process.env.BASE_SANDBOX_IMAGE &&
-    process.env.DRIP_SANDBOX_BOOTSTRAP !== "1"
-  ) {
-    return ["--import", "tsx", "src/sandbox/runner/index.ts"];
-  }
-  return ["runner.mjs"];
-}
-
 async function createSandbox() {
-  const snapshotId = process.env.BASE_SANDBOX_IMAGE;
+  const snapshotId = requiredEnv("BASE_SANDBOX_IMAGE");
   const commonParams = {
     ...vercelSandboxCredentials(),
-    env: {
-      OPENAI_API_KEY: openAiApiKey(),
-    },
     timeout: numberEnv("DRIP_SANDBOX_TIMEOUT_MS", 30 * 60 * 1000),
     resources: {
       vcpus: numberEnv("DRIP_SANDBOX_VCPUS", 2),
     },
   };
 
-  if (snapshotId) {
-    return await Sandbox.create({
-      ...commonParams,
-      source: {
-        type: "snapshot",
-        snapshotId,
-      },
-    });
-  }
-
   return await Sandbox.create({
     ...commonParams,
-    runtime: process.env.DRIP_SANDBOX_RUNTIME ?? "node24",
+    source: {
+      type: "snapshot",
+      snapshotId,
+    },
   });
 }
 
 function vercelSandboxCredentials(): VercelSandboxCredentials {
-  const hasVercelToken = Boolean(process.env.VERCEL_TOKEN);
-  const hasOidcToken = Boolean(process.env.VERCEL_OIDC_TOKEN);
+  const token = process.env.VERCEL_TOKEN;
+  const hasVercelToken = Boolean(token);
   const teamId = process.env.VERCEL_TEAM_ID;
   const projectId = process.env.VERCEL_PROJECT_ID;
 
-  if ((!hasVercelToken && !hasOidcToken) || !teamId || !projectId) {
+  if (!hasVercelToken || !teamId || !projectId) {
     const missing = [
-      hasVercelToken || hasOidcToken ? null : "VERCEL_TOKEN or VERCEL_OIDC_TOKEN",
+      hasVercelToken ? null : "VERCEL_TOKEN",
       teamId ? null : "VERCEL_TEAM_ID",
       projectId ? null : "VERCEL_PROJECT_ID",
     ].filter((value): value is string => value !== null);
@@ -233,20 +167,8 @@ function vercelSandboxCredentials(): VercelSandboxCredentials {
   return {
     teamId,
     projectId,
-    ...(process.env.VERCEL_TOKEN ? { token: process.env.VERCEL_TOKEN } : {}),
+    token,
   };
-}
-
-async function runSandboxCommand(
-  sandbox: Awaited<ReturnType<typeof Sandbox.create>>,
-  label: string,
-  command: Parameters<Awaited<ReturnType<typeof Sandbox.create>>["runCommand"]>[0],
-) {
-  const result = await sandbox.runCommand(command);
-  if (result.exitCode !== 0) {
-    const stderr = await result.stderr();
-    throw new Error(`${label} failed: ${stderr}`);
-  }
 }
 
 function requiredEnv(name: string) {
@@ -265,8 +187,21 @@ function runnerConvexUrl() {
   return (
     process.env.DRIP_RUNNER_CONVEX_URL ??
     process.env.NEXT_PUBLIC_CONVEX_URL ??
+    process.env.CONVEX_CLOUD_URL ??
     requiredEnv("CONVEX_URL")
   );
+}
+
+function sandboxRunnerCwd() {
+  return process.env.DRIP_SANDBOX_RUNNER_CWD ?? "/vercel/sandbox/runner";
+}
+
+function sandboxRunnerEntrypoint() {
+  return process.env.DRIP_SANDBOX_RUNNER_ENTRYPOINT ?? "index.ts";
+}
+
+function sandboxAgentWorkdir() {
+  return process.env.DRIP_SANDBOX_AGENT_WORKDIR ?? "/vercel/sandbox/agent-workspace";
 }
 
 function numberEnv(name: string, fallback: number) {

@@ -1,0 +1,19 @@
+model = "gpt-5.5"
+model_reasoning_effort = "low"
+service_tier = "fast"
+sandbox_mode = "workspace-write"
+
+[projects."/vercel/sandbox/agent-workspace"]
+trust_level = "trusted"
+
+[agents]
+max_threads = 2
+max_depth = 1
+
+[agents.sandbox-verifier]
+description = "Verify sandbox config, skill availability, event flow, and smoke evidence."
+config_file = "agents/sandbox-verifier.toml"
+
+[[skills.config]]
+path = "/vercel/sandbox/agent-workspace/.agents/skills/agent-browser"
+enabled = true

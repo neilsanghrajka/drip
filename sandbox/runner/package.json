@@ -1,0 +1,11 @@
+{
+  "name": "drip-sandbox-runner",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.3.0",
+  "dependencies": {
+    "@openai/codex-sdk": "0.136.0",
+    "convex": "1.39.1",
+    "tsx": "4.22.4"
+  }
+}
