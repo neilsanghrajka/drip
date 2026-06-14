@@ -233,7 +233,7 @@ private runtime config only after the fork smoke passes.
 | Path | What to inspect |
 | --- | --- |
 | `sandbox/runner/*` | Runner process, Codex SDK loop, Convex ingest client, and runner-local dependency manifest. |
-| `sandbox/codex-agent/.codex/config.toml` | Sandbox-only Codex defaults, agent registration, and skill registration. |
+| `sandbox/codex-agent/.codex/config.toml` | Sandbox-only Codex defaults and agent registration; project skills are discovered from `.agents/skills`. |
 | `sandbox/codex-agent/.codex/agents/sandbox-verifier.toml` | Custom subagent definition for sandbox verification. |
 | `sandbox/codex-agent/.codex/agents/x-researcher.toml` | Custom subagent definition for X trend signal collection. |
 | `sandbox/codex-agent/.codex/agents/exa-researcher.toml` | Custom subagent definition for Exa cultural context collection. |

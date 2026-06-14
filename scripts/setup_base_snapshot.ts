@@ -795,10 +795,7 @@ async function main() {
     !config.includes('service_tier = "fast"') ||
     !config.includes(agentWorkdir) ||
     !config.includes("x-researcher") ||
-    !config.includes("exa-researcher") ||
-    !config.includes("scout") ||
-    !config.includes("x-trends") ||
-    !config.includes("exa-search")
+    !config.includes("exa-researcher")
   ) {
     throw new Error("Codex config is missing expected defaults.");
   }

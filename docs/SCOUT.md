@@ -40,7 +40,7 @@ judgment, JSON writing, and JSON validation.
 | Exa skill | [`sandbox/codex-agent/.agents/skills/exa-search/SKILL.md`](../sandbox/codex-agent/.agents/skills/exa-search/SKILL.md) | Generic, query-agnostic Exa Search API guidance and compact evidence shape. |
 | X subagent | [`sandbox/codex-agent/.codex/agents/x-researcher.toml`](../sandbox/codex-agent/.codex/agents/x-researcher.toml) | Evidence-only X trend and recent-post researcher. |
 | Exa subagent | [`sandbox/codex-agent/.codex/agents/exa-researcher.toml`](../sandbox/codex-agent/.codex/agents/exa-researcher.toml) | Evidence-only source-backed web researcher. |
-| Codex sandbox config | [`sandbox/codex-agent/.codex/config.toml`](../sandbox/codex-agent/.codex/config.toml) | Registers Scout skills and subagents; keeps `max_depth = 1`. |
+| Codex sandbox config | [`sandbox/codex-agent/.codex/config.toml`](../sandbox/codex-agent/.codex/config.toml) | Sets sandbox defaults and registers subagents; project skills are discovered from `.agents/skills`. |
 | Runner | [`sandbox/runner/codex.ts`](../sandbox/runner/codex.ts) | Runs Codex SDK, passes research env, and streams generic Codex events/results. |
 | Base snapshot setup | [`scripts/setup_base_snapshot.ts`](../scripts/setup_base_snapshot.ts) | Copies and smoke-tests the sandbox runtime payload. |
 | Sandbox guide | [`docs/SANDBOX.md`](SANDBOX.md) | Runtime, env, and base snapshot map. |

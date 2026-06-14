@@ -21,19 +21,3 @@ config_file = "agents/x-researcher.toml"
 [agents.exa-researcher]
 description = "Collect source-backed web evidence for Scout using Exa Search API calls."
 config_file = "agents/exa-researcher.toml"
-
-[[skills.config]]
-path = "/vercel/sandbox/agent-workspace/.agents/skills/agent-browser"
-enabled = true
-
-[[skills.config]]
-path = "/vercel/sandbox/agent-workspace/.agents/skills/scout"
-enabled = true
-
-[[skills.config]]
-path = "/vercel/sandbox/agent-workspace/.agents/skills/x-trends"
-enabled = true
-
-[[skills.config]]
-path = "/vercel/sandbox/agent-workspace/.agents/skills/exa-search"
-enabled = true
