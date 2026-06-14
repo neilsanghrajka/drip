@@ -13,7 +13,7 @@ import { makeFunctionReference } from "convex/server";
 // 4. Snapshot that prepared sandbox.
 // 5. Fork two sandboxes from the snapshot.
 // 6. Run Codex SDK in each fork.
-// 7. Read proof files and verify Convex.
+// 7. Read the created source/output/proof files from outside the sandbox.
 // 8. Delete temporary sandboxes and snapshots.
 
 const forkLabels = ["fork-a", "fork-b"] as const;
@@ -32,7 +32,7 @@ type SandboxRole = "base" | ForkLabel;
 
 type TutorialConfig = {
   codexApiKey: string;
-  codexModel?: string;
+  codexModel: string;
   codexReasoningEffort: string;
   convexIngestToken: string;
   convexIngestUrl: string;
@@ -55,8 +55,11 @@ type CreatedResources = {
 };
 
 type ForkRun = {
+  expectedOutput: string;
   externalRunId: string;
+  helloFile: string;
   label: ForkLabel;
+  outputFile: string;
   prompt: string;
   proofFile: string;
   runnerToken: string;
@@ -64,8 +67,18 @@ type ForkRun = {
 
 type ForkResult = {
   externalRunId: string;
+  helloFile: string;
+  helloSource: string;
   label: ForkLabel;
+  outputFile: string;
+  outputText: string;
   proofFile: string;
+  proofText: string;
+};
+
+type SandboxArtifacts = {
+  helloSource: string;
+  outputText: string;
   proofText: string;
 };
 
@@ -307,7 +320,7 @@ async function runForkedSandbox({
     sandbox,
   });
 
-  const proofText = await readProofFile({
+  const artifacts = await readSandboxArtifacts({
     commandId: command.cmdId,
     config,
     run,
@@ -316,9 +329,13 @@ async function runForkedSandbox({
 
   return {
     externalRunId: run.externalRunId,
+    helloFile: run.helloFile,
+    helloSource: artifacts.helloSource,
     label,
+    outputFile: run.outputFile,
+    outputText: artifacts.outputText,
     proofFile: run.proofFile,
-    proofText,
+    proofText: artifacts.proofText,
   };
 }
 
@@ -326,14 +343,22 @@ function defineForkRun(
   config: TutorialConfig,
   label: ForkLabel,
 ): ForkRun {
+  const expectedOutput = `hello world from ${label}`;
+  const helloFile = `hello-world-${label}.mjs`;
+  const outputFile = `hello-world-output-${label}.txt`;
   const proofFile = `codex-sdk-proof-${label}.txt`;
 
   return {
+    expectedOutput,
     externalRunId: `${config.tutorialId}-${label}`,
+    helloFile,
     label,
+    outputFile,
     prompt: [
-      `Create a file named ${proofFile} in the current directory.`,
-      `The file must contain JSON with ok=true, source="codex-sdk", and fork="${label}".`,
+      `Create a Node.js file named ${helloFile} in the current directory.`,
+      `That file must print exactly "${expectedOutput}" to stdout.`,
+      `Run it with Node and save stdout to ${outputFile}.`,
+      `Then create ${proofFile} containing JSON with ok=true, source="codex-sdk", fork="${label}", helloFile="${helloFile}", and outputFile="${outputFile}".`,
       "Return only JSON matching the requested schema.",
     ].join(" "),
     proofFile,
@@ -388,7 +413,9 @@ async function runCodexRunner({
       DRIP_EVENT_SEQUENCE_START: "100",
       DRIP_EXTERNAL_RUN_ID: run.externalRunId,
       DRIP_FORK_LABEL: run.label,
+      DRIP_HELLO_FILE: run.helloFile,
       DRIP_INGEST_TOKEN: run.runnerToken,
+      DRIP_OUTPUT_FILE: run.outputFile,
       DRIP_PROOF_FILE: run.proofFile,
     },
     timeoutMs: 300_000,
@@ -439,7 +466,7 @@ async function runCodexRunner({
   return command;
 }
 
-async function readProofFile({
+async function readSandboxArtifacts({
   commandId,
   config,
   run,
@@ -450,35 +477,52 @@ async function readProofFile({
   run: ForkRun;
   sandbox: VercelSandbox;
 }) {
-  const proof = await sandbox.readFileToBuffer({
-    path: run.proofFile,
-    cwd: "/vercel/sandbox",
-  });
+  const helloSource = await readRequiredFile(sandbox, run.helloFile);
+  const outputText = await readRequiredFile(sandbox, run.outputFile);
+  const proofText = await readRequiredFile(sandbox, run.proofFile);
 
-  if (!proof) {
+  const artifacts = {
+    helloSource,
+    outputText,
+    proofText,
+  };
+
+  try {
+    assertSandboxArtifacts(run, artifacts);
+  } catch (error) {
     await reportHostEvent(config, run.externalRunId, {
       sequence: 900,
-      eventType: "sandbox.proof_missing",
+      eventType: "sandbox.artifact_check_failed",
       status: "failed",
-      payload: { label: run.label, proofFile: run.proofFile },
-      error: "Proof file missing after runner completed",
+      payload: {
+        helloFile: run.helloFile,
+        label: run.label,
+        outputFile: run.outputFile,
+        proofFile: run.proofFile,
+        expectedOutput: run.expectedOutput,
+        helloSource,
+        outputText,
+        proofText,
+      },
+      error: error instanceof Error ? error.message : String(error),
       sandboxCommandId: commandId,
       sandboxName: sandbox.name,
     });
-    throw new Error(`${run.label} did not write ${run.proofFile}`);
+    throw error;
   }
-
-  const proofText = proof.toString("utf8");
 
   await reportHostEvent(config, run.externalRunId, {
     sequence: 900,
-    eventType: "sandbox.proof_read",
+    eventType: "sandbox.artifacts_read",
     status: "completed",
     payload: {
+      helloFile: run.helloFile,
+      helloSource,
       label: run.label,
+      outputFile: run.outputFile,
+      outputText,
       proofFile: run.proofFile,
       proofText,
-      bytes: proof.byteLength,
     },
     sandboxCommandId: commandId,
     sandboxName: sandbox.name,
@@ -486,15 +530,56 @@ async function readProofFile({
 
   console.log(
     json({
-      step: "fork.proof_read",
+      step: "fork.artifacts_read",
+      helloFile: run.helloFile,
+      helloSource,
       label: run.label,
       externalRunId: run.externalRunId,
+      outputFile: run.outputFile,
+      outputText,
       proofFile: run.proofFile,
       proofText,
     }),
   );
 
-  return proofText;
+  return {
+    helloSource,
+    outputText,
+    proofText,
+  };
+}
+
+function assertSandboxArtifacts(run: ForkRun, artifacts: SandboxArtifacts) {
+  assertIncludes(
+    artifacts.helloSource,
+    run.expectedOutput,
+    `${run.helloFile} should contain the expected hello-world text`,
+  );
+  assertEqual(
+    artifacts.outputText.trim(),
+    run.expectedOutput,
+    `${run.outputFile} should contain stdout from running ${run.helloFile}`,
+  );
+
+  const proof = parseJsonObject(artifacts.proofText, run.proofFile);
+  assertEqual(proof.ok, true, `${run.proofFile} should set ok=true`);
+  assertEqual(proof.source, "codex-sdk", `${run.proofFile} should identify Codex SDK`);
+  assertEqual(proof.fork, run.label, `${run.proofFile} should identify the fork`);
+  assertEqual(proof.helloFile, run.helloFile, `${run.proofFile} should name helloFile`);
+  assertEqual(proof.outputFile, run.outputFile, `${run.proofFile} should name outputFile`);
+}
+
+async function readRequiredFile(sandbox: VercelSandbox, path: string) {
+  const file = await sandbox.readFileToBuffer({
+    path,
+    cwd: "/vercel/sandbox",
+  });
+
+  if (!file) {
+    throw new Error(`${path} is missing from ${sandbox.name}`);
+  }
+
+  return file.toString("utf8");
 }
 
 // -----------------------------------------------------------------------------
@@ -521,11 +606,66 @@ async function verifyConvexRuns(
         externalRunId: result.externalRunId,
         status: run?.status,
         eventCount: events.length,
+        commandExecutionObserved: hasSdkCommandExecution(events),
+        helloFile: result.helloFile,
+        outputFile: result.outputFile,
+        outputText: result.outputText,
         proofFile: result.proofFile,
         proofText: result.proofText,
       }),
     );
+
+    assertConvexRun(result, run, events);
   }
+}
+
+function assertConvexRun(
+  result: ForkResult,
+  run: Record<string, unknown> | null,
+  events: Record<string, unknown>[],
+) {
+  assertEqual(run?.status, "completed", `${result.externalRunId} should be completed`);
+  assertHasEvent(events, "sandbox.created");
+  assertHasEvent(events, "sandbox.command_started");
+  assertHasEvent(events, "runner.started");
+  assertHasEvent(events, "codex.sdk.event");
+  assertHasEvent(events, "runner.completed");
+  assertHasEvent(events, "sandbox.artifacts_read");
+
+  if (!hasSdkCommandExecution(events)) {
+    throw new Error(`${result.externalRunId} did not store a Codex SDK command_execution event`);
+  }
+}
+
+function assertHasEvent(events: Record<string, unknown>[], eventType: string) {
+  if (!events.some((event) => event.eventType === eventType)) {
+    throw new Error(`Convex events are missing ${eventType}`);
+  }
+}
+
+function hasSdkCommandExecution(events: Record<string, unknown>[]) {
+  return events.some((entry) => {
+    if (entry.eventType !== "codex.sdk.event") {
+      return false;
+    }
+
+    const payload = entry.payload;
+    if (!isRecord(payload)) {
+      return false;
+    }
+
+    const sdkEvent = payload.event;
+    if (!isRecord(sdkEvent)) {
+      return false;
+    }
+
+    const item = sdkEvent.item;
+    if (!isRecord(item)) {
+      return false;
+    }
+
+    return item.type === "command_execution" && typeof item.command === "string";
+  });
 }
 
 // -----------------------------------------------------------------------------
@@ -605,7 +745,7 @@ async function createSandbox({
       // Free-plan tutorial mode: pass a disposable Codex key directly into the
       // Vercel Sandbox. Do not use a production or long-lived key here.
       CODEX_API_KEY: config.codexApiKey,
-      CODEX_MODEL: config.codexModel ?? "",
+      CODEX_MODEL: config.codexModel,
       CODEX_REASONING_EFFORT: config.codexReasoningEffort,
       DRIP_CODEX_INNER_SANDBOX_MODE: "danger-full-access",
     },
@@ -742,7 +882,7 @@ function readTutorialConfig(currentTutorialId: string): TutorialConfig {
 
   return {
     codexApiKey: process.env.CODEX_API_KEY!,
-    codexModel: process.env.CODEX_MODEL || undefined,
+    codexModel: process.env.CODEX_MODEL || "gpt-5.5",
     codexReasoningEffort: process.env.CODEX_REASONING_EFFORT ?? "low",
     convexIngestToken: process.env.SANDBOX_PROTOTYPE_INGEST_TOKEN!,
     convexIngestUrl: convexIngestUrl!,
@@ -788,6 +928,30 @@ function stepForFork(label: ForkLabel) {
   return label === "fork-a" ? "Step 5.1" : "Step 5.2";
 }
 
+function parseJsonObject(value: string, label: string) {
+  const parsed = JSON.parse(value) as unknown;
+  if (!isRecord(parsed)) {
+    throw new Error(`${label} should contain a JSON object`);
+  }
+  return parsed;
+}
+
+function assertEqual(actual: unknown, expected: unknown, message: string) {
+  if (actual !== expected) {
+    throw new Error(`${message}. Expected ${json(expected)}, got ${json(actual)}`);
+  }
+}
+
+function assertIncludes(value: string, expected: string, message: string) {
+  if (!value.includes(expected)) {
+    throw new Error(`${message}. Expected to find ${json(expected)}`);
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 function sha256Hex(value: string) {
   return createHash("sha256").update(value).digest("hex");
 }
@@ -812,6 +976,8 @@ import { Codex } from "@openai/codex-sdk";
 
 const externalRunId = must("DRIP_EXTERNAL_RUN_ID");
 const forkLabel = must("DRIP_FORK_LABEL");
+const helloFile = must("DRIP_HELLO_FILE");
+const outputFile = must("DRIP_OUTPUT_FILE");
 const proofFile = must("DRIP_PROOF_FILE");
 const prompt = must("DRIP_CODEX_PROMPT");
 const ingestUrl = must("DRIP_CONVEX_INGEST_URL");
@@ -823,11 +989,13 @@ const outputSchema = {
   type: "object",
   properties: {
     fork: { type: "string" },
+    helloFile: { type: "string" },
+    outputFile: { type: "string" },
     proofFile: { type: "string" },
     status: { type: "string", enum: ["ok", "blocked"] },
     summary: { type: "string" },
   },
-  required: ["fork", "proofFile", "status", "summary"],
+  required: ["fork", "helloFile", "outputFile", "proofFile", "status", "summary"],
   additionalProperties: false,
 };
 
@@ -853,7 +1021,7 @@ try {
 
   const thread = codex.startThread({
     approvalPolicy: "never",
-    model: process.env.CODEX_MODEL || undefined,
+    model: process.env.CODEX_MODEL || "gpt-5.5",
     modelReasoningEffort: process.env.CODEX_REASONING_EFFORT || "low",
     networkAccessEnabled: false,
     sandboxMode: process.env.DRIP_CODEX_INNER_SANDBOX_MODE || "danger-full-access",
@@ -862,8 +1030,8 @@ try {
     workingDirectory: process.cwd(),
   });
 
-  // The prompt asks Codex to write the proof file. Streaming events are forwarded
-  // into Convex so the control plane can show progress in realtime.
+  // The prompt asks Codex to create and run a hello-world file. Streaming events
+  // are forwarded into Convex so the control plane can show progress in realtime.
   const { events } = await thread.runStreamed(prompt, {
     outputSchema,
   });
@@ -894,12 +1062,14 @@ try {
     });
   }
 
-  // The host separately reads the proof file back from the sandbox filesystem.
-  // This event marks the SDK turn itself as complete.
+  // The host separately reads helloFile, outputFile, and proofFile back from the
+  // sandbox filesystem. This event marks the SDK turn itself as complete.
   await emit("runner.completed", "completed", {
     codexThreadId,
     finalResponse,
     forkLabel,
+    helloFile,
+    outputFile,
     proofFile,
     usage,
   }, finalResponse);
