@@ -33,9 +33,9 @@ Development environment, and no shared staging environment.
 ```mermaid
 flowchart LR
   subgraph Local["Local machine"]
-    WT1["Worktree A\nNext.js localhost:3000\n.env.local"]
-    WT2["Worktree B\nNext.js localhost:3001\n.env.local"]
-    WT3["Worktree C\nNext.js localhost:3002\n.env.local"]
+    WT1["Worktree A\nNext.js localhost:3000\n.env"]
+    WT2["Worktree B\nNext.js localhost:3001\n.env"]
+    WT3["Worktree C\nNext.js localhost:3002\n.env"]
   end
 
   subgraph ConvexLocal["Convex cloud dev deployments\nthrowaway local backend targets"]
@@ -93,7 +93,7 @@ pnpm dev -- -p 3001
 
 ## Parallel Worktrees
 
-Each worktree has its own ignored `.env.local`. If a worktree may change
+Each worktree has its own ignored `.env`. If a worktree may change
 `src/convex/`, it should use its own Convex dev deployment:
 
 ```bash
@@ -107,6 +107,10 @@ pnpm dev -- -p <port>
 
 Frontend-only worktrees can temporarily share a Convex dev deployment, but the
 default for serious parallel work is one Convex dev deployment per lane.
+
+For sandbox work, run `pnpm run setup:base-snapshot` after changing
+`sandbox/`. It creates a new base snapshot and syncs `BASE_SANDBOX_IMAGE` into
+local `.env`, the selected Convex deployment, and prod Convex.
 
 ## Local Verification
 

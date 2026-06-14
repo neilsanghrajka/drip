@@ -10,7 +10,7 @@ import {
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { Sandbox } from "@vercel/sandbox";
+import { Sandbox, Snapshot } from "@vercel/sandbox";
 
 const execFileAsync = promisify(execFile);
 
@@ -25,7 +25,7 @@ const sandboxRoot = "/vercel/sandbox";
 const defaultRunnerCwd = "/vercel/sandbox/runner";
 const defaultRunnerEntrypoint = "index.ts";
 const defaultAgentWorkdir = "/vercel/sandbox/agent-workspace";
-const privateEnvFile = ".env.local";
+const privateEnvFile = ".env";
 const privateEnvPath = path.join(repoRoot, privateEnvFile);
 const setupCommand = "pnpm run setup:base-snapshot";
 const proofFile = "phase-c-snapshot-proof.json";
@@ -91,6 +91,8 @@ async function main() {
   let forkSandbox: VercelSandbox | undefined;
   let snapshot: VercelSnapshot | undefined;
   let snapshotPromoted = false;
+  let snapshotReferenced = false;
+  const previousSnapshotId = env.BASE_SANDBOX_IMAGE;
 
   try {
     log("Checking private env target.");
@@ -122,26 +124,30 @@ async function main() {
     await runForkSmoke(forkSandbox, config);
     await readAndVerifyProof(forkSandbox, config);
 
-    log("Updating private base image env.");
-    await updateBaseSandboxImage(snapshot.snapshotId);
-    snapshotPromoted = true;
+    log("Promoting base image env.");
+    const promotion = await promoteBaseSandboxImage({
+      config,
+      onReferenced: () => {
+        snapshotReferenced = true;
+      },
+      previousSnapshotId,
+      snapshotId: snapshot.snapshotId,
+    });
+    snapshotPromoted = promotion.completed;
+    snapshotReferenced = promotion.referenced;
 
-    log(`Snapshot smoke status: passed; ${privateEnvFile} updated.`);
+    log(`Snapshot smoke status: passed; ${privateEnvFile} and Convex env updated.`);
   } finally {
     await stopSandbox(forkSandbox);
     await stopSandbox(baseSandbox);
-    if (snapshot && !snapshotPromoted) {
+    if (snapshot && !snapshotPromoted && !snapshotReferenced) {
       await deleteSnapshot(snapshot);
     }
   }
 }
 
 async function readPrivateEnv(): Promise<EnvMap> {
-  const fileEnv: Record<string, string> = {};
-  for (const name of [".env", ".env.production.local", ".env.local"]) {
-    Object.assign(fileEnv, await readEnvFile(path.join(repoRoot, name)));
-  }
-
+  const fileEnv = await readEnvFile(privateEnvPath);
   return {
     ...fileEnv,
     ...process.env,
@@ -612,6 +618,64 @@ async function updateBaseSandboxImage(snapshotId: string) {
   await chmod(privateEnvPath, 0o600).catch(() => undefined);
 }
 
+async function promoteBaseSandboxImage({
+  config,
+  onReferenced,
+  previousSnapshotId,
+  snapshotId,
+}: {
+  config: SetupConfig;
+  onReferenced: () => void;
+  previousSnapshotId: string | undefined;
+  snapshotId: string;
+}) {
+  let referenced = false;
+
+  await syncConvexBaseSandboxImage("selected Convex deployment", [], snapshotId);
+  referenced = true;
+  onReferenced();
+
+  await syncConvexBaseSandboxImage(
+    "production Convex deployment",
+    ["--prod"],
+    snapshotId,
+    cleanProdEnv(),
+  );
+
+  await updateBaseSandboxImage(snapshotId);
+  referenced = true;
+  onReferenced();
+
+  await deletePreviousBaseSnapshot(previousSnapshotId, snapshotId, config);
+
+  return {
+    completed: true,
+    referenced,
+  };
+}
+
+async function syncConvexBaseSandboxImage(
+  label: string,
+  options: string[],
+  snapshotId: string,
+  env?: NodeJS.ProcessEnv,
+) {
+  log(`Syncing ${label} BASE_SANDBOX_IMAGE.`);
+  await hostCommand(
+    "pnpm",
+    ["exec", "convex", "env", "set", ...options, "BASE_SANDBOX_IMAGE", snapshotId],
+    env,
+  );
+}
+
+function cleanProdEnv() {
+  const env = { ...process.env };
+  delete env.CONVEX_DEPLOYMENT;
+  delete env.NEXT_PUBLIC_CONVEX_URL;
+  delete env.NEXT_PUBLIC_CONVEX_SITE_URL;
+  return env;
+}
+
 async function runSandboxCommand(
   sandbox: VercelSandbox,
   label: string,
@@ -647,10 +711,36 @@ async function deleteSnapshot(snapshot: VercelSnapshot) {
   await snapshot.delete().catch(() => undefined);
 }
 
-async function hostCommand(command: string, args: string[]) {
+async function deletePreviousBaseSnapshot(
+  previousSnapshotId: string | undefined,
+  nextSnapshotId: string,
+  config: SetupConfig,
+) {
+  if (!previousSnapshotId || previousSnapshotId === nextSnapshotId) {
+    return;
+  }
+
+  log("Deleting previous base image snapshot.");
+  try {
+    const previous = await Snapshot.get({
+      snapshotId: previousSnapshotId,
+      ...config.vercelCredentials,
+    });
+    await previous.delete();
+  } catch (error) {
+    log(`Previous snapshot cleanup skipped: ${redactSensitiveText(errorMessage(error))}`);
+  }
+}
+
+async function hostCommand(
+  command: string,
+  args: string[],
+  env?: NodeJS.ProcessEnv,
+) {
   const result = await execFileAsync(command, args, {
     cwd: repoRoot,
     encoding: "utf8",
+    env,
     maxBuffer: 64 * 1024 * 1024,
   });
   return {

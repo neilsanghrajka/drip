@@ -39,7 +39,7 @@ browser-to-Convex health check.
 ## Local Dev Deployments
 
 Drip has only Local and Prod environments. In Local, Convex work uses throwaway
-Convex dev deployments selected by ignored `.env.local` files. See
+Convex dev deployments selected by ignored `.env` files. See
 `docs/DEVELOPMENT.md` for the full local workflow and worktree diagram.
 
 Convex plugin guidance for signed-in development is: use a real Convex cloud
@@ -64,7 +64,7 @@ editing Convex functions, schema, auth, actions, or generated AI-related code.
 
 ## Environment Ownership
 
-Local Convex env names live in ignored `.env.local`:
+Local Convex selection lives in ignored `.env`:
 
 ```bash
 CONVEX_DEPLOYMENT=
@@ -82,6 +82,11 @@ Do not manually set `NEXT_PUBLIC_CONVEX_URL` or
 `NEXT_PUBLIC_CONVEX_SITE_URL` in Vercel for the normal production flow. The
 Convex deploy wrapper injects public Convex URLs into the Next.js production
 build. See `docs/DEPLOYMENT.md`.
+
+Sandbox runtime config is duplicated intentionally: the selected default/dev
+Convex deployment and the prod Convex deployment both store
+`BASE_SANDBOX_IMAGE`. Run `pnpm run setup:base-snapshot` to refresh both at the
+same time.
 
 ## CLI and Plugin Usage
 
@@ -102,4 +107,3 @@ When inspecting Convex envs or deployments, report names and presence only.
 Never print secret values, deployment URLs, dashboard links, project IDs, or
 account-specific deployment identifiers in docs, screenshots, logs, or final
 responses.
-

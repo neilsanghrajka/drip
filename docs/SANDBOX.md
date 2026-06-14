@@ -180,7 +180,7 @@ Never commit or print real values for these names.
 
 | Name | Owner | Purpose |
 | --- | --- | --- |
-| `BASE_SANDBOX_IMAGE` | Private local/Convex runtime config | Active Vercel Sandbox snapshot ID. Updated by the base snapshot setup command. |
+| `BASE_SANDBOX_IMAGE` | Private local/Convex runtime config | Active Vercel Sandbox snapshot ID. Updated in `.env`, selected Convex, and prod Convex by the base snapshot setup command. |
 | `VERCEL_TOKEN` | Convex action and setup command | Durable Vercel Sandbox auth for product runs. |
 | `VERCEL_OIDC_TOKEN` | Setup command | Optional local setup auth when a fresh Vercel OIDC token is available; not the product Convex action credential. |
 | `VERCEL_TEAM_ID` | Vercel Sandbox SDK | Required alongside sandbox auth. |
@@ -214,8 +214,9 @@ pnpm run setup:base-snapshot
 The setup command creates a fresh sandbox, copies only `sandbox/runner` and
 `sandbox/codex-agent`, installs runner dependencies, verifies runner imports and
 agent config/skill files, verifies Drip app files are absent, snapshots the
-sandbox, starts a fork from that snapshot, repeats the smoke checks, and updates
-private runtime config only after the fork smoke passes.
+sandbox, starts a fork from that snapshot, repeats the smoke checks, updates
+`.env`, selected Convex, and prod Convex to the new `BASE_SANDBOX_IMAGE`, then
+deletes the previous snapshot.
 
 ## Security Boundaries
 
@@ -225,7 +226,7 @@ private runtime config only after the fork smoke passes.
 | Runner token | Plaintext exists only in the runner command env; Convex stores only the hash. |
 | Public reads | `sandboxRuns.getSandboxRun` removes `ingestTokenHash`. |
 | Event stream | Events are currently loose and SDK-shaped; broader exposure needs a future redaction/visibility policy. |
-| Snapshot ID | `BASE_SANDBOX_IMAGE` is private runtime config, never source code or docs. |
+| Snapshot ID | `BASE_SANDBOX_IMAGE` is private runtime config in `.env` and Convex env, never source code or docs. |
 | Prototype ingest | `src/convex/http.ts` is not used for product sandbox runs. |
 
 ## Source Map
@@ -241,7 +242,7 @@ private runtime config only after the fork smoke passes.
 | `sandbox/codex-agent/.agents/skills/scout/SKILL.md` | Scout orchestration skill and structured output contract. |
 | `sandbox/codex-agent/.agents/skills/x-trends/SKILL.md` | Instruction-only X public-data research skill. |
 | `sandbox/codex-agent/.agents/skills/exa-search/SKILL.md` | Instruction-only generic Exa Search API skill. |
-| `scripts/setup_base_snapshot.ts` | Base snapshot creation, copy rules, install, smoke, and private env update. |
+| `scripts/setup_base_snapshot.ts` | Base snapshot creation, copy rules, install, smoke, Convex env sync, and previous snapshot cleanup. |
 | `src/convex/schema.ts` | `sandboxRuns` and `sandboxRunEvents` table shape. |
 | `src/convex/sandboxRuns.ts` | Control-plane queries/mutations and runner token checks. |
 | `src/convex/sandboxRunActions.ts` | Vercel Sandbox provisioning and runner command startup. |

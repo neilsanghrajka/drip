@@ -82,7 +82,8 @@ should verify the file exists, parses, and matches the expected schema.
 
 Scout lives inside the sandbox agent payload. After changing files under
 `sandbox/codex-agent/` or `sandbox/runner/`, recreate the base image before
-black-box sandbox testing:
+black-box sandbox testing. The setup command syncs `BASE_SANDBOX_IMAGE` into
+local `.env`, selected Convex, and prod Convex:
 
 ```bash
 pnpm run setup:base-snapshot

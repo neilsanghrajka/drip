@@ -18,7 +18,6 @@ Run it with env loaded:
 ```sh
 set -a
 . ./.env
-. ./.env.local
 set +a
 
 pnpm exec tsx docs/prototypes/sandbox-codex-sdk/run-sandbox-codex-sdk.ts

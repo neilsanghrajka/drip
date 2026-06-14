@@ -100,7 +100,7 @@ BASE_SANDBOX_IMAGE=
 ```
 
 That private env var stores the active Vercel Sandbox snapshot ID. It is updated
-locally by:
+in local `.env`, selected Convex, and prod Convex by:
 
 ```bash
 pnpm run setup:base-snapshot
@@ -110,6 +110,10 @@ Testing and production use the same pattern: read
 `BASE_SANDBOX_IMAGE`, create a new Vercel Sandbox from that snapshot, pass
 run-specific secrets at runtime, run Codex, write results back to Convex, and
 stop the sandbox.
+
+For hackathon simplicity, keep only one active base snapshot pointer. The setup
+command creates a new snapshot, points both Convex environments at it, and then
+deletes the previous snapshot.
 
 The base snapshot is prepared from the repo's top-level `sandbox/` payload:
 `sandbox/runner` becomes the runner process directory, and `sandbox/codex-agent`
@@ -121,7 +125,8 @@ runtime env needs a durable `VERCEL_TOKEN` plus `VERCEL_TEAM_ID` and
 setup command, but it is not the product action credential.
 
 Do not commit real snapshot IDs, Vercel project/team IDs, sandbox URLs, or
-OpenAI credentials. Keep real values in local/private env configuration.
+OpenAI credentials. Keep real values in local `.env` and private platform env
+configuration.
 
 See `docs/SANDBOX.md` for the base image update flow.
 
