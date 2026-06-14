@@ -13,6 +13,9 @@
 ## Development
 - Use `pnpm` as a package manager always.
 
+### Coding Agents
+- Our coding agent is `codex`. (Not claude-code, cursor, etc). 
+- When configuring any skills, mcp, plugins etc configure them for codex only. Always setup project scope (not global, or user scope).
 
 ### Agent Skills
 - Install skills using [vercel agent skills](https://github.com/vercel-labs/skills) 
