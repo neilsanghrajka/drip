@@ -1,30 +1,376 @@
-import { Button } from "@/components/ui/button";
+"use client";
+
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+  BarChart3,
+  Box,
+  Check,
+  ChevronDown,
+  Crosshair,
+  PenLine,
+  Sparkle,
+  Star,
+} from "lucide-react";
+import Image from "next/image";
+import type { ComponentType, CSSProperties } from "react";
+import { useState } from "react";
+
+type TeamKey = "scout" | "designer" | "meta" | "builder";
+
+type TeamMember = {
+  key: TeamKey;
+  name: string;
+  color: string;
+  bg: string;
+  icon: ComponentType<{ className?: string; style?: CSSProperties }>;
+  portrait: string;
+  title: string;
+  subtitle: string;
+  bullets: string[];
+};
+
+const team: TeamMember[] = [
+  {
+    key: "scout",
+    name: "Scout",
+    color: "#55d12c",
+    bg: "bg-[#55d12c]",
+    icon: Crosshair,
+    portrait: "/drip-team/scout-portrait.png",
+    title: "Finds signals",
+    subtitle: "Cultural moments before they peak.",
+    bullets: [
+      "Trending topics",
+      "Cultural moments",
+      "Audience pull",
+      "Urgency window",
+    ],
+  },
+  {
+    key: "designer",
+    name: "Designer",
+    color: "#1264ff",
+    bg: "bg-[#1264ff]",
+    icon: PenLine,
+    portrait: "/drip-team/designer-portrait.png",
+    title: "Creates mock images",
+    subtitle: "Approved ideas in, fashion concepts out.",
+    bullets: [
+      "Original fashion mockups",
+      "Graphics, fits, and variants",
+      "Ready-to-test concepts",
+    ],
+  },
+  {
+    key: "meta",
+    name: "Meta Test",
+    color: "#ff3c38",
+    bg: "bg-[#ff3c38]",
+    icon: BarChart3,
+    portrait: "/drip-team/meta-portrait.png",
+    title: "Tests ads",
+    subtitle: "Measures demand and finds winners.",
+    bullets: [
+      "Ad variants",
+      "Clicks, saves, waitlists",
+      "Build / do-not-build verdict",
+    ],
+  },
+  {
+    key: "builder",
+    name: "Builder",
+    color: "#f8ca00",
+    bg: "bg-[#f8ca00]",
+    icon: Box,
+    portrait: "/drip-team/builder-portrait.png",
+    title: "Builds pages",
+    subtitle: "Turns the winning drop into a launch page.",
+    bullets: [
+      "Drop website preview",
+      "Product story",
+      "Launch-ready page",
+    ],
+  },
+];
+
+const features = [
+  { icon: Crosshair, label: "AI finds signals", copy: "before they peak" },
+  { icon: PenLine, label: "Creates designs", copy: "you'll actually sell" },
+  { icon: BarChart3, label: "Tests ads", copy: "to find winners" },
+  { icon: Box, label: "Builds pages", copy: "that convert" },
+];
+
+function TeamCard({
+  member,
+  active,
+  onActivate,
+}: {
+  member: TeamMember;
+  active: boolean;
+  onActivate: () => void;
+}) {
+  const Icon = member.icon;
+
+  return (
+    <button
+      aria-pressed={active}
+      className="group min-w-0 rounded-[18px] outline-none transition duration-200 hover:-translate-y-1 focus-visible:ring-4 focus-visible:ring-black/70"
+      onClick={onActivate}
+      onFocus={onActivate}
+      onMouseEnter={onActivate}
+      type="button"
+    >
+      <article
+        className={`overflow-hidden rounded-[18px] border-[4px] border-black bg-white shadow-[6px_6px_0_#000] transition duration-200 ${
+          active ? "scale-[1.03]" : "scale-100"
+        }`}
+        style={{ boxShadow: active ? `7px 7px 0 ${member.color}` : undefined }}
+      >
+        <div className={`relative aspect-[1/0.54] ${member.bg}`}>
+          <Image
+            alt={`${member.name} portrait`}
+            className="h-full w-full object-cover object-[center_32%]"
+            fill
+            sizes="260px"
+            src={member.portrait}
+            unoptimized
+          />
+          <div className="absolute right-2.5 top-2.5 grid size-10 place-items-center rounded-full border-[3px] border-black bg-white">
+            <Icon className="size-5" style={{ color: member.color }} />
+          </div>
+        </div>
+        <div className="flex items-center justify-between gap-2 border-t-[4px] border-black bg-white px-3 py-2">
+          <span className="text-[16px] font-black">{member.name}</span>
+          <span className="flex items-center gap-1.5 text-[12px] font-black uppercase">
+            <span
+              className="size-2.5 rounded-full"
+              style={{ backgroundColor: member.color }}
+            />
+            Active
+          </span>
+        </div>
+      </article>
+    </button>
+  );
+}
 
 export default function Home() {
+  const [activeKey, setActiveKey] = useState<TeamKey>("designer");
+  const active = team.find((member) => member.key === activeKey) ?? team[1];
+  const ActiveIcon = active.icon;
+
   return (
-    <main className="flex min-h-svh items-center justify-center bg-background px-6 py-12">
-      <Card className="w-full max-w-lg">
-        <CardHeader>
-          <CardTitle>Drip</CardTitle>
-          <CardDescription>
-            Next.js, TypeScript, shadcn/ui, Vercel, and Convex are ready.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          <p className="text-sm text-muted-foreground">
-            Start shaping the product from{" "}
-            <code className="font-mono">src/app/page.tsx</code>.
-          </p>
-          <Button type="button">Ready to build</Button>
-        </CardContent>
-      </Card>
+    <main className="drip-shell min-h-svh bg-white text-black" id="top">
+      <header className="flex h-[92px] items-center justify-between border-b-[3px] border-black px-8 lg:px-12">
+        <a className="drip-logo group relative" href="#top">
+          Drip
+          <Sparkle className="absolute -right-6 top-1 size-7 fill-[#ffd400] stroke-black stroke-[1.5] transition group-hover:rotate-12" />
+        </a>
+
+        <nav className="hidden items-center gap-9 text-[18px] font-black lg:flex">
+          <a className="inline-flex items-center gap-2" href="#product">
+            Product <ChevronDown className="size-4" />
+          </a>
+          <a className="inline-flex items-center gap-2" href="#use-cases">
+            Use Cases <ChevronDown className="size-4" />
+          </a>
+          <a href="#pricing">Pricing</a>
+          <a className="inline-flex items-center gap-2" href="#resources">
+            Resources <ChevronDown className="size-4" />
+          </a>
+          <a href="#login">Log in</a>
+          <a className="drip-button px-8 py-4 text-xl" href="#start">
+            Get Started
+          </a>
+        </nav>
+      </header>
+
+      <section
+        className="drip-dot-bg overflow-hidden px-8 pb-0 pt-10 lg:px-12 lg:pt-14"
+      >
+        <div className="mx-auto grid max-w-[1720px] gap-8 min-[900px]:grid-cols-[minmax(300px,0.9fr)_minmax(165px,0.45fr)_minmax(250px,0.68fr)] min-[900px]:items-center xl:grid-cols-[0.83fr_0.52fr_0.76fr] xl:gap-9">
+          <section className="min-w-0">
+            <div className="mb-6 ml-2 flex gap-1">
+              <span className="block h-4 w-1 rotate-[-30deg] rounded-full bg-black" />
+              <span className="mt-4 block h-4 w-1 rotate-[-58deg] rounded-full bg-black" />
+              <span className="mt-8 block h-4 w-1 rotate-[-78deg] rounded-full bg-black" />
+            </div>
+
+            <h1 className="drip-heading max-w-[760px] text-[68px] leading-[0.96] tracking-[-0.035em] sm:text-[82px] md:text-[72px] lg:text-[84px] xl:text-[112px] 2xl:text-[126px]">
+              Meet your
+              <br />
+              <span className="2xl:whitespace-nowrap">AI fashion team</span>
+            </h1>
+
+            <p className="mt-8 text-[28px] font-medium tracking-[-0.02em]">
+              Find the next drop before it peaks
+            </p>
+
+            <div className="mt-8 flex flex-wrap items-center gap-8">
+              <a className="drip-button px-11 py-5 text-2xl" href="#start">
+                Start scouting
+              </a>
+              <div className="hidden items-center gap-5 text-[22px] font-black italic leading-none sm:flex">
+                <span className="drip-arrow" aria-hidden="true" />
+                <span className="-rotate-6 font-[cursive]">
+                  Let&apos;s find
+                  <br />
+                  your next drop
+                </span>
+              </div>
+            </div>
+
+            <div className="mt-10 h-px max-w-[650px] bg-black/25" />
+
+            <div className="mt-5 grid max-w-[650px] grid-cols-2 gap-4 sm:grid-cols-4">
+              {features.map((feature, index) => {
+                const Icon = feature.icon;
+                return (
+                  <div
+                    className="flex min-h-[64px] items-center gap-3 border-black/20 pr-3 sm:border-r"
+                    key={feature.label}
+                  >
+                    <Icon className="size-8 shrink-0 stroke-[2.5]" />
+                    <p className="text-[13px] font-black leading-[1.05]">
+                      {feature.label}
+                      <br />
+                      <span className="font-medium">{feature.copy}</span>
+                    </p>
+                    {index === features.length - 1 ? null : (
+                      <span className="hidden" />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+
+          <section className="relative mx-auto grid w-full max-w-[210px] gap-3 xl:max-w-[218px] xl:gap-3.5">
+            <div className="absolute -left-14 top-12 hidden h-[73%] w-10 xl:block">
+              <div className="absolute left-6 top-6 h-[86%] w-px bg-black" />
+              <span className="absolute -top-1 left-1 text-5xl">↗</span>
+              <span className="absolute bottom-2 left-1 text-5xl">↘</span>
+              <span className="absolute left-0 top-[42%] grid size-10 place-items-center rounded-full border-[3px] border-black bg-[#1264ff] text-2xl font-black text-white shadow-[3px_3px_0_#000]">
+                →
+              </span>
+            </div>
+
+            {team.map((member) => (
+              <TeamCard
+                active={member.key === activeKey}
+                key={member.key}
+                member={member}
+                onActivate={() => setActiveKey(member.key)}
+              />
+            ))}
+          </section>
+
+          <section className="grid min-w-0 gap-5 2xl:grid-cols-[minmax(330px,520px)_minmax(230px,280px)] 2xl:items-center">
+            <article className="overflow-hidden rounded-[24px] border-[4px] border-black bg-black shadow-[8px_8px_0_#000]">
+              <div
+                className="flex h-16 items-center justify-between px-7 text-white"
+                style={{ backgroundColor: active.color }}
+              >
+                <h2 className="text-[30px] font-black tracking-[-0.03em]">
+                  {active.name}
+                </h2>
+                <span className="flex items-center gap-2 text-sm font-black uppercase">
+                  <span className="size-3 rounded-full bg-white" />
+                  Active
+                </span>
+              </div>
+              <div className="relative aspect-[1/0.82]" style={{ backgroundColor: active.color }}>
+                <Image
+                  alt={`${active.name} dominant portrait`}
+                  className="h-full w-full object-cover object-center"
+                  fill
+                  sizes="520px"
+                  src={active.portrait}
+                  unoptimized
+                />
+              </div>
+              <div className="px-8 py-7 text-white">
+                <h3 className="text-[34px] font-black tracking-[-0.04em]">
+                  {active.title}
+                </h3>
+                <p className="mt-3 max-w-[380px] text-[24px] font-medium leading-tight">
+                  {active.subtitle}
+                </p>
+              </div>
+            </article>
+
+            <aside
+              className="hidden rounded-[20px] border-[4px] bg-white p-7 shadow-[7px_7px_0_#000] 2xl:block"
+              style={{ borderColor: active.color }}
+            >
+              <div className="mb-7 grid size-16 place-items-center rounded-[12px] border-[3px] border-black">
+                <ActiveIcon className="size-9" style={{ color: active.color }} />
+              </div>
+              <ul className="space-y-5">
+                {active.bullets.map((bullet) => (
+                  <li className="flex gap-3 text-[16px] leading-tight" key={bullet}>
+                    <span
+                      className="grid size-6 shrink-0 place-items-center rounded-full text-white"
+                      style={{ backgroundColor: active.color }}
+                    >
+                      <Check className="size-4 stroke-[4]" />
+                    </span>
+                    <span>{bullet}</span>
+                  </li>
+                ))}
+              </ul>
+            </aside>
+          </section>
+        </div>
+
+        <div className="mx-auto mt-20 grid max-w-[1720px] gap-6 border-t border-black/20 py-6 md:grid-cols-[1fr_auto] md:items-center 2xl:mt-10">
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex -space-x-3">
+              {["N", "A", "K", "S"].map((initial) => (
+                <div
+                  className="grid size-12 place-items-center rounded-full border-2 border-white bg-black text-sm font-black text-white"
+                  key={initial}
+                >
+                  {initial}
+                </div>
+              ))}
+            </div>
+            <div className="grid size-14 place-items-center rounded-full bg-black text-lg font-black text-white">
+              40K+
+            </div>
+            <p className="text-[16px] leading-tight">
+              Founders, marketers, and creators trust Drip
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-8">
+            <div className="flex items-center gap-3">
+              <div className="grid size-10 place-items-center rounded-full bg-[#f8ca00]">
+                <Star className="size-6 fill-white stroke-white" />
+              </div>
+              <div>
+                <p className="text-[11px] font-black uppercase tracking-wide">
+                  Product Hunt
+                </p>
+                <p className="text-xl font-black">#1 Product of the Day</p>
+              </div>
+            </div>
+            <div className="hidden h-10 w-px bg-black/20 sm:block" />
+            <div>
+              <div className="flex gap-1">
+                {Array.from({ length: 5 }).map((_, index) => (
+                  <span
+                    className="grid size-6 place-items-center rounded-sm bg-[#31c767]"
+                    key={index}
+                  >
+                    <Star className="size-4 fill-white stroke-white" />
+                  </span>
+                ))}
+              </div>
+              <p className="mt-1 text-[15px]">4.9 rating from 1,200+ reviews</p>
+            </div>
+          </div>
+        </div>
+      </section>
     </main>
   );
 }
