@@ -103,7 +103,7 @@ That private env var stores the active Vercel Sandbox snapshot ID. It is updated
 locally by:
 
 ```bash
-scripts/setup_base_snapshot
+pnpm run setup:base-snapshot
 ```
 
 Testing and production use the same pattern: read

@@ -135,5 +135,5 @@ For browser verification, run `pnpm dev`, open the local app, and verify
 - `docs/VERCEL.md`: Vercel project link, production env ownership, CLI
   commands, and Vercel plugin usage.
 - `docs/DEPLOYMENT.md`: production deploy and verification workflow.
-- `docs/SANDBOX.md`: local `scripts/setup_base_snapshot` flow for refreshing
+- `docs/SANDBOX.md`: local `pnpm run setup:base-snapshot` flow for refreshing
   the Codex SDK Vercel Sandbox base image.

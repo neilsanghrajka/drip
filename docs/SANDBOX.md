@@ -1,10 +1,10 @@
 # Sandbox
 
-Last updated: 2026-06-03
+Last updated: 2026-06-04
 
 This is the high-level map for Drip's Codex SDK execution layer. It names the
-contracts and source files; operational details for refreshing the prepared
-Vercel Sandbox image live in `scripts/setup_base_snapshot`.
+contracts, commands, and source files for the prepared Vercel Sandbox image and
+runtime control plane.
 
 ## System Map
 
@@ -30,6 +30,34 @@ flowchart LR
   Runner -->|"ConvexHttpClient mutations"| Runs
 ```
 
+## Run Sequence
+
+```mermaid
+sequenceDiagram
+  participant UI
+  participant CX as Convex
+  participant SB as Vercel Sandbox
+  participant R as Runner
+  participant CDX as Codex SDK
+
+  UI->>CX: createSandboxRun(task)
+  CX-->>UI: sandboxRunId
+  UI->>CX: startSandboxRun(sandboxRunId)
+
+  CX->>SB: create sandbox from BASE_SANDBOX_IMAGE
+  CX->>SB: pass run env + start detached runner
+  CX->>CX: status = running
+
+  SB->>R: runner starts
+  R->>CX: load task with ingest token
+  R->>CDX: startThread + runStreamed(task)
+  CDX-->>R: streamed events
+  R->>CX: ingest events + heartbeat
+  CX-->>UI: realtime updates
+
+  R->>CX: finish succeeded / failed / cancelled
+```
+
 There are two layers:
 
 | Layer | Purpose | Stable source |
@@ -37,7 +65,7 @@ There are two layers:
 | Control plane | Stores run state, event streams, cancellation, liveness, and terminal results. | `src/convex/sandboxRuns.ts` |
 | Sandbox provisioner | Creates a Vercel Sandbox, starts the detached runner command, and records sandbox/command metadata privately in Convex. | `src/convex/sandboxRunActions.ts` |
 | Runner | Loads the run task, streams Codex SDK events, sends heartbeats, observes cancellation, and finishes the run. | `src/sandbox/runner/*` |
-| Base snapshot operation | Builds and verifies the reusable Vercel Sandbox snapshot used by runtime provisioning. | `scripts/setup_base_snapshot` |
+| Base snapshot operation | Builds and verifies the reusable Vercel Sandbox snapshot used by runtime provisioning. | Base snapshot setup command. |
 
 Product sandbox runs use Convex mutations for runner ingest. The custom HTTP
 route in `src/convex/http.ts` belongs to the Phase A prototype only.
@@ -90,7 +118,7 @@ Never commit or print real values for these names.
 
 | Name | Owner | Purpose |
 | --- | --- | --- |
-| `BASE_SANDBOX_IMAGE` | Private local/Convex runtime config | Active Vercel Sandbox snapshot ID. Updated by `scripts/setup_base_snapshot`. |
+| `BASE_SANDBOX_IMAGE` | Private local/Convex runtime config | Active Vercel Sandbox snapshot ID. Updated by the base snapshot setup command. |
 | `DRIP_RUNNER_CONVEX_URL` | Convex action | Convex URL passed into the runner; usually matches the public Convex client URL. |
 | `OPENAI_API_KEY` or `CODEX_API_KEY` | Convex action/runtime | OpenAI auth source. The action passes `OPENAI_API_KEY` into the runner command. |
 | `VERCEL_TOKEN` or `VERCEL_OIDC_TOKEN` | Vercel Sandbox SDK | Sandbox auth. Access-token auth is passed explicitly; OIDC is read from env. |
@@ -107,10 +135,15 @@ Never commit or print real values for these names.
 Prototype-only env belongs to `docs/prototypes/sandbox-codex-sdk/*` and
 `src/convex/sandboxPrototype.ts`; it is not part of the product run contract.
 
+## Scripts
+
+| Command | Purpose |
+| --- | --- |
+| `pnpm run setup:base-snapshot` | Refresh and smoke-test the reusable Vercel Sandbox base image, then update private env config after success. |
+
 ## Base Image Contract
 
-`scripts/setup_base_snapshot` is the stable local interface for refreshing the
-base image. The operation:
+The base snapshot setup command refreshes the base image. The operation:
 
 - Loads private env from process and ignored local env files.
 - Requires `VERCEL_TOKEN` or `VERCEL_OIDC_TOKEN`, plus `VERCEL_TEAM_ID` and
@@ -144,8 +177,6 @@ secrets, inputs, ingest tokens, and model settings are passed at command start.
 
 | Path | What to inspect |
 | --- | --- |
-| `scripts/setup_base_snapshot` | Stable executable setup entrypoint. |
-| `scripts/setup_base_snapshot.ts` | Base snapshot operation, smoke checks, env update, and cleanup behavior. |
 | `src/convex/schema.ts` | `sandboxRuns` and `sandboxRunEvents` table shape. |
 | `src/convex/sandboxRuns.ts` | Control-plane queries/mutations and runner token checks. |
 | `src/convex/sandboxRunActions.ts` | Vercel Sandbox provisioning and runner command startup. |
@@ -154,13 +185,3 @@ secrets, inputs, ingest tokens, and model settings are passed at command start.
 | `src/sandbox/runner/convex.ts` | Runner-side Convex client and function references. |
 | `src/sandbox/runner/embedded.ts` | Bootstrap fallback used when no base snapshot is configured or bootstrap is forced. |
 | `docs/prototypes/sandbox-codex-sdk/` | Prototype-only tutorial code and env surface. |
-
-## Deferred
-
-| Item | Why it waits |
-| --- | --- |
-| Watchdog/recovery | `lost` exists, but no scheduled policy marks disappeared runners yet. |
-| Artifact storage | Current substrate persists events/results, not durable files. |
-| Redaction/visibility policy | Needed before broader event or artifact exposure. |
-| Snapshot versioning | The current contract has one active private base snapshot. |
-| Domain writes | Product-specific mutations should layer on top of the generic run substrate. |
