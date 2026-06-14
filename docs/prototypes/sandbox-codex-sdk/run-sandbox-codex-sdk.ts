@@ -56,6 +56,10 @@ const forkLabels = ["fork-a", "fork-b"] as const;
 const sandboxesToStop: VercelSandbox[] = [];
 const snapshotsToDelete: VercelSnapshot[] = [];
 
+// -----------------------------------------------------------------------------
+// Tutorial entrypoint
+// -----------------------------------------------------------------------------
+
 main().catch((error) => {
   console.error(safeError(error));
   process.exit(1);
@@ -144,6 +148,10 @@ async function main() {
     await deleteSnapshots();
   }
 }
+
+// -----------------------------------------------------------------------------
+// One forked sandbox run
+// -----------------------------------------------------------------------------
 
 async function runFork(
   convex: ConvexHttpClient,
@@ -296,6 +304,10 @@ async function runFork(
   };
 }
 
+// -----------------------------------------------------------------------------
+// Vercel Sandbox setup helpers
+// -----------------------------------------------------------------------------
+
 async function createSandbox(label: string, snapshotId?: string) {
   const commonParams = {
     ...vercelCredentials(),
@@ -366,6 +378,10 @@ async function writeTutorialFiles(sandbox: VercelSandbox) {
     },
   ]);
 }
+
+// -----------------------------------------------------------------------------
+// Command, Convex ingest, and cleanup helpers
+// -----------------------------------------------------------------------------
 
 async function runOrThrow(
   sandbox: VercelSandbox,
@@ -461,6 +477,10 @@ async function deleteSnapshots() {
   }
 }
 
+// -----------------------------------------------------------------------------
+// Env and formatting helpers
+// -----------------------------------------------------------------------------
+
 function validateEnv() {
   const missing = [];
 
@@ -475,11 +495,7 @@ function validateEnv() {
   }
   if (!process.env.CODEX_API_KEY) {
     missing.push("CODEX_API_KEY");
-  }
-  if (
-    process.env.CODEX_API_KEY &&
-    !process.env.CODEX_API_KEY.startsWith("sk-")
-  ) {
+  } else if (!process.env.CODEX_API_KEY.startsWith("sk-")) {
     missing.push("CODEX_API_KEY must be an OpenAI Platform API key");
   }
   if (!convexUrl) {
@@ -548,6 +564,10 @@ function safeError(error: unknown) {
   });
 }
 
+// -----------------------------------------------------------------------------
+// The tiny script copied into each forked sandbox
+// -----------------------------------------------------------------------------
+
 const tutorialRunnerSource = String.raw`
 import { Codex } from "@openai/codex-sdk";
 
@@ -558,7 +578,7 @@ const prompt = must("DRIP_CODEX_PROMPT");
 const ingestUrl = must("DRIP_CONVEX_INGEST_URL");
 const ingestToken = must("DRIP_INGEST_TOKEN");
 let sequence = Number(process.env.DRIP_EVENT_SEQUENCE_START ?? "100");
-let codexThreadId = null;
+let codexThreadId;
 
 const outputSchema = {
   type: "object",
