@@ -6,7 +6,7 @@ Tiny Phase A tutorial proving the execution substrate:
 - The base sandbox installs `@openai/codex-sdk` once and is snapshotted.
 - Two forked sandboxes restore from that snapshot and run Codex SDK separately.
 - Each fork writes a proof file, posts events/results to Convex, and is read back by the host.
-- The script stops created sandboxes and deletes the temporary snapshot at the end.
+- The script stops/deletes created sandboxes and deletes the temporary snapshot at the end.
 - Delete temporary snapshots after tutorial runs; keep only intentionally named base snapshots.
 
 Everything is in one commented TypeScript file:

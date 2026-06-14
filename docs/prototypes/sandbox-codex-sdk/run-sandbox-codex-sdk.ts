@@ -6,10 +6,17 @@ import { makeFunctionReference } from "convex/server";
 
 // Phase A tutorial script.
 //
-// This intentionally reads top-to-bottom like SDK documentation:
-// create a base sandbox, install once, snapshot it, fork twice, run Codex in
-// both forks, write proof files, report to Convex, and clean up the temporary
-// sandboxes/snapshot. It is proof code, not the final production runner.
+// This file is intentionally ordered like an open-source SDK example:
+// 1. Read config from private env files.
+// 2. Create one prepared Vercel Sandbox.
+// 3. Install the Codex SDK inside it.
+// 4. Snapshot that prepared sandbox.
+// 5. Fork two sandboxes from the snapshot.
+// 6. Run Codex SDK in each fork.
+// 7. Read proof files and verify Convex.
+// 8. Delete temporary sandboxes and snapshots.
+
+const forkLabels = ["fork-a", "fork-b"] as const;
 
 type RunStatus =
   | "sandbox_created"
@@ -20,6 +27,47 @@ type RunStatus =
 
 type VercelSandbox = Awaited<ReturnType<typeof Sandbox.create>>;
 type VercelSnapshot = Awaited<ReturnType<VercelSandbox["snapshot"]>>;
+type ForkLabel = (typeof forkLabels)[number];
+type SandboxRole = "base" | ForkLabel;
+
+type TutorialConfig = {
+  codexApiKey: string;
+  codexModel?: string;
+  codexReasoningEffort: string;
+  convexIngestToken: string;
+  convexIngestUrl: string;
+  convexUrl: string;
+  sandboxNamePrefix?: string;
+  sandboxRuntime: string;
+  sandboxTimeoutMs: number;
+  sandboxVcpus: number;
+  tutorialId: string;
+  vercelCredentials: {
+    projectId?: string;
+    teamId?: string;
+    token?: string;
+  };
+};
+
+type CreatedResources = {
+  sandboxes: VercelSandbox[];
+  snapshots: VercelSnapshot[];
+};
+
+type ForkRun = {
+  externalRunId: string;
+  label: ForkLabel;
+  prompt: string;
+  proofFile: string;
+  runnerToken: string;
+};
+
+type ForkResult = {
+  externalRunId: string;
+  label: ForkLabel;
+  proofFile: string;
+  proofText: string;
+};
 
 const createRun = makeFunctionReference<
   "mutation",
@@ -44,318 +92,80 @@ const listEvents = makeFunctionReference<
 >("sandboxPrototype:listEvents");
 
 const tutorialId = `drip-sdk-tutorial-${Date.now()}`;
-const convexUrl = process.env.DRIP_CONVEX_URL ?? process.env.NEXT_PUBLIC_CONVEX_URL;
-const convexSiteUrl =
-  process.env.DRIP_CONVEX_SITE_URL ?? process.env.NEXT_PUBLIC_CONVEX_SITE_URL;
-const convexIngestUrl =
-  process.env.DRIP_CONVEX_INGEST_URL ??
-  (convexSiteUrl ? `${convexSiteUrl}/sandbox-prototype/ingest` : undefined);
-const convexIngestToken = process.env.SANDBOX_PROTOTYPE_INGEST_TOKEN;
-
-const forkLabels = ["fork-a", "fork-b"] as const;
-const sandboxesToStop: VercelSandbox[] = [];
-const snapshotsToDelete: VercelSnapshot[] = [];
-
-// -----------------------------------------------------------------------------
-// Tutorial entrypoint
-// -----------------------------------------------------------------------------
 
 main().catch((error) => {
   console.error(safeError(error));
   process.exit(1);
 });
 
+// -----------------------------------------------------------------------------
+// Tutorial: read this function first
+// -----------------------------------------------------------------------------
+
 async function main() {
-  validateEnv();
-
-  const convex = new ConvexHttpClient(must(convexUrl, "NEXT_PUBLIC_CONVEX_URL"));
-
-  // Step 1 creates the "golden" sandbox. Think of this like a base image:
-  // we do setup here once, then snapshot it so later sandboxes can start fast.
-  console.log("Step 1: Create a base Vercel Sandbox.");
-  const baseSandbox = await createSandbox("base");
-  sandboxesToStop.push(baseSandbox);
-  console.log(
-    json({
-      step: "base.created",
-      sandboxName: baseSandbox.name,
-      runtime: baseSandbox.runtime,
-    }),
-  );
+  const config = readTutorialConfig(tutorialId);
+  const convex = new ConvexHttpClient(config.convexUrl);
+  const resources: CreatedResources = {
+    sandboxes: [],
+    snapshots: [],
+  };
 
   try {
-    // Step 2 writes both files needed inside the VM. To keep this prototype easy
-    // to read, those files are embedded at the bottom of this TypeScript file.
-    console.log("Step 2: Copy the tiny runner and package.json into the base sandbox.");
-    await writeTutorialFiles(baseSandbox);
+    const baseSandbox = await createBaseSandbox(config, resources);
+    await copyRunnerIntoSandbox(baseSandbox);
+    await installCodexSdk(baseSandbox);
 
-    // Step 3 installs dependencies inside the base sandbox before the snapshot.
-    // That is the important startup optimization this prototype demonstrates.
-    console.log("Step 3: Install Codex SDK dependencies inside the base sandbox.");
-    await runOrThrow(baseSandbox, {
-      cmd: "npm",
-      args: ["install", "--ignore-scripts", "--omit=dev"],
-      cwd: "/vercel/sandbox",
-      timeoutMs: 180_000,
+    const snapshot = await snapshotBaseSandbox(baseSandbox, resources);
+
+    const forkResults = await runForkedSandboxes({
+      config,
+      convex,
+      resources,
+      snapshotId: snapshot.snapshotId,
     });
 
-    // Step 4 captures the prepared filesystem. Vercel stops this base sandbox as
-    // part of snapshot creation, and the two forked sandboxes below restore from it.
-    console.log("Step 4: Snapshot the prepared base sandbox.");
-    const snapshot = await baseSandbox.snapshot({
-      expiration: 24 * 60 * 60 * 1000,
-    });
-    snapshotsToDelete.push(snapshot);
-    console.log(
-      json({
-        step: "base.snapshot_created",
-        snapshotId: snapshot.snapshotId,
-      }),
-    );
-
-    // Step 5 is the fork proof: both sandboxes start from one prepared snapshot
-    // but then run independently and write their own proof files/events.
-    console.log("Step 5: Fork two sandboxes from that one snapshot.");
-    const forkResults = [];
-    for (const label of forkLabels) {
-      forkResults.push(await runFork(convex, snapshot.snapshotId, label));
-    }
-
-    // Step 6 reads Convex back through the normal query path. The point is to
-    // prove the UI/control plane would see the same state via Convex realtime.
-    console.log("Step 6: Query Convex to prove both forked runs were stored.");
-    for (const result of forkResults) {
-      const run = await convex.query(getRun, {
-        externalRunId: result.externalRunId,
-      });
-      const events = await convex.query(listEvents, {
-        externalRunId: result.externalRunId,
-      });
-      console.log(
-        json({
-          step: "convex.verified",
-          externalRunId: result.externalRunId,
-          status: run?.status,
-          eventCount: events.length,
-          proofFile: result.proofFile,
-        }),
-      );
-    }
+    await verifyConvexRuns(convex, forkResults);
 
     console.log("Tutorial complete: Vercel Sandbox + Codex SDK + Convex E2E works.");
   } finally {
-    await stopSandboxes();
-    await deleteSnapshots();
+    await cleanupResources(resources);
   }
 }
 
 // -----------------------------------------------------------------------------
-// One forked sandbox run
+// Step 1: create a prepared base sandbox
 // -----------------------------------------------------------------------------
 
-async function runFork(
-  convex: ConvexHttpClient,
-  snapshotId: string,
-  label: (typeof forkLabels)[number],
+async function createBaseSandbox(
+  config: TutorialConfig,
+  resources: CreatedResources,
 ) {
-  const externalRunId = `${tutorialId}-${label}`;
-  const proofFile = `codex-sdk-proof-${label}.txt`;
-  const prompt = [
-    `Create a file named ${proofFile} in the current directory.`,
-    `The file must contain JSON with ok=true, source="codex-sdk", and fork="${label}".`,
-    "Return only JSON matching the requested schema.",
-  ].join(" ");
-  const runnerToken = randomBytes(32).toString("base64url");
+  console.log("Step 1: Create a base Vercel Sandbox.");
 
-  // Create the Convex run before the sandbox starts reporting. The runner token
-  // is scoped to this one run; Convex stores only its hash.
-  await convex.mutation(createRun, {
-    externalRunId,
-    prompt,
-    runnerIngestTokenHash: sha256Hex(runnerToken),
+  const sandbox = await createSandbox({
+    config,
+    resources,
+    role: "base",
   });
 
-  console.log(`Step 5.${label === "fork-a" ? "1" : "2"}: Start ${label} from the snapshot.`);
-  const sandbox = await createSandbox(label, snapshotId);
-  sandboxesToStop.push(sandbox);
-  await ingestHostEvent(externalRunId, {
-    sequence: 1,
-    eventType: "sandbox.created",
-    status: "sandbox_created",
-    payload: {
-      label,
+  console.log(
+    json({
+      step: "base.created",
       sandboxName: sandbox.name,
-      snapshotId,
       runtime: sandbox.runtime,
-    },
-    sandboxName: sandbox.name,
-  });
-
-  // The runner is detached so we can stream logs/events while it runs. It uses
-  // the CODEX_API_KEY inherited from Sandbox.create({ env }) and gets only the
-  // run-specific Convex token here.
-  console.log(`Step 5.${label === "fork-a" ? "1" : "2"}: Run Codex SDK in ${label}.`);
-  const command = await sandbox.runCommand({
-    cmd: "node",
-    args: ["tutorial-runner.mjs"],
-    cwd: "/vercel/sandbox",
-    detached: true,
-    env: {
-      DRIP_CODEX_PROMPT: prompt,
-      DRIP_CONVEX_INGEST_URL: must(convexIngestUrl, "NEXT_PUBLIC_CONVEX_SITE_URL"),
-      DRIP_EVENT_SEQUENCE_START: "100",
-      DRIP_EXTERNAL_RUN_ID: externalRunId,
-      DRIP_FORK_LABEL: label,
-      DRIP_INGEST_TOKEN: runnerToken,
-      DRIP_PROOF_FILE: proofFile,
-    },
-    timeoutMs: 300_000,
-  });
-
-  await ingestHostEvent(externalRunId, {
-    sequence: 2,
-    eventType: "sandbox.command_started",
-    status: "runner_started",
-    payload: {
-      label,
-      sandboxCommandId: command.cmdId,
-      sandboxName: sandbox.name,
-    },
-    sandboxCommandId: command.cmdId,
-    sandboxName: sandbox.name,
-  });
-
-  console.log(
-    json({
-      step: "fork.command_started",
-      label,
-      externalRunId,
-      sandboxName: sandbox.name,
-      commandId: command.cmdId,
     }),
   );
 
-  for await (const log of command.logs()) {
-    const stream = log.stream === "stderr" ? process.stderr : process.stdout;
-    stream.write(log.data);
-  }
-
-  // If the Codex process fails, mark the Convex run failed before throwing.
-  const result = await command.wait();
-  if (result.exitCode !== 0) {
-    await ingestHostEvent(externalRunId, {
-      sequence: 900,
-      eventType: "sandbox.command_failed",
-      status: "failed",
-      payload: { label, exitCode: result.exitCode },
-      error: `Runner exited with ${result.exitCode}`,
-      sandboxCommandId: command.cmdId,
-      sandboxName: sandbox.name,
-    });
-    throw new Error(`${label} runner exited with ${result.exitCode}`);
-  }
-
-  // This file read is the filesystem proof. Codex wrote the file inside the
-  // forked sandbox; the host reads it back through the Vercel Sandbox SDK.
-  const proof = await sandbox.readFileToBuffer({
-    path: proofFile,
-    cwd: "/vercel/sandbox",
-  });
-  if (!proof) {
-    await ingestHostEvent(externalRunId, {
-      sequence: 900,
-      eventType: "sandbox.proof_missing",
-      status: "failed",
-      payload: { label, proofFile },
-      error: "Proof file missing after runner completed",
-      sandboxCommandId: command.cmdId,
-      sandboxName: sandbox.name,
-    });
-    throw new Error(`${label} did not write ${proofFile}`);
-  }
-
-  await ingestHostEvent(externalRunId, {
-    sequence: 900,
-    eventType: "sandbox.proof_read",
-    status: "completed",
-    payload: {
-      label,
-      proofFile,
-      proofText: proof.toString("utf8"),
-      bytes: proof.byteLength,
-    },
-    sandboxCommandId: command.cmdId,
-    sandboxName: sandbox.name,
-  });
-
-  console.log(
-    json({
-      step: "fork.proof_read",
-      label,
-      externalRunId,
-      proofFile,
-      proofText: proof.toString("utf8"),
-    }),
-  );
-
-  return {
-    externalRunId,
-    proofFile,
-  };
+  return sandbox;
 }
 
 // -----------------------------------------------------------------------------
-// Vercel Sandbox setup helpers
+// Step 2: copy the tiny runner and package manifest
 // -----------------------------------------------------------------------------
 
-async function createSandbox(label: string, snapshotId?: string) {
-  const commonParams = {
-    ...vercelCredentials(),
-    env: {
-      // Hobby/free-plan tutorial mode: put the disposable Codex key directly
-      // into the Vercel Sandbox. Do not use a production or long-lived key here.
-      CODEX_API_KEY: must(process.env.CODEX_API_KEY, "CODEX_API_KEY"),
-      CODEX_MODEL: process.env.CODEX_MODEL ?? "",
-      CODEX_REASONING_EFFORT: process.env.CODEX_REASONING_EFFORT ?? "low",
-      DRIP_CODEX_INNER_SANDBOX_MODE: "danger-full-access",
-    },
-    name: process.env.DRIP_SANDBOX_NAME
-      ? `${process.env.DRIP_SANDBOX_NAME}-${label}`
-      : undefined,
-    networkPolicy: networkPolicy(),
-    resources: {
-      vcpus: Number(process.env.DRIP_SANDBOX_VCPUS ?? "2"),
-    },
-    tags: {
-      app: "drip",
-      phase: "A",
-      prototype: "codex-sdk-tutorial",
-      role: label,
-    },
-    timeout: Number(process.env.DRIP_SANDBOX_TIMEOUT_MS ?? "600000"),
-  };
+async function copyRunnerIntoSandbox(sandbox: VercelSandbox) {
+  console.log("Step 2: Copy the tiny runner and package.json into the base sandbox.");
 
-  if (snapshotId) {
-    // Snapshot restores inherit the runtime from the snapshot, so the SDK type
-    // intentionally does not allow a separate runtime field here.
-    return await Sandbox.create({
-      ...commonParams,
-      source: {
-        type: "snapshot",
-        snapshotId,
-      },
-    });
-  }
-
-  return await Sandbox.create({
-    ...commonParams,
-    runtime: process.env.DRIP_SANDBOX_RUNTIME ?? "node24",
-  });
-}
-
-async function writeTutorialFiles(sandbox: VercelSandbox) {
-  // These are the only files copied into the sandbox. Keeping them tiny makes
-  // the prototype read like SDK documentation rather than app infrastructure.
   await sandbox.writeFiles([
     {
       path: "package.json",
@@ -380,16 +190,466 @@ async function writeTutorialFiles(sandbox: VercelSandbox) {
 }
 
 // -----------------------------------------------------------------------------
-// Command, Convex ingest, and cleanup helpers
+// Step 3: install once in the base sandbox
 // -----------------------------------------------------------------------------
 
-async function runOrThrow(
+async function installCodexSdk(sandbox: VercelSandbox) {
+  console.log("Step 3: Install Codex SDK dependencies inside the base sandbox.");
+
+  await runCommandOrThrow(sandbox, {
+    cmd: "npm",
+    args: ["install", "--ignore-scripts", "--omit=dev"],
+    cwd: "/vercel/sandbox",
+    timeoutMs: 180_000,
+  });
+}
+
+// -----------------------------------------------------------------------------
+// Step 4: snapshot the prepared base sandbox
+// -----------------------------------------------------------------------------
+
+async function snapshotBaseSandbox(
+  sandbox: VercelSandbox,
+  resources: CreatedResources,
+) {
+  console.log("Step 4: Snapshot the prepared base sandbox.");
+
+  const snapshot = await sandbox.snapshot({
+    expiration: 24 * 60 * 60 * 1000,
+  });
+  resources.snapshots.push(snapshot);
+
+  console.log(
+    json({
+      step: "base.snapshot_created",
+      snapshotId: snapshot.snapshotId,
+    }),
+  );
+
+  return snapshot;
+}
+
+// -----------------------------------------------------------------------------
+// Step 5: fork from the snapshot and run Codex SDK
+// -----------------------------------------------------------------------------
+
+async function runForkedSandboxes({
+  config,
+  convex,
+  resources,
+  snapshotId,
+}: {
+  config: TutorialConfig;
+  convex: ConvexHttpClient;
+  resources: CreatedResources;
+  snapshotId: string;
+}) {
+  console.log("Step 5: Fork two sandboxes from that one snapshot.");
+
+  const forkResults: ForkResult[] = [];
+  for (const label of forkLabels) {
+    forkResults.push(
+      await runForkedSandbox({
+        config,
+        convex,
+        label,
+        resources,
+        snapshotId,
+      }),
+    );
+  }
+
+  return forkResults;
+}
+
+async function runForkedSandbox({
+  config,
+  convex,
+  label,
+  resources,
+  snapshotId,
+}: {
+  config: TutorialConfig;
+  convex: ConvexHttpClient;
+  label: ForkLabel;
+  resources: CreatedResources;
+  snapshotId: string;
+}): Promise<ForkResult> {
+  const run = defineForkRun(config, label);
+
+  await createConvexRun(convex, run);
+
+  console.log(`${stepForFork(label)}: Start ${label} from the snapshot.`);
+  const sandbox = await createForkedSandbox({
+    config,
+    label,
+    resources,
+    snapshotId,
+  });
+
+  await reportHostEvent(config, run.externalRunId, {
+    sequence: 1,
+    eventType: "sandbox.created",
+    status: "sandbox_created",
+    payload: {
+      label,
+      sandboxName: sandbox.name,
+      snapshotId,
+      runtime: sandbox.runtime,
+    },
+    sandboxName: sandbox.name,
+  });
+
+  console.log(`${stepForFork(label)}: Run Codex SDK in ${label}.`);
+  const command = await runCodexRunner({
+    config,
+    run,
+    sandbox,
+  });
+
+  const proofText = await readProofFile({
+    commandId: command.cmdId,
+    config,
+    run,
+    sandbox,
+  });
+
+  return {
+    externalRunId: run.externalRunId,
+    label,
+    proofFile: run.proofFile,
+    proofText,
+  };
+}
+
+function defineForkRun(
+  config: TutorialConfig,
+  label: ForkLabel,
+): ForkRun {
+  const proofFile = `codex-sdk-proof-${label}.txt`;
+
+  return {
+    externalRunId: `${config.tutorialId}-${label}`,
+    label,
+    prompt: [
+      `Create a file named ${proofFile} in the current directory.`,
+      `The file must contain JSON with ok=true, source="codex-sdk", and fork="${label}".`,
+      "Return only JSON matching the requested schema.",
+    ].join(" "),
+    proofFile,
+    runnerToken: randomBytes(32).toString("base64url"),
+  };
+}
+
+async function createConvexRun(convex: ConvexHttpClient, run: ForkRun) {
+  await convex.mutation(createRun, {
+    externalRunId: run.externalRunId,
+    prompt: run.prompt,
+    runnerIngestTokenHash: sha256Hex(run.runnerToken),
+  });
+}
+
+async function createForkedSandbox({
+  config,
+  label,
+  resources,
+  snapshotId,
+}: {
+  config: TutorialConfig;
+  label: ForkLabel;
+  resources: CreatedResources;
+  snapshotId: string;
+}) {
+  return await createSandbox({
+    config,
+    resources,
+    role: label,
+    snapshotId,
+  });
+}
+
+async function runCodexRunner({
+  config,
+  run,
+  sandbox,
+}: {
+  config: TutorialConfig;
+  run: ForkRun;
+  sandbox: VercelSandbox;
+}) {
+  const command = await sandbox.runCommand({
+    cmd: "node",
+    args: ["tutorial-runner.mjs"],
+    cwd: "/vercel/sandbox",
+    detached: true,
+    env: {
+      DRIP_CODEX_PROMPT: run.prompt,
+      DRIP_CONVEX_INGEST_URL: config.convexIngestUrl,
+      DRIP_EVENT_SEQUENCE_START: "100",
+      DRIP_EXTERNAL_RUN_ID: run.externalRunId,
+      DRIP_FORK_LABEL: run.label,
+      DRIP_INGEST_TOKEN: run.runnerToken,
+      DRIP_PROOF_FILE: run.proofFile,
+    },
+    timeoutMs: 300_000,
+  });
+
+  await reportHostEvent(config, run.externalRunId, {
+    sequence: 2,
+    eventType: "sandbox.command_started",
+    status: "runner_started",
+    payload: {
+      label: run.label,
+      sandboxCommandId: command.cmdId,
+      sandboxName: sandbox.name,
+    },
+    sandboxCommandId: command.cmdId,
+    sandboxName: sandbox.name,
+  });
+
+  console.log(
+    json({
+      step: "fork.command_started",
+      label: run.label,
+      externalRunId: run.externalRunId,
+      sandboxName: sandbox.name,
+      commandId: command.cmdId,
+    }),
+  );
+
+  for await (const log of command.logs()) {
+    const stream = log.stream === "stderr" ? process.stderr : process.stdout;
+    stream.write(log.data);
+  }
+
+  const result = await command.wait();
+  if (result.exitCode !== 0) {
+    await reportHostEvent(config, run.externalRunId, {
+      sequence: 900,
+      eventType: "sandbox.command_failed",
+      status: "failed",
+      payload: { label: run.label, exitCode: result.exitCode },
+      error: `Runner exited with ${result.exitCode}`,
+      sandboxCommandId: command.cmdId,
+      sandboxName: sandbox.name,
+    });
+    throw new Error(`${run.label} runner exited with ${result.exitCode}`);
+  }
+
+  return command;
+}
+
+async function readProofFile({
+  commandId,
+  config,
+  run,
+  sandbox,
+}: {
+  commandId: string;
+  config: TutorialConfig;
+  run: ForkRun;
+  sandbox: VercelSandbox;
+}) {
+  const proof = await sandbox.readFileToBuffer({
+    path: run.proofFile,
+    cwd: "/vercel/sandbox",
+  });
+
+  if (!proof) {
+    await reportHostEvent(config, run.externalRunId, {
+      sequence: 900,
+      eventType: "sandbox.proof_missing",
+      status: "failed",
+      payload: { label: run.label, proofFile: run.proofFile },
+      error: "Proof file missing after runner completed",
+      sandboxCommandId: commandId,
+      sandboxName: sandbox.name,
+    });
+    throw new Error(`${run.label} did not write ${run.proofFile}`);
+  }
+
+  const proofText = proof.toString("utf8");
+
+  await reportHostEvent(config, run.externalRunId, {
+    sequence: 900,
+    eventType: "sandbox.proof_read",
+    status: "completed",
+    payload: {
+      label: run.label,
+      proofFile: run.proofFile,
+      proofText,
+      bytes: proof.byteLength,
+    },
+    sandboxCommandId: commandId,
+    sandboxName: sandbox.name,
+  });
+
+  console.log(
+    json({
+      step: "fork.proof_read",
+      label: run.label,
+      externalRunId: run.externalRunId,
+      proofFile: run.proofFile,
+      proofText,
+    }),
+  );
+
+  return proofText;
+}
+
+// -----------------------------------------------------------------------------
+// Step 6: query Convex back through the control-plane API
+// -----------------------------------------------------------------------------
+
+async function verifyConvexRuns(
+  convex: ConvexHttpClient,
+  forkResults: ForkResult[],
+) {
+  console.log("Step 6: Query Convex to prove both forked runs were stored.");
+
+  for (const result of forkResults) {
+    const run = await convex.query(getRun, {
+      externalRunId: result.externalRunId,
+    });
+    const events = await convex.query(listEvents, {
+      externalRunId: result.externalRunId,
+    });
+
+    console.log(
+      json({
+        step: "convex.verified",
+        externalRunId: result.externalRunId,
+        status: run?.status,
+        eventCount: events.length,
+        proofFile: result.proofFile,
+        proofText: result.proofText,
+      }),
+    );
+  }
+}
+
+// -----------------------------------------------------------------------------
+// Step 7: delete temporary tutorial resources
+// -----------------------------------------------------------------------------
+
+async function cleanupResources(resources: CreatedResources) {
+  await deleteSandboxes(resources.sandboxes);
+  await deleteSnapshots(resources.snapshots);
+}
+
+async function deleteSandboxes(sandboxes: VercelSandbox[]) {
+  for (const sandbox of [...sandboxes].reverse()) {
+    await deleteSandbox(sandbox);
+  }
+}
+
+async function deleteSandbox(sandbox: VercelSandbox) {
+  try {
+    try {
+      await sandbox.stop();
+    } catch {
+      // A snapshotted base sandbox is already stopped. Deleting it is still OK.
+    }
+    await sandbox.delete();
+    console.log(json({ step: "sandbox.deleted", sandboxName: sandbox.name }));
+  } catch (error) {
+    console.error(
+      json({
+        step: "sandbox.delete_failed",
+        sandboxName: sandbox.name,
+        error: error instanceof Error ? error.message : String(error),
+      }),
+    );
+  }
+}
+
+async function deleteSnapshots(snapshots: VercelSnapshot[]) {
+  for (const snapshot of [...snapshots].reverse()) {
+    await deleteSnapshot(snapshot);
+  }
+}
+
+async function deleteSnapshot(snapshot: VercelSnapshot) {
+  try {
+    await snapshot.delete();
+    console.log(json({ step: "snapshot.deleted", snapshotId: snapshot.snapshotId }));
+  } catch (error) {
+    console.error(
+      json({
+        step: "snapshot.delete_failed",
+        snapshotId: snapshot.snapshotId,
+        error: error instanceof Error ? error.message : String(error),
+      }),
+    );
+  }
+}
+
+// -----------------------------------------------------------------------------
+// Small wrappers around Vercel Sandbox and Convex
+// -----------------------------------------------------------------------------
+
+async function createSandbox({
+  config,
+  resources,
+  role,
+  snapshotId,
+}: {
+  config: TutorialConfig;
+  resources: CreatedResources;
+  role: SandboxRole;
+  snapshotId?: string;
+}) {
+  const commonParams = {
+    ...config.vercelCredentials,
+    env: {
+      // Free-plan tutorial mode: pass a disposable Codex key directly into the
+      // Vercel Sandbox. Do not use a production or long-lived key here.
+      CODEX_API_KEY: config.codexApiKey,
+      CODEX_MODEL: config.codexModel ?? "",
+      CODEX_REASONING_EFFORT: config.codexReasoningEffort,
+      DRIP_CODEX_INNER_SANDBOX_MODE: "danger-full-access",
+    },
+    name: config.sandboxNamePrefix
+      ? `${config.sandboxNamePrefix}-${role}`
+      : undefined,
+    networkPolicy: sandboxNetworkPolicy(config),
+    resources: {
+      vcpus: config.sandboxVcpus,
+    },
+    tags: {
+      app: "drip",
+      phase: "A",
+      prototype: "codex-sdk-tutorial",
+      role,
+    },
+    timeout: config.sandboxTimeoutMs,
+  };
+
+  const sandbox = snapshotId
+    ? await Sandbox.create({
+        ...commonParams,
+        source: {
+          type: "snapshot",
+          snapshotId,
+        },
+      })
+    : await Sandbox.create({
+        ...commonParams,
+        runtime: config.sandboxRuntime,
+      });
+
+  resources.sandboxes.push(sandbox);
+  return sandbox;
+}
+
+async function runCommandOrThrow(
   sandbox: VercelSandbox,
   command: Parameters<VercelSandbox["runCommand"]>[0],
 ) {
   const result = await sandbox.runCommand(command);
   const stdout = await result.stdout();
   const stderr = await result.stderr();
+
   if (stdout) {
     process.stdout.write(stdout);
   }
@@ -401,7 +661,8 @@ async function runOrThrow(
   }
 }
 
-async function ingestHostEvent(
+async function reportHostEvent(
+  config: TutorialConfig,
   externalRunId: string,
   event: {
     sequence: number;
@@ -413,15 +674,10 @@ async function ingestHostEvent(
     sandboxName?: string;
   },
 ) {
-  // Host events use the private ingest token from .env. Sandbox-runner events
-  // use their own per-run token, checked by Convex against the stored hash.
-  const response = await fetch(must(convexIngestUrl, "NEXT_PUBLIC_CONVEX_SITE_URL"), {
+  const response = await fetch(config.convexIngestUrl, {
     method: "POST",
     headers: {
-      authorization: `Bearer ${must(
-        convexIngestToken,
-        "SANDBOX_PROTOTYPE_INGEST_TOKEN",
-      )}`,
+      authorization: `Bearer ${config.convexIngestToken}`,
       "content-type": "application/json",
     },
     body: JSON.stringify({
@@ -443,45 +699,17 @@ async function ingestHostEvent(
   }
 }
 
-async function stopSandboxes() {
-  for (const sandbox of sandboxesToStop.reverse()) {
-    try {
-      await sandbox.stop();
-      console.log(json({ step: "sandbox.stopped", sandboxName: sandbox.name }));
-    } catch (error) {
-      console.error(
-        json({
-          step: "sandbox.stop_failed",
-          sandboxName: sandbox.name,
-          error: error instanceof Error ? error.message : String(error),
-        }),
-      );
-    }
-  }
-}
-
-async function deleteSnapshots() {
-  for (const snapshot of snapshotsToDelete.reverse()) {
-    try {
-      await snapshot.delete();
-      console.log(json({ step: "snapshot.deleted", snapshotId: snapshot.snapshotId }));
-    } catch (error) {
-      console.error(
-        json({
-          step: "snapshot.delete_failed",
-          snapshotId: snapshot.snapshotId,
-          error: error instanceof Error ? error.message : String(error),
-        }),
-      );
-    }
-  }
-}
-
 // -----------------------------------------------------------------------------
-// Env and formatting helpers
+// Config and formatting helpers
 // -----------------------------------------------------------------------------
 
-function validateEnv() {
+function readTutorialConfig(currentTutorialId: string): TutorialConfig {
+  const convexUrl = process.env.DRIP_CONVEX_URL ?? process.env.NEXT_PUBLIC_CONVEX_URL;
+  const convexSiteUrl =
+    process.env.DRIP_CONVEX_SITE_URL ?? process.env.NEXT_PUBLIC_CONVEX_SITE_URL;
+  const convexIngestUrl =
+    process.env.DRIP_CONVEX_INGEST_URL ??
+    (convexSiteUrl ? `${convexSiteUrl}/sandbox-prototype/ingest` : undefined);
   const missing = [];
 
   if (!process.env.VERCEL_OIDC_TOKEN && !process.env.VERCEL_TOKEN) {
@@ -504,19 +732,35 @@ function validateEnv() {
   if (!convexIngestUrl) {
     missing.push("NEXT_PUBLIC_CONVEX_SITE_URL");
   }
-  if (!convexIngestToken) {
+  if (!process.env.SANDBOX_PROTOTYPE_INGEST_TOKEN) {
     missing.push("SANDBOX_PROTOTYPE_INGEST_TOKEN");
   }
 
   if (missing.length > 0) {
     throw new Error(`Missing required env vars: ${missing.join(", ")}`);
   }
+
+  return {
+    codexApiKey: process.env.CODEX_API_KEY!,
+    codexModel: process.env.CODEX_MODEL || undefined,
+    codexReasoningEffort: process.env.CODEX_REASONING_EFFORT ?? "low",
+    convexIngestToken: process.env.SANDBOX_PROTOTYPE_INGEST_TOKEN!,
+    convexIngestUrl: convexIngestUrl!,
+    convexUrl: convexUrl!,
+    sandboxNamePrefix: process.env.DRIP_SANDBOX_NAME || undefined,
+    sandboxRuntime: process.env.DRIP_SANDBOX_RUNTIME ?? "node24",
+    sandboxTimeoutMs: Number(process.env.DRIP_SANDBOX_TIMEOUT_MS ?? "600000"),
+    sandboxVcpus: Number(process.env.DRIP_SANDBOX_VCPUS ?? "2"),
+    tutorialId: currentTutorialId,
+    vercelCredentials: vercelCredentials(),
+  };
 }
 
 function vercelCredentials() {
   if (!process.env.VERCEL_TOKEN) {
     return {};
   }
+
   return {
     projectId: process.env.VERCEL_PROJECT_ID,
     teamId: process.env.VERCEL_TEAM_ID,
@@ -524,7 +768,7 @@ function vercelCredentials() {
   };
 }
 
-function networkPolicy() {
+function sandboxNetworkPolicy(config: TutorialConfig) {
   const allowed = new Set([
     "api.openai.com",
     "auth.openai.com",
@@ -535,22 +779,17 @@ function networkPolicy() {
     "*.convex.cloud",
   ]);
 
-  if (convexIngestUrl) {
-    allowed.add(new URL(convexIngestUrl).hostname);
-  }
+  allowed.add(new URL(config.convexIngestUrl).hostname);
 
   return { allow: Array.from(allowed) };
 }
 
-function sha256Hex(value: string) {
-  return createHash("sha256").update(value).digest("hex");
+function stepForFork(label: ForkLabel) {
+  return label === "fork-a" ? "Step 5.1" : "Step 5.2";
 }
 
-function must(value: string | undefined, name: string) {
-  if (!value) {
-    throw new Error(`${name} is required`);
-  }
-  return value;
+function sha256Hex(value: string) {
+  return createHash("sha256").update(value).digest("hex");
 }
 
 function json(value: unknown) {
