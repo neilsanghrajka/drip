@@ -2,6 +2,7 @@
 - Use `pnpm` as the package manager always.
 - Keep app source in `src/`; Convex functions live in `src/convex/`.
 - Use `pnpm exec` for local CLIs that are installed in this repo.
+- When running in auto approval mode, always run `git` and `gh` commands outside the sandbox.
 
 ## Environment Variables
 - Whenever you add or change an env var, update `.env.example` in the same change.
@@ -24,6 +25,7 @@
 
 ## Self-Deploy
 - Whenever a change affects how a new person can self-host or self-deploy this project, update this section in `AGENTS.md` in the same change.
+- Read `docs/CONVEX.md` and `docs/VERCEL.md` for the architecture choices, env ownership, and verification workflow behind these steps.
 - Install dependencies with `pnpm install`.
 - Copy environment placeholders with `cp .env.example .env.local`.
 - Log in to Vercel with `pnpm exec vercel login`.
