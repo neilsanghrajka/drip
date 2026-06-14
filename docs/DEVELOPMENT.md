@@ -129,6 +129,13 @@ pnpm typecheck
 pnpm build
 ```
 
+For black-box sandbox smoke tests through Convex:
+
+```bash
+pnpm e2e:sandbox -- --scenario fashion-designer-product
+pnpm e2e:sandbox -- --scenario scout-cultural
+```
+
 For browser verification, run `pnpm dev`, open the local app, and verify
 `/convex-smoke` shows the live Convex smoke status.
 

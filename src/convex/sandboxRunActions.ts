@@ -103,6 +103,7 @@ export const startSandboxRun = action({
           DRIP_CODEX_NETWORK_ACCESS_ENABLED:
             process.env.DRIP_CODEX_NETWORK_ACCESS_ENABLED ?? "false",
           ...optionalEnv("EXA_API_KEY"),
+          ...optionalMetaAdsEnv(),
           ...optionalEnv("X_BEARER_TOKEN"),
           ...optionalEnv("TWITTER_BEARER_TOKEN"),
           WORKING_DIRECTORY: sandboxAgentWorkdir(),
@@ -189,17 +190,24 @@ function optionalEnv(name: string) {
   return value ? { [name]: value } : {};
 }
 
+function optionalMetaAdsEnv() {
+  const accessToken = process.env.META_ADS_ACCESS_TOKEN ?? process.env.ACCESS_TOKEN;
+  const adAccountId = process.env.META_ADS_AD_ACCOUNT_ID ?? process.env.AD_ACCOUNT_ID;
+  const businessId = process.env.META_ADS_BUSINESS_ID ?? process.env.BUSINESS_ID;
+
+  return {
+    ...(accessToken ? { META_ADS_ACCESS_TOKEN: accessToken } : {}),
+    ...(adAccountId ? { META_ADS_AD_ACCOUNT_ID: adAccountId } : {}),
+    ...(businessId ? { META_ADS_BUSINESS_ID: businessId } : {}),
+  };
+}
+
 function openAiApiKey() {
   return process.env.OPENAI_API_KEY ?? requiredEnv("CODEX_API_KEY");
 }
 
 function runnerConvexUrl() {
-  return (
-    process.env.DRIP_RUNNER_CONVEX_URL ??
-    process.env.NEXT_PUBLIC_CONVEX_URL ??
-    process.env.CONVEX_CLOUD_URL ??
-    requiredEnv("CONVEX_URL")
-  );
+  return requiredEnv("CONVEX_CLOUD_URL");
 }
 
 function sandboxRunnerCwd() {

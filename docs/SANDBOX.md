@@ -97,6 +97,8 @@ repo/
             SKILL.md
           scout/
             SKILL.md
+          meta-ads-cli/
+            SKILL.md
           fashion-designer/
             SKILL.md
           x-trends/
@@ -123,10 +125,12 @@ The snapshot maps that repo payload to:
 `src/` remains Drip product and Convex control-plane code. It is not copied into
 the base snapshot.
 
-The setup command also preinstalls the Python packages required by the official
-`$imagegen` CLI fallback (`openai` and `pillow`) into the base image. That keeps
-Fashion Designer image runs focused on generation latency rather than per-run
-dependency bootstrap.
+The setup command also preinstalls Python CLI dependencies into the base image:
+`openai` and `pillow` for the official `$imagegen` fallback, plus `uv` and the
+official Meta Ads CLI package (`meta-ads`) for ad-account and campaign
+automation. `meta-ads` requires Python 3.12+, so the setup installs it as a
+uv-managed tool rather than relying on the sandbox system Python. That keeps
+agent runs focused on the task rather than per-run dependency bootstrap.
 
 ![Codex agent runtime base image](whiteboard/codex_agent_runtime.png)
 
@@ -208,7 +212,7 @@ Never commit or print real values for these names.
 | `DRIP_SANDBOX_RUNNER_CWD` | Convex action and setup command | Runner directory; default `/vercel/sandbox/runner`. |
 | `DRIP_SANDBOX_RUNNER_ENTRYPOINT` | Convex action and setup command | Runner entrypoint relative to runner cwd; default `index.ts`. |
 | `DRIP_SANDBOX_AGENT_WORKDIR` | Convex action and setup command | Codex working directory; default `/vercel/sandbox/agent-workspace`. |
-| `DRIP_RUNNER_CONVEX_URL` | Convex action | Optional Convex URL override passed into the runner; product actions fall back to Convex's built-in cloud URL when available. |
+| `CONVEX_CLOUD_URL` | Convex runtime built-in | Source of truth for the sandbox runner callback URL. The action passes it into the runner as `CONVEX_URL`; do not configure an operator override for this path. |
 | `OPENAI_API_KEY` or `CODEX_API_KEY` | Convex action/runtime | OpenAI auth source. The action passes `OPENAI_API_KEY` into the runner command. |
 | `OPENAI_API_KEY` | Codex child process | Also forwarded to Codex so the official `$imagegen` CLI fallback can reuse the runner OpenAI key when built-in image generation is unavailable. |
 | `CODEX_MODEL` | Convex action/runtime | Runtime override; default is `gpt-5.5`. |
@@ -216,6 +220,9 @@ Never commit or print real values for these names.
 | `DRIP_CODEX_NETWORK_ACCESS_ENABLED` | Convex action/runtime | Enables Codex SDK network access for API-backed skills such as Scout; default `false`. |
 | `EXA_API_KEY` | Convex action/runtime | Exa Search API key passed only into the Codex process when present. |
 | `X_BEARER_TOKEN` or `TWITTER_BEARER_TOKEN` | Convex action/runtime | X API app-only bearer token passed only into the Codex process when present. |
+| `META_ADS_ACCESS_TOKEN` | Convex action/runtime | Meta system-user token passed into the Codex process as the official Meta Ads CLI `ACCESS_TOKEN` when present. |
+| `META_ADS_AD_ACCOUNT_ID` | Convex action/runtime | Default Meta ad account passed into the Codex process as `AD_ACCOUNT_ID` when present. Use the CLI-expected value, including the `act_` prefix when applicable. |
+| `META_ADS_BUSINESS_ID` | Convex action/runtime | Optional Meta business portfolio passed into the Codex process as `BUSINESS_ID` when present. |
 | `DRIP_SANDBOX_RUNNER_TIMEOUT_MS` | Convex action | Detached runner command timeout. |
 | `DRIP_HEARTBEAT_MS` | Runner | Heartbeat interval. |
 
@@ -234,6 +241,77 @@ agent config/skill files, verifies Drip app files are absent, snapshots the
 sandbox, starts a fork from that snapshot, repeats the smoke checks, updates
 `.env`, selected Convex, and prod Convex to the new `BASE_SANDBOX_IMAGE`, then
 deletes the previous snapshot.
+
+## Black-Box E2E Smoke Tests
+
+Use the Convex-side smoke harness when you need to prove the product path works
+from the same boundary the app uses: create a `sandboxRuns` row, call the
+Convex action, stream runner events, inspect the Vercel Sandbox artifact, then
+clean up.
+
+Scenario prompts should stay lean and employee-facing. They should invoke the
+skill and describe the role-specific task, but should not mention internal
+subagents, API names, model settings, or artifact paths unless those are part
+of the user-facing contract.
+
+```bash
+pnpm e2e:sandbox -- --scenario fashion-designer-product
+pnpm e2e:sandbox -- --scenario scout-cultural
+pnpm e2e:sandbox -- --scenario all
+```
+
+Use `--start-attempts <count>` when Vercel Sandbox creation is temporarily
+throttled. The harness retries only transient platform start failures such as
+429/5xx responses; skill output assertions stay strict.
+
+The harness writes ignored evidence under `.sandbox-e2e/`:
+
+| File | Purpose |
+| --- | --- |
+| `run.json` | Final `sandboxRuns` row returned by Convex. |
+| `events.json` | Streamed runner events used for black-box assertions. |
+| `output.json` | Skill artifact copied back from the Vercel Sandbox. |
+| `summary.json` | Timing, Convex DB state snapshots, event counts, final response, and copied asset metadata. |
+| `contact-sheet.html` | Fashion Designer-only visual review sheet for copied image assets. |
+
+For every scenario, the harness asserts the Convex control-plane state changed
+as expected:
+
+1. The prompt is stored in a newly created `sandboxRuns` row with `queued`
+   status.
+2. `sandboxRunActions.startSandboxRun` records `sandboxId`, `commandId`, and a
+   running or terminal status.
+3. The runner writes ordered `sandboxRunEvents`.
+4. The terminal `sandboxRuns` row contains `codexThreadId` and `finalResponse`.
+5. The sandbox artifact is read from the Vercel Sandbox filesystem, not from a
+   local mock.
+6. The artifact `generatedAt` timestamp falls inside the current run window, so
+   stale files from prior runs are rejected.
+
+Fashion Designer smoke tests verify a multi-idea batch: two approved ideas,
+caps and socks, two kept final mocks per idea, surplus candidates, grouped
+`ideas[]` output, per-idea reviewer keep/reject records, the expected JSON
+schema, and real PNG/JPEG/WebP files under `fashion-designer-assets/`. Each
+copied image is signature-checked, dimension-checked, hashed, and included in
+the contact sheet.
+
+Do not assert exact model phrasing, exact image-generation command lines, exact
+subagent names, or exact prompt/query internals. The skill owns its judgment and
+implementation strategy; the harness verifies the public employee contract.
+
+Scout smoke tests verify that the run wrote `scout-output.json` with
+source-backed candidates. They are intentionally strict: if X credentials, Exa
+credentials, provider balance, or Codex network access are missing in the
+Convex action/runner runtime, the smoke should fail rather than accepting
+invented cultural moments. The runner emits non-secret env-presence booleans in
+`runner.started` so failures can be attributed to configuration propagation
+without exposing credential values.
+
+By default the harness deletes the Vercel Sandbox after inspection. Use
+`--keep-sandbox` for manual debugging, or set
+`DRIP_E2E_KEEP_SANDBOX_ON_FAILURE=1` to preserve only failing sandboxes. Use
+`--cleanup-artifacts` when a CI lane should leave no local evidence after a
+successful run.
 
 ## Security Boundaries
 
@@ -262,6 +340,7 @@ deletes the previous snapshot.
 | `sandbox/codex-agent/.codex/skills/.system/imagegen/SKILL.md` | Official Codex image generation skill copied into the sandbox `CODEX_HOME` layout. |
 | `sandbox/codex-agent/.agents/skills/agent-browser/SKILL.md` | Browser automation skill stub copied into the agent workspace. |
 | `sandbox/codex-agent/.agents/skills/scout/SKILL.md` | Scout orchestration skill and structured output contract. |
+| `sandbox/codex-agent/.agents/skills/meta-ads-cli/SKILL.md` | Meta Ads CLI usage, runtime env, and safety rules for sandbox agents. |
 | `sandbox/codex-agent/.agents/skills/fashion-designer/SKILL.md` | Fashion Designer orchestration skill and structured output contract. |
 | `sandbox/codex-agent/.agents/skills/x-trends/SKILL.md` | Instruction-only X public-data research skill. |
 | `sandbox/codex-agent/.agents/skills/exa-search/SKILL.md` | Instruction-only generic Exa Search API skill. |

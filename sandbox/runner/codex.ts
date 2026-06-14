@@ -66,14 +66,17 @@ export async function runCodexSdk({
   };
 
   try {
+    const env = codexEnv(config.workingDirectory);
     await emit("runner.started", {
+      codexEnvPresence: envPresence(env),
       cwd: config.workingDirectory,
+      networkAccessEnabled: config.codexNetworkAccessEnabled,
       nodeVersion: process.version,
+      runnerEnvPresence: envPresence(process.env),
     });
     await maybeHeartbeat(true);
 
     const { Codex } = await import("@openai/codex-sdk");
-    const env = codexEnv(config.workingDirectory);
     const codex = new Codex({
       apiKey: config.openAiApiKey,
       env,
@@ -147,6 +150,12 @@ function codexEnv(workingDirectory: string) {
     "EXA_API_KEY",
     "X_BEARER_TOKEN",
     "TWITTER_BEARER_TOKEN",
+    "ACCESS_TOKEN",
+    "AD_ACCOUNT_ID",
+    "BUSINESS_ID",
+    "META_ADS_ACCESS_TOKEN",
+    "META_ADS_AD_ACCOUNT_ID",
+    "META_ADS_BUSINESS_ID",
   ]) {
     const value = process.env[name];
     if (value) {
@@ -160,16 +169,41 @@ function codexEnv(workingDirectory: string) {
   if (!env.X_BEARER_TOKEN && env.TWITTER_BEARER_TOKEN) {
     env.X_BEARER_TOKEN = env.TWITTER_BEARER_TOKEN;
   }
+  if (!env.ACCESS_TOKEN && env.META_ADS_ACCESS_TOKEN) {
+    env.ACCESS_TOKEN = env.META_ADS_ACCESS_TOKEN;
+  }
+  if (!env.AD_ACCOUNT_ID && env.META_ADS_AD_ACCOUNT_ID) {
+    env.AD_ACCOUNT_ID = env.META_ADS_AD_ACCOUNT_ID;
+  }
+  if (!env.BUSINESS_ID && env.META_ADS_BUSINESS_ID) {
+    env.BUSINESS_ID = env.META_ADS_BUSINESS_ID;
+  }
 
   return env;
+}
+
+function envPresence(env: NodeJS.ProcessEnv | Record<string, string>) {
+  return {
+    EXA_API_KEY: Boolean(env.EXA_API_KEY),
+    META_ADS_ACCESS_TOKEN: Boolean(
+      env.META_ADS_ACCESS_TOKEN ?? env.ACCESS_TOKEN,
+    ),
+    META_ADS_AD_ACCOUNT_ID: Boolean(
+      env.META_ADS_AD_ACCOUNT_ID ?? env.AD_ACCOUNT_ID,
+    ),
+    META_ADS_BUSINESS_ID: Boolean(env.META_ADS_BUSINESS_ID ?? env.BUSINESS_ID),
+    X_BEARER_TOKEN: Boolean(env.X_BEARER_TOKEN),
+    TWITTER_BEARER_TOKEN: Boolean(env.TWITTER_BEARER_TOKEN),
+  };
 }
 
 function runnerPath() {
   const currentPath = process.env.PATH ?? "/usr/bin:/bin";
   const runnerNodeBin = `${process.cwd()}/node_modules/.bin`;
-  return currentPath.includes(runnerNodeBin)
-    ? currentPath
-    : `${runnerNodeBin}:${currentPath}`;
+  const userLocalBin = `${process.env.HOME ?? "/tmp"}/.local/bin`;
+  return [runnerNodeBin, userLocalBin, currentPath]
+    .filter((entry, index, entries) => entries.indexOf(entry) === index)
+    .join(":");
 }
 
 function absorbCodexEvent(

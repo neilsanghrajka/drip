@@ -13,7 +13,8 @@ storefronts.
 
 Accept lean user prompts. Infer reasonable defaults when omitted.
 
-- `approvedIdeas`: approved Scout candidate ideas, or an instruction to read a Scout artifact
+- `approvedIdeas`: approved Scout candidate ideas as a batch, or an instruction to read a Scout artifact
+- `maxApprovedIdeas`: hard maximum `3`; never process more than three ideas in one run
 - `input`: optional artifact path, default `/vercel/sandbox/agent-workspace/scout-output.json`
 - `productCategories`: default `caps`, `socks`, `tees`, `hoodies`, and `bundles`
 - `tasteConstraints`: optional audience, brand, palette, fit, or avoid-list guidance
@@ -30,26 +31,64 @@ image-generation plan.
 
 1. Parse approved ideas, product categories, taste constraints, output path, and asset directory.
 2. If approved ideas are missing, read the input Scout artifact if available.
-3. Create a concise design brief per idea: audience, product angle, fit, color palette, print placement, typography/style direction, and avoid-list.
-4. Plan a surplus candidate pool. Generate more images than the requested final count:
-   - Target at least `mocksPerIdea * candidateMultiplier`.
-   - For very small requests, generate at least two candidates so there is something to discard.
-   - Keep the pool bounded by time and cost; prefer enough useful variation over exhaustive exploration.
-5. Spawn product subagents in parallel. Split by product family and, when useful, by visual angle so image generation can run at the same time:
-   - `cap-designer` for cap concepts and mock images.
-   - `sock-designer` for sock concepts and mock images.
-   - `apparel-designer` for tees, hoodies, bundles, product-on-model shots, and product bundle images.
-6. Ask each product subagent to use `$imagegen` and return compact JSON with generated asset paths, prompts, candidate ids, concepts, and self-review notes.
-7. Spawn `fashion-reviewer` after the first generation wave. Give it the full candidate pool, requested final count, taste constraints, and image paths.
-8. `fashion-reviewer` keeps the best assets, rejects weak ones, and returns regeneration requests only for gaps that matter.
-9. If fewer than the requested mocks are usable, run at most `maxRegenerationRounds` targeted regeneration pass through the relevant product subagent, then ask `fashion-reviewer` to review only the new replacements.
-10. Use Fashion Designer judgment to choose the final user-review set from the reviewer-approved candidates.
-11. Write the final JSON file, replacing any existing file.
-12. Verify the JSON parses and referenced image files exist, then return a short status with the artifact path.
+3. Enforce the hard batch cap: process at most three approved ideas. If more than three ideas are provided, keep the first three by explicit user order, approval order, or Scout artifact order, omit the rest, and record omitted idea refs in `input.omittedIdeaIds` and `strategy.notes`.
+4. Treat the capped input as a batch: `approvedIdeas[] -> perIdeaBriefs[] -> workOrders[] -> reviewer -> grouped output`.
+5. For each approved idea, create exactly one concise design brief: audience, product angle, category choices, fit, color palette, print placement, typography/style direction, and avoid-list.
+6. Choose product categories per idea. Use requested `productCategories` when provided; otherwise pick categories that fit the idea. `mocksPerIdea` is the final target per idea, not a global target.
+7. Create work orders for the matrix of `ideaRef x productCategory`. Each work order should include:
+   - `ideaRef`
+   - `ideaBrief`
+   - `productCategory`
+   - `targetFinalMocks`
+   - `candidateTarget`
+   - `assetDir`
+   - `tasteConstraints`
+8. Distribute `mocksPerIdea` across the selected product categories for each idea unless the user explicitly provides per-category targets. Generate more image candidates than the final count:
+   - Target at least `targetFinalMocks * candidateMultiplier` per work order.
+   - For very small work orders, generate at least two candidates so there is something to discard.
+   - Keep the pool bounded by time and cost; prefer useful variation over exhaustive exploration.
+9. Spawn product subagents by work order, not just by product family:
+   - Use `cap-designer` for `caps` work orders.
+   - Use `sock-designer` for `socks` work orders.
+   - Use `apparel-designer` for `tees`, `hoodies`, `bundles`, product-on-model shots, and product bundle work orders.
+   - Use the same subagent type multiple times when several ideas or category lanes need it.
+10. Run up to the available thread capacity in parallel. With current `max_threads = 6`, a good default is `3 approved ideas x 2 product lanes = 6` parallel work orders. If work orders exceed available threads, run them in waves.
+11. Ask each product subagent to use `$imagegen` and return compact JSON with `ideaRef` on every candidate asset.
+12. Spawn `fashion-reviewer` after each generation wave or after the full first generation wave. Give it the candidate pool grouped by idea, requested final count per idea, taste constraints, and image paths.
+13. `fashion-reviewer` reviews and culls per idea. It should keep enough candidates for each idea and avoid accidentally keeping all best-looking images from one idea while starving another.
+14. If an idea has fewer than `mocksPerIdea` usable mocks, run at most `maxRegenerationRounds` targeted regeneration pass through the relevant product subagent, then ask `fashion-reviewer` to review only the new replacements for that idea.
+15. Use Fashion Designer judgment to choose the final user-review set from reviewer-approved candidates, preserving grouping by `ideaRef`.
+16. Write the final JSON file, replacing any existing file.
+17. Verify the JSON parses and referenced image files exist, then return a short status with the artifact path.
+
+Example work orders:
+
+```json
+[
+  {
+    "ideaRef": "idea_01",
+    "productCategory": "caps",
+    "targetFinalMocks": 2,
+    "candidateTarget": 4
+  },
+  {
+    "ideaRef": "idea_01",
+    "productCategory": "socks",
+    "targetFinalMocks": 2,
+    "candidateTarget": 4
+  },
+  {
+    "ideaRef": "idea_03",
+    "productCategory": "tees",
+    "targetFinalMocks": 2,
+    "candidateTarget": 4
+  }
+]
+```
 
 Keep responsibilities separated:
 
-- Product subagents: image generation and self-review for one product family only.
+- Product subagents: one work order at a time, image generation, and self-review for one product family only.
 - `$imagegen`: official image-generation workflow and asset handling rules.
 - `fashion-reviewer`: visual QA, rejection, curation, and regeneration briefs.
 - Fashion Designer: final product direction, speed/quality tradeoff, category balance, and artifact writing.
@@ -57,10 +96,15 @@ Keep responsibilities separated:
 ## Speed And Parallelism
 
 - Optimize for wall-clock time. Prefer several narrow product subagent calls over one large sequential call.
-- Start independent product categories in parallel whenever the request allows it.
-- For a single product category, split into 2-3 visual lanes when useful: for example, `minimal embroidery`, `graphic patch`, and `lifestyle product shot`.
+- Start independent work orders in parallel whenever the request allows it.
+- Spawn by work order. For example, run `idea_01 caps`, `idea_01 socks`, `idea_02 caps`, `idea_02 socks`, `idea_03 caps`, and `idea_03 socks` together when six threads are available.
+- For larger batches, run waves. Wave 1 should usually cover the strongest cap/sock lanes across ideas; Wave 2 can cover remaining apparel, bundle, or product-on-model lanes.
+- For a single product category inside one idea, split into 2-3 visual lanes only when it helps reach the work order candidate target: for example, `minimal embroidery`, `graphic patch`, and `lifestyle product shot`.
 - Do not wait for perfect images. Once the reviewer has enough strong candidates for the requested count, stop extra regeneration.
 - Run only one focused regeneration round by default. Extra rounds need explicit user instruction or a severe blocker.
+- When the official `$imagegen` CLI fallback is used for a surplus pool, prefer `generate-batch` with a small JSONL job file and `--concurrency 3-5` so independent candidate prompts run together.
+- For normal fashion product mock candidates, prefer `gpt-image-2`, `quality=medium`, and `size=1024x1024`. Use higher quality only for dense text, complex details, or explicit user direction.
+- For opaque product photos where transparency is not needed, `jpeg` or `webp` output is acceptable; `jpeg` with about `output_compression=85` is preferred when latency matters.
 - Do not use deterministic code to rank or score images. The speed plan is procedural; quality selection is model judgment.
 
 ## Product Mockup Direction
@@ -80,7 +124,8 @@ Keep responsibilities separated:
 - If neither built-in image generation nor the official CLI fallback is available, fail loudly and explain the blocker.
 - Save project-bound final assets under `fashion-designer-assets/`.
 - Never leave campaign assets only under `$CODEX_HOME/generated_images`.
-- Never create local placeholder art, SVG/canvas/code-rendered mockups, or locally rendered substitute PNGs as a replacement for `$imagegen`.
+- Generated assets may be PNG, JPEG, or WebP, but every path recorded in JSON must point to a real file under the workspace asset directory.
+- Never create local placeholder art, SVG/canvas/code-rendered mockups, or locally rendered substitute images as a replacement for `$imagegen`.
 - Keep generated concepts original. Do not copy logos, team marks, album art, lyrics, celebrity likenesses, protected characters, or protected brand trade dress.
 - Prefer fashion-forward, restrained, collectible product mockups over low-effort meme merch.
 
@@ -89,11 +134,11 @@ Keep responsibilities separated:
 - Design for the cultural moment without copying protected source material.
 - Create product concepts, not final manufacturing specs.
 - Include caps and socks when feasible; add tees, hoodies, bundles, and product-on-model shots when they fit the idea.
-- Select a varied review set. Do not return five near-duplicates of the same product.
-- Generate surplus candidates, but write only reviewer-approved final concepts to `concepts`.
+- Select a varied review set per idea. Do not return five near-duplicates of the same product for one idea, and do not starve an idea because another idea produced prettier mocks.
+- Generate surplus candidates per idea, but write only reviewer-approved final concepts to `concepts`.
 - Preserve a compact review trail in `review`, especially rejected text/image-quality issues and regeneration decisions.
 - Explain why each mock is worth showing to the user before ad testing.
-- If fewer than the requested mocks are usable, return fewer and explain why in `strategy.notes`.
+- If fewer than the requested mocks are usable for an idea, return fewer for that idea and explain why in both `ideas[].review.notes` and `strategy.notes`.
 
 Do not use deterministic code to rank, score, or select final concepts. Visual
 taste, fit, category balance, and final rationale are Fashion Designer's model
@@ -117,6 +162,8 @@ Use this schema:
   "input": {
     "source": "scout-output.json",
     "approvedIdeaIds": [],
+    "maxApprovedIdeas": 3,
+    "omittedIdeaIds": [],
     "productCategories": ["caps", "socks", "tees", "hoodies", "bundles"],
     "mocksPerIdea": 5,
     "candidateMultiplier": 2,
@@ -127,24 +174,66 @@ Use this schema:
     "assetDir": "/vercel/sandbox/agent-workspace/fashion-designer-assets",
     "subagentsUsed": ["cap-designer", "sock-designer", "apparel-designer", "fashion-reviewer"],
     "candidatePlan": {
-      "requestedFinalMocks": 5,
-      "candidateTarget": 10,
-      "parallelLanes": ["cap", "sock", "apparel"],
+      "requestedFinalMocksPerIdea": 5,
+      "totalRequestedFinalMocks": 15,
+      "totalCandidateTarget": 30,
+      "workOrders": [
+        {
+          "ideaRef": "idea_01",
+          "productCategory": "caps",
+          "targetFinalMocks": 2,
+          "candidateTarget": 4,
+          "subagent": "cap-designer"
+        }
+      ],
+      "waves": [
+        ["idea_01 caps", "idea_01 socks", "idea_02 caps", "idea_02 socks", "idea_03 caps", "idea_03 socks"]
+      ],
       "regenerationRoundsUsed": 0
     },
     "notes": []
   },
   "review": {
     "reviewerAgent": "fashion-reviewer",
-    "candidateCount": 10,
-    "keptCount": 5,
-    "rejectedCount": 5,
+    "candidateCount": 30,
+    "keptCount": 15,
+    "rejectedCount": 15,
+    "byIdea": [
+      {
+        "ideaRef": "idea_01",
+        "kept": ["idea_01-cap-01"],
+        "rejected": ["idea_01-cap-02"],
+        "regenerationRequests": [],
+        "notes": []
+      }
+    ],
     "regenerationRequests": [],
     "notes": []
   },
+  "ideas": [
+    {
+      "ideaRef": "idea_01",
+      "brief": {
+        "audience": "Who this idea is for.",
+        "productAngle": "How the cultural moment becomes fashion.",
+        "productCategories": ["caps", "socks"],
+        "palette": ["ink", "cream"],
+        "avoid": []
+      },
+      "candidateCount": 10,
+      "keptCount": 5,
+      "review": {
+        "kept": ["idea_01-cap-01"],
+        "rejected": ["idea_01-cap-02"],
+        "regenerationRequests": [],
+        "notes": []
+      },
+      "concepts": []
+    }
+  ],
   "concepts": [
     {
-      "ideaRef": "Scout idea or candidate id",
+      "ideaRef": "idea_01",
       "conceptName": "Concept name",
       "productType": "cap",
       "fit": "structured six-panel cap",
@@ -156,7 +245,8 @@ Use this schema:
         {
           "path": "/vercel/sandbox/agent-workspace/fashion-designer-assets/example.png",
           "category": "cap",
-          "candidateId": "cap-a-01",
+          "ideaRef": "idea_01",
+          "candidateId": "idea_01-cap-01",
           "prompt": "Prompt used with imagegen.",
           "reviewDecision": "kept",
           "reviewNotes": "Visual QA and why it is usable."

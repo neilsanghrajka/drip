@@ -9,6 +9,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
+    "e2e:sandbox": "tsx scripts/sandbox_e2e_smoke.ts",
     "setup:base-snapshot": "tsx scripts/setup_base_snapshot.ts",
     "deploy": "vercel deploy --prod --yes",
     "deploy:convex-build": "pnpm exec convex deploy --cmd 'pnpm run build' --cmd-url-env-var-name NEXT_PUBLIC_CONVEX_URL"

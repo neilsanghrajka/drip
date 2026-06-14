@@ -111,8 +111,8 @@ async function main() {
     await preparePnpm(baseSandbox, config);
     await installRunnerDependencies(baseSandbox, config);
 
-    log("Installing imagegen Python dependencies in sandbox.");
-    await installImagegenPythonDependencies(baseSandbox, config);
+    log("Installing sandbox Python tool dependencies.");
+    await installSandboxPythonToolDependencies(baseSandbox, config);
 
     log("Running base image smoke.");
     await runBaseSmoke(baseSandbox, config);
@@ -125,7 +125,7 @@ async function main() {
 
     log("Running fork smoke.");
     await runForkSmoke(forkSandbox, config);
-    await verifyImagegenPythonDependencies(forkSandbox, config);
+    await verifySandboxPythonToolDependencies(forkSandbox, config);
     await readAndVerifyProof(forkSandbox, config);
 
     log("Promoting base image env.");
@@ -142,8 +142,8 @@ async function main() {
 
     log(`Snapshot smoke status: passed; ${privateEnvFile} and Convex env updated.`);
   } finally {
-    await stopSandbox(forkSandbox);
-    await stopSandbox(baseSandbox);
+    await deleteSandbox(forkSandbox);
+    await deleteSandbox(baseSandbox);
     if (snapshot && !snapshotPromoted && !snapshotReferenced) {
       await deleteSnapshot(snapshot);
     }
@@ -547,46 +547,85 @@ async function installRunnerDependencies(
   });
 }
 
-async function installImagegenPythonDependencies(
+async function installSandboxPythonToolDependencies(
   sandbox: VercelSandbox,
   config: SetupConfig,
 ) {
-  await runSandboxCommand(sandbox, "python ensurepip for imagegen", {
+  await runSandboxCommand(sandbox, "python ensurepip for sandbox tools", {
     cmd: "python3",
     args: ["-m", "ensurepip", "--user"],
     cwd: config.agentWorkdir,
     timeoutMs: 120_000,
   });
 
-  await runSandboxCommand(sandbox, "install imagegen python dependencies", {
+  await runSandboxCommand(sandbox, "install sandbox python tool dependencies", {
     cmd: "python3",
-    args: ["-m", "pip", "install", "--user", "openai", "pillow"],
+    args: ["-m", "pip", "install", "--user", "openai", "pillow", "uv"],
     cwd: config.agentWorkdir,
     timeoutMs: 300_000,
   });
 
-  await verifyImagegenPythonDependencies(sandbox, config);
+  await runSandboxCommand(sandbox, "install meta ads cli", {
+    cmd: "python3",
+    args: [
+      "-c",
+      [
+        "import os, subprocess",
+        "local_bin = os.path.expanduser('~/.local/bin')",
+        "uv = os.path.join(local_bin, 'uv')",
+        "subprocess.run([uv, 'tool', 'install', '--python', '3.12', 'meta-ads'], check=True)",
+      ].join("; "),
+    ],
+    cwd: config.agentWorkdir,
+    timeoutMs: 300_000,
+  });
+
+  await verifySandboxPythonToolDependencies(sandbox, config);
 }
 
-async function verifyImagegenPythonDependencies(
+async function verifySandboxPythonToolDependencies(
   sandbox: VercelSandbox,
   config: SetupConfig,
 ) {
-  const result = await runSandboxCommand(
+  const importResult = await runSandboxCommand(
     sandbox,
-    "verify imagegen python dependencies",
+    "verify sandbox python tool imports",
     {
       cmd: "python3",
       args: [
         "-c",
-        "import openai; import PIL; print('imagegen-python-deps-ok')",
+        "import openai; import PIL; print('sandbox-python-tool-imports-ok')",
       ],
       cwd: config.agentWorkdir,
       timeoutMs: 60_000,
     },
   );
-  if (!result.stdout.includes("imagegen-python-deps-ok")) {
-    throw new Error("Imagegen Python dependency smoke did not report success.");
+  if (!importResult.stdout.includes("sandbox-python-tool-imports-ok")) {
+    throw new Error("Sandbox Python tool import smoke did not report success.");
+  }
+
+  const cliResult = await runSandboxCommand(
+    sandbox,
+    "verify meta ads cli",
+    {
+      cmd: "python3",
+      args: [
+        "-c",
+        [
+          "import os, shutil, subprocess",
+          "local_bin = os.path.expanduser('~/.local/bin')",
+          "os.environ['PATH'] = local_bin + os.pathsep + os.environ.get('PATH', '')",
+          "assert shutil.which('meta'), 'meta cli not found'",
+          "subprocess.run(['meta', '--version'], check=True)",
+          "print('meta-ads-cli-ok')",
+        ].join("; "),
+      ],
+      cwd: config.agentWorkdir,
+      timeoutMs: 60_000,
+    },
+  );
+  if (!cliResult.stdout.includes("meta-ads-cli-ok")) {
+    throw new Error("Meta Ads CLI smoke did not report success.");
   }
 }
 
@@ -754,12 +793,21 @@ async function runSandboxCommand(
   };
 }
 
-async function stopSandbox(sandbox: VercelSandbox | undefined) {
+async function deleteSandbox(sandbox: VercelSandbox | undefined) {
   if (!sandbox) {
     return;
   }
 
-  await sandbox.stop().catch(() => undefined);
+  try {
+    await sandbox.delete();
+    return;
+  } catch {
+    await sandbox.stop().catch(() => undefined);
+  }
+
+  await sandbox.delete().catch((error) => {
+    log(`Temporary sandbox cleanup skipped: ${redactSensitiveText(errorMessage(error))}`);
+  });
 }
 
 async function deleteSnapshot(snapshot: VercelSnapshot) {
