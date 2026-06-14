@@ -163,6 +163,7 @@ function normalizeError(error) {
 export const embeddedSandboxPackageJson = JSON.stringify(
   {
     private: true,
+    packageManager: "pnpm@11.3.0",
     type: "module",
     dependencies: {
       "@openai/codex-sdk": "0.136.0",

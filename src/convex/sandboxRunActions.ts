@@ -17,9 +17,9 @@ import {
 type SandboxRunDoc = Doc<"sandboxRuns">;
 
 type VercelSandboxCredentials = {
-  token: string;
   teamId: string;
   projectId: string;
+  token?: string;
 };
 
 const getSandboxRunForAction = makeFunctionReference<
@@ -154,16 +154,24 @@ async function bootstrapSandboxIfNeeded(
     },
   ]);
 
-  const install = await sandbox.runCommand({
-    cmd: "npm",
-    args: ["install", "--ignore-scripts", "--omit=dev"],
+  await runSandboxCommand(sandbox, "corepack enable", {
+    cmd: "corepack",
+    args: ["enable"],
+    cwd: "/vercel/sandbox",
+    timeoutMs: 60_000,
+  });
+  await runSandboxCommand(sandbox, "corepack prepare pnpm", {
+    cmd: "corepack",
+    args: ["prepare", "pnpm@11.3.0", "--activate"],
+    cwd: "/vercel/sandbox",
+    timeoutMs: 120_000,
+  });
+  await runSandboxCommand(sandbox, "Sandbox bootstrap install", {
+    cmd: "pnpm",
+    args: ["install", "--ignore-scripts", "--prod"],
     cwd: "/vercel/sandbox",
     timeoutMs: numberEnv("DRIP_SANDBOX_INSTALL_TIMEOUT_MS", 180_000),
   });
-  if (install.exitCode !== 0) {
-    const stderr = await install.stderr();
-    throw new Error(`Sandbox bootstrap install failed: ${stderr}`);
-  }
 }
 
 function runnerCommandArgs() {
@@ -206,13 +214,14 @@ async function createSandbox() {
 }
 
 function vercelSandboxCredentials(): VercelSandboxCredentials {
-  const token = process.env.VERCEL_TOKEN ?? process.env.VERCEL_OIDC_TOKEN;
+  const hasVercelToken = Boolean(process.env.VERCEL_TOKEN);
+  const hasOidcToken = Boolean(process.env.VERCEL_OIDC_TOKEN);
   const teamId = process.env.VERCEL_TEAM_ID;
   const projectId = process.env.VERCEL_PROJECT_ID;
 
-  if (!token || !teamId || !projectId) {
+  if ((!hasVercelToken && !hasOidcToken) || !teamId || !projectId) {
     const missing = [
-      token ? null : "VERCEL_TOKEN or VERCEL_OIDC_TOKEN",
+      hasVercelToken || hasOidcToken ? null : "VERCEL_TOKEN or VERCEL_OIDC_TOKEN",
       teamId ? null : "VERCEL_TEAM_ID",
       projectId ? null : "VERCEL_PROJECT_ID",
     ].filter((value): value is string => value !== null);
@@ -222,10 +231,22 @@ function vercelSandboxCredentials(): VercelSandboxCredentials {
   }
 
   return {
-    token,
     teamId,
     projectId,
+    ...(process.env.VERCEL_TOKEN ? { token: process.env.VERCEL_TOKEN } : {}),
   };
+}
+
+async function runSandboxCommand(
+  sandbox: Awaited<ReturnType<typeof Sandbox.create>>,
+  label: string,
+  command: Parameters<Awaited<ReturnType<typeof Sandbox.create>>["runCommand"]>[0],
+) {
+  const result = await sandbox.runCommand(command);
+  if (result.exitCode !== 0) {
+    const stderr = await result.stderr();
+    throw new Error(`${label} failed: ${stderr}`);
+  }
 }
 
 function requiredEnv(name: string) {
