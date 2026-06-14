@@ -20,7 +20,7 @@ const repoRoot = path.resolve(
 const sandboxRoot = "/vercel/sandbox";
 const privateEnvFile = ".env.local";
 const privateEnvPath = path.join(repoRoot, privateEnvFile);
-const setupCommand = "scripts/setup_base_snapshot";
+const setupCommand = "pnpm run setup:base-snapshot";
 const proofFile = "phase-c-snapshot-proof.json";
 const writeBatchBytes = 4 * 1024 * 1024;
 const writeBatchFiles = 64;
@@ -310,7 +310,6 @@ async function copyRepoFiles(sandbox: VercelSandbox) {
     const content = await readFile(absolutePath);
     batch.push({
       content,
-      mode: file === setupCommand ? 0o755 : undefined,
       path: file,
     });
     batchBytes += content.byteLength;
@@ -450,7 +449,7 @@ async function updateBaseSandboxImage(snapshotId: string) {
     if (updated.length > 0 && updated[updated.length - 1] !== "") {
       updated.push("");
     }
-    updated.push("# Updated by scripts/setup_base_snapshot.");
+    updated.push("# Updated by pnpm run setup:base-snapshot.");
     updated.push(`BASE_SANDBOX_IMAGE=${snapshotId}`);
   }
 

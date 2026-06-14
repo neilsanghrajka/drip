@@ -65,7 +65,7 @@ There are two layers:
 | Control plane | Stores run state, event streams, cancellation, liveness, and terminal results. | `src/convex/sandboxRuns.ts` |
 | Sandbox provisioner | Creates a Vercel Sandbox, starts the detached runner command, and records sandbox/command metadata privately in Convex. | `src/convex/sandboxRunActions.ts` |
 | Runner | Loads the run task, streams Codex SDK events, sends heartbeats, observes cancellation, and finishes the run. | `src/sandbox/runner/*` |
-| Base snapshot operation | Builds and verifies the reusable Vercel Sandbox snapshot used by runtime provisioning. | Base snapshot setup command. |
+| Base image | Reusable Vercel Sandbox snapshot used by runtime provisioning. | `pnpm run setup:base-snapshot` |
 
 Product sandbox runs use Convex mutations for runner ingest. The custom HTTP
 route in `src/convex/http.ts` belongs to the Phase A prototype only.
@@ -135,33 +135,54 @@ Never commit or print real values for these names.
 Prototype-only env belongs to `docs/prototypes/sandbox-codex-sdk/*` and
 `src/convex/sandboxPrototype.ts`; it is not part of the product run contract.
 
-## Scripts
+## Base Image And Setup Command
 
-| Command | Purpose |
-| --- | --- |
-| `pnpm run setup:base-snapshot` | Refresh and smoke-test the reusable Vercel Sandbox base image, then update private env config after success. |
+```bash
+pnpm run setup:base-snapshot
+```
 
-## Base Image Contract
+The base image is a prepared Vercel Sandbox snapshot for Codex SDK runs. It is
+the runtime starting point, not a place for task-specific state.
 
-The base snapshot setup command refreshes the base image. The operation:
+It exists so every run starts from the same known-good environment with source
+code, runner code, and dependencies already present. That keeps the per-run
+path focused on task execution: create an isolated sandbox from the snapshot,
+pass only run-specific env, start the runner, and stream results back to Convex.
 
-- Loads private env from process and ignored local env files.
-- Requires `VERCEL_TOKEN` or `VERCEL_OIDC_TOKEN`, plus `VERCEL_TEAM_ID` and
-  `VERCEL_PROJECT_ID`.
-- Creates a fresh Vercel Sandbox with `@vercel/sandbox`.
-- Copies exactly the files reported by
-  `git ls-files --cached --others --exclude-standard`.
-- Installs dependencies with the repo package manager (`pnpm`), including
-  `@openai/codex-sdk` and `tsx`.
-- Runs a base smoke that proves runner files and Codex SDK import inside the
-  prepared sandbox.
-- Creates a non-expiring snapshot.
-- Starts a second sandbox from that snapshot and proves file write/read works.
-- Updates only ignored private env config with `BASE_SANDBOX_IMAGE` after all
-  smoke checks pass.
+At a high level, the setup command copies the git-listed, non-ignored repo
+inputs needed to run Codex inside the sandbox:
 
-The base image contains reusable code and dependency state only. Run-specific
-secrets, inputs, ingest tokens, and model settings are passed at command start.
+- App and Convex source under `src/`.
+- The sandbox runner under `src/sandbox/runner/`.
+- Package manifests, lockfile, and TypeScript/tooling config needed to install
+  and run the runner.
+- Public docs and read-only reference files that are tracked as repo context.
+
+Ignored private/runtime files stay out of the image, including `.env*`,
+`.vercel/`, `.convex/`, `node_modules/`, `.next/`, `.pnpm-store/`, `build/`,
+and `out/`.
+
+```mermaid
+flowchart LR
+  Setup["Local setup command"]
+  Image["Prepared base image<br/>code + deps + runner"]
+  Env["Runtime env<br/>run id + ingest token + secrets"]
+  RunA["Sandbox run A"]
+  RunB["Sandbox run B"]
+  Convex["Convex<br/>events + result"]
+
+  Setup -->|"refreshes"| Image
+  Image -->|"forks"| RunA
+  Image -->|"forks"| RunB
+  Env -->|"passed at command start"| RunA
+  Env -->|"passed at command start"| RunB
+  RunA --> Convex
+  RunB --> Convex
+```
+
+The boundary is intentional: reusable code and dependency state live in the
+base image; secrets, prompts, ingest tokens, and model settings are injected
+only when a specific run starts.
 
 ## Security Boundaries
 
