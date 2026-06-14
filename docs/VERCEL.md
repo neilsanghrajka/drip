@@ -87,6 +87,35 @@ NEXT_PUBLIC_CONVEX_SITE_URL=
 The Convex deploy wrapper injects public Convex URLs into the Next.js production
 build.
 
+## Vercel Sandbox
+
+Vercel Sandbox is Drip's isolated execution layer for Codex SDK-powered Builder
+runs. It is separate from Vercel Production hosting: it is not a Preview,
+Development, or staging environment.
+
+The sandbox flow uses one reusable base snapshot:
+
+```bash
+base_sandbox_image=
+```
+
+That private env var stores the active Vercel Sandbox snapshot ID. It is updated
+locally by:
+
+```bash
+scripts/setup_base_snapshot
+```
+
+Testing and production use the same pattern: read
+`base_sandbox_image`, create a new Vercel Sandbox from that snapshot, pass
+run-specific secrets at runtime, run Codex, write results back to Convex, and
+stop the sandbox.
+
+Do not commit real snapshot IDs, Vercel project/team IDs, sandbox URLs, or
+OpenAI credentials. Keep real values in local/private env configuration.
+
+See `docs/SANDBOX.md` for the base image update flow.
+
 ## CLI and Plugin Usage
 
 Use the Vercel plugin for project lookup, deployment inspection, protected
@@ -107,3 +136,10 @@ When inspecting deployments or envs, report names, presence, and readiness only.
 Do not print project IDs, deployment IDs, production URLs, dashboard URLs, team
 IDs, or secret values in docs, screenshots, logs, or final responses.
 
+## References
+
+- `docs/DEVELOPMENT.md`: local development and worktree model.
+- `docs/CONVEX.md`: Convex-specific deploy wrapper and CLI guidance.
+- `docs/DEPLOYMENT.md`: production deploy and verification workflow.
+- `docs/SANDBOX.md`: local Vercel Sandbox base-image update flow for Codex
+  SDK-powered Builder runs.

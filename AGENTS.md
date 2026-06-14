@@ -5,6 +5,7 @@
 - When running in auto approval mode, always run `git` and `gh` commands outside the sandbox.
 - Read `docs/DEVELOPMENT.md` before local setup, localhost testing, or parallel worktree work.
 - Read `docs/DEPLOYMENT.md` before production deploy or production verification work.
+- If you update files in `agent/`, ask the user if they want to recreate the base sandbox image before committing.
 
 ## Environment Variables
 - Whenever you add or change an env var, update `.env.example` in the same change.

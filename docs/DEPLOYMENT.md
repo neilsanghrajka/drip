@@ -93,4 +93,5 @@ final responses.
 - `docs/DEVELOPMENT.md`: local development and worktree model.
 - `docs/CONVEX.md`: Convex-specific deploy wrapper and CLI guidance.
 - `docs/VERCEL.md`: Vercel-specific project, env, and CLI guidance.
-
+- `docs/SANDBOX.md`: local base snapshot update flow using
+  `scripts/setup_base_snapshot` and the private `base_sandbox_image` env var.
