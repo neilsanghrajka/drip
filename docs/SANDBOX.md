@@ -83,11 +83,21 @@ repo/
           sandbox-verifier.toml
           x-researcher.toml
           exa-researcher.toml
+          cap-designer.toml
+          sock-designer.toml
+          apparel-designer.toml
+          fashion-reviewer.toml
+        skills/
+          .system/
+            imagegen/
+              SKILL.md
       .agents/
         skills/
           agent-browser/
             SKILL.md
           scout/
+            SKILL.md
+          fashion-designer/
             SKILL.md
           x-trends/
             SKILL.md
@@ -112,6 +122,11 @@ The snapshot maps that repo payload to:
 
 `src/` remains Drip product and Convex control-plane code. It is not copied into
 the base snapshot.
+
+The setup command also preinstalls the Python packages required by the official
+`$imagegen` CLI fallback (`openai` and `pillow`) into the base image. That keeps
+Fashion Designer image runs focused on generation latency rather than per-run
+dependency bootstrap.
 
 ![Codex agent runtime base image](whiteboard/codex_agent_runtime.png)
 
@@ -172,7 +187,8 @@ The runner starts Codex SDK with approval policy `never`, web search disabled,
 network access controlled by `DRIP_CODEX_NETWORK_ACCESS_ENABLED`, and
 `sandboxMode: "danger-full-access"` inside the outer Vercel Sandbox isolation
 boundary. The runner is generic: it streams Codex events and final response, but
-does not interpret skill-specific artifacts such as Scout's `scout-output.json`.
+does not interpret skill-specific artifacts such as Scout's `scout-output.json`
+or Fashion Designer's `fashion-designer-output.json`.
 
 ## Env Contract
 
@@ -194,6 +210,7 @@ Never commit or print real values for these names.
 | `DRIP_SANDBOX_AGENT_WORKDIR` | Convex action and setup command | Codex working directory; default `/vercel/sandbox/agent-workspace`. |
 | `DRIP_RUNNER_CONVEX_URL` | Convex action | Optional Convex URL override passed into the runner; product actions fall back to Convex's built-in cloud URL when available. |
 | `OPENAI_API_KEY` or `CODEX_API_KEY` | Convex action/runtime | OpenAI auth source. The action passes `OPENAI_API_KEY` into the runner command. |
+| `OPENAI_API_KEY` | Codex child process | Also forwarded to Codex so the official `$imagegen` CLI fallback can reuse the runner OpenAI key when built-in image generation is unavailable. |
 | `CODEX_MODEL` | Convex action/runtime | Runtime override; default is `gpt-5.5`. |
 | `CODEX_REASONING_EFFORT` | Convex action/runtime | Runtime override; default is `low`. |
 | `DRIP_CODEX_NETWORK_ACCESS_ENABLED` | Convex action/runtime | Enables Codex SDK network access for API-backed skills such as Scout; default `false`. |
@@ -238,8 +255,14 @@ deletes the previous snapshot.
 | `sandbox/codex-agent/.codex/agents/sandbox-verifier.toml` | Custom subagent definition for sandbox verification. |
 | `sandbox/codex-agent/.codex/agents/x-researcher.toml` | Custom subagent definition for X trend signal collection. |
 | `sandbox/codex-agent/.codex/agents/exa-researcher.toml` | Custom subagent definition for Exa cultural context collection. |
+| `sandbox/codex-agent/.codex/agents/cap-designer.toml` | Custom subagent definition for cap concept and mock image generation. |
+| `sandbox/codex-agent/.codex/agents/sock-designer.toml` | Custom subagent definition for sock concept and mock image generation. |
+| `sandbox/codex-agent/.codex/agents/apparel-designer.toml` | Custom subagent definition for apparel concept and mock image generation. |
+| `sandbox/codex-agent/.codex/agents/fashion-reviewer.toml` | Custom subagent definition for Fashion Designer image curation, rejection, and regeneration requests. |
+| `sandbox/codex-agent/.codex/skills/.system/imagegen/SKILL.md` | Official Codex image generation skill copied into the sandbox `CODEX_HOME` layout. |
 | `sandbox/codex-agent/.agents/skills/agent-browser/SKILL.md` | Browser automation skill stub copied into the agent workspace. |
 | `sandbox/codex-agent/.agents/skills/scout/SKILL.md` | Scout orchestration skill and structured output contract. |
+| `sandbox/codex-agent/.agents/skills/fashion-designer/SKILL.md` | Fashion Designer orchestration skill and structured output contract. |
 | `sandbox/codex-agent/.agents/skills/x-trends/SKILL.md` | Instruction-only X public-data research skill. |
 | `sandbox/codex-agent/.agents/skills/exa-search/SKILL.md` | Instruction-only generic Exa Search API skill. |
 | `scripts/setup_base_snapshot.ts` | Base snapshot creation, copy rules, install, smoke, Convex env sync, and previous snapshot cleanup. |

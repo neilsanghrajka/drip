@@ -142,7 +142,12 @@ function codexEnv(workingDirectory: string) {
     TMPDIR: process.env.TMPDIR ?? "/tmp",
   };
 
-  for (const name of ["EXA_API_KEY", "X_BEARER_TOKEN", "TWITTER_BEARER_TOKEN"]) {
+  for (const name of [
+    "OPENAI_API_KEY",
+    "EXA_API_KEY",
+    "X_BEARER_TOKEN",
+    "TWITTER_BEARER_TOKEN",
+  ]) {
     const value = process.env[name];
     if (value) {
       env[name] = value;

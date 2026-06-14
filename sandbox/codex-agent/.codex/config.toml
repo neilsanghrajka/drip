@@ -7,7 +7,7 @@ sandbox_mode = "workspace-write"
 trust_level = "trusted"
 
 [agents]
-max_threads = 3
+max_threads = 6
 max_depth = 1
 
 [agents.sandbox-verifier]
@@ -21,3 +21,19 @@ config_file = "agents/x-researcher.toml"
 [agents.exa-researcher]
 description = "Collect source-backed web evidence for Scout using Exa Search API calls."
 config_file = "agents/exa-researcher.toml"
+
+[agents.cap-designer]
+description = "Create cap concepts and mock images for Fashion Designer using imagegen."
+config_file = "agents/cap-designer.toml"
+
+[agents.sock-designer]
+description = "Create sock concepts and mock images for Fashion Designer using imagegen."
+config_file = "agents/sock-designer.toml"
+
+[agents.apparel-designer]
+description = "Create apparel concepts and mock images for Fashion Designer using imagegen."
+config_file = "agents/apparel-designer.toml"
+
+[agents.fashion-reviewer]
+description = "Review Fashion Designer image candidates, reject weak assets, and request focused regeneration."
+config_file = "agents/fashion-reviewer.toml"

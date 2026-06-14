@@ -111,6 +111,9 @@ async function main() {
     await preparePnpm(baseSandbox, config);
     await installRunnerDependencies(baseSandbox, config);
 
+    log("Installing imagegen Python dependencies in sandbox.");
+    await installImagegenPythonDependencies(baseSandbox, config);
+
     log("Running base image smoke.");
     await runBaseSmoke(baseSandbox, config);
 
@@ -122,6 +125,7 @@ async function main() {
 
     log("Running fork smoke.");
     await runForkSmoke(forkSandbox, config);
+    await verifyImagegenPythonDependencies(forkSandbox, config);
     await readAndVerifyProof(forkSandbox, config);
 
     log("Promoting base image env.");
@@ -328,8 +332,16 @@ async function assertSandboxPayload(config: SetupConfig) {
     "codex-agent/.codex/agents/sandbox-verifier.toml",
     "codex-agent/.codex/agents/x-researcher.toml",
     "codex-agent/.codex/agents/exa-researcher.toml",
+    "codex-agent/.codex/agents/cap-designer.toml",
+    "codex-agent/.codex/agents/sock-designer.toml",
+    "codex-agent/.codex/agents/apparel-designer.toml",
+    "codex-agent/.codex/agents/fashion-reviewer.toml",
+    "codex-agent/.codex/skills/.system/imagegen/SKILL.md",
+    "codex-agent/.codex/skills/.system/imagegen/scripts/image_gen.py",
+    "codex-agent/.codex/skills/.system/imagegen/scripts/remove_chroma_key.py",
     "codex-agent/.agents/skills/agent-browser/SKILL.md",
     "codex-agent/.agents/skills/scout/SKILL.md",
+    "codex-agent/.agents/skills/fashion-designer/SKILL.md",
     "codex-agent/.agents/skills/x-trends/SKILL.md",
     "codex-agent/.agents/skills/exa-search/SKILL.md",
   ]) {
@@ -533,6 +545,49 @@ async function installRunnerDependencies(
     },
     timeoutMs: config.installTimeoutMs,
   });
+}
+
+async function installImagegenPythonDependencies(
+  sandbox: VercelSandbox,
+  config: SetupConfig,
+) {
+  await runSandboxCommand(sandbox, "python ensurepip for imagegen", {
+    cmd: "python3",
+    args: ["-m", "ensurepip", "--user"],
+    cwd: config.agentWorkdir,
+    timeoutMs: 120_000,
+  });
+
+  await runSandboxCommand(sandbox, "install imagegen python dependencies", {
+    cmd: "python3",
+    args: ["-m", "pip", "install", "--user", "openai", "pillow"],
+    cwd: config.agentWorkdir,
+    timeoutMs: 300_000,
+  });
+
+  await verifyImagegenPythonDependencies(sandbox, config);
+}
+
+async function verifyImagegenPythonDependencies(
+  sandbox: VercelSandbox,
+  config: SetupConfig,
+) {
+  const result = await runSandboxCommand(
+    sandbox,
+    "verify imagegen python dependencies",
+    {
+      cmd: "python3",
+      args: [
+        "-c",
+        "import openai; import PIL; print('imagegen-python-deps-ok')",
+      ],
+      cwd: config.agentWorkdir,
+      timeoutMs: 60_000,
+    },
+  );
+  if (!result.stdout.includes("imagegen-python-deps-ok")) {
+    throw new Error("Imagegen Python dependency smoke did not report success.");
+  }
 }
 
 async function runBaseSmoke(sandbox: VercelSandbox, config: SetupConfig) {
@@ -857,8 +912,16 @@ async function main() {
     ".codex/agents/sandbox-verifier.toml",
     ".codex/agents/x-researcher.toml",
     ".codex/agents/exa-researcher.toml",
+    ".codex/agents/cap-designer.toml",
+    ".codex/agents/sock-designer.toml",
+    ".codex/agents/apparel-designer.toml",
+    ".codex/agents/fashion-reviewer.toml",
+    ".codex/skills/.system/imagegen/SKILL.md",
+    ".codex/skills/.system/imagegen/scripts/image_gen.py",
+    ".codex/skills/.system/imagegen/scripts/remove_chroma_key.py",
     ".agents/skills/agent-browser/SKILL.md",
     ".agents/skills/scout/SKILL.md",
+    ".agents/skills/fashion-designer/SKILL.md",
     ".agents/skills/x-trends/SKILL.md",
     ".agents/skills/exa-search/SKILL.md",
   ]) {
@@ -885,7 +948,11 @@ async function main() {
     !config.includes('service_tier = "fast"') ||
     !config.includes(agentWorkdir) ||
     !config.includes("x-researcher") ||
-    !config.includes("exa-researcher")
+    !config.includes("exa-researcher") ||
+    !config.includes("cap-designer") ||
+    !config.includes("sock-designer") ||
+    !config.includes("apparel-designer") ||
+    !config.includes("fashion-reviewer")
   ) {
     throw new Error("Codex config is missing expected defaults.");
   }
@@ -941,8 +1008,16 @@ async function main() {
     ".codex/agents/sandbox-verifier.toml",
     ".codex/agents/x-researcher.toml",
     ".codex/agents/exa-researcher.toml",
+    ".codex/agents/cap-designer.toml",
+    ".codex/agents/sock-designer.toml",
+    ".codex/agents/apparel-designer.toml",
+    ".codex/agents/fashion-reviewer.toml",
+    ".codex/skills/.system/imagegen/SKILL.md",
+    ".codex/skills/.system/imagegen/scripts/image_gen.py",
+    ".codex/skills/.system/imagegen/scripts/remove_chroma_key.py",
     ".agents/skills/agent-browser/SKILL.md",
     ".agents/skills/scout/SKILL.md",
+    ".agents/skills/fashion-designer/SKILL.md",
     ".agents/skills/x-trends/SKILL.md",
     ".agents/skills/exa-search/SKILL.md",
   ]) {
