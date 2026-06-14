@@ -1,4 +1,3 @@
-import { readFile } from "node:fs/promises";
 import path from "node:path";
 
 import type { RunnerConfig } from "./config";
@@ -19,22 +18,8 @@ type ThreadEvent = {
 type CodexRunResult = {
   codexThreadId?: string;
   finalResponse: string;
-  scoutArtifact?: ScoutArtifactReadResult;
   usage: Usage | null;
 };
-
-type ScoutArtifactReadResult =
-  | {
-      path: string;
-      json: unknown;
-    }
-  | {
-      path: string;
-      error: {
-        message: string;
-        code?: string;
-      };
-    };
 
 export async function runCodexSdk({
   config,
@@ -125,19 +110,9 @@ export async function runCodexSdk({
       await maybeHeartbeat();
     }
 
-    const scoutRun = isScoutRun(sandboxRun.task);
-    const scoutArtifact = await readScoutArtifact(config.workingDirectory);
-    if (scoutArtifact) {
-      await emit("runner.artifact", scoutArtifact);
-    }
-    if (scoutRun) {
-      assertValidScoutArtifact(scoutArtifact);
-    }
-
     const result: CodexRunResult = {
       codexThreadId,
       finalResponse,
-      ...(scoutArtifact ? { scoutArtifact } : {}),
       usage,
     };
     await emit("runner.finished", result);
@@ -184,52 +159,6 @@ function codexEnv(workingDirectory: string) {
   return env;
 }
 
-function isScoutRun(task: string) {
-  return /\$scout\b/i.test(task) || /\bscout-output\.json\b/i.test(task);
-}
-
-function assertValidScoutArtifact(artifact: ScoutArtifactReadResult | undefined) {
-  if (!artifact) {
-    throw new Error("Scout run did not produce scout-output.json.");
-  }
-  if ("error" in artifact) {
-    throw new Error(`Scout artifact is invalid: ${artifact.error.message}`);
-  }
-  if (!isRecord(artifact.json)) {
-    throw new Error("Scout artifact must be a JSON object.");
-  }
-  if (artifact.json.schemaVersion !== "scout.cultural-moments.v1") {
-    throw new Error("Scout artifact schemaVersion must be scout.cultural-moments.v1.");
-  }
-  if (!Array.isArray(artifact.json.candidates)) {
-    throw new Error("Scout artifact candidates must be an array.");
-  }
-}
-
-async function readScoutArtifact(
-  workingDirectory: string,
-): Promise<ScoutArtifactReadResult | undefined> {
-  const artifactPath = path.join(workingDirectory, "scout-output.json");
-  try {
-    const text = await readFile(artifactPath, "utf8");
-    return {
-      path: artifactPath,
-      json: JSON.parse(text),
-    };
-  } catch (error) {
-    if (isNodeError(error) && error.code === "ENOENT") {
-      return undefined;
-    }
-    return {
-      path: artifactPath,
-      error: {
-        message: error instanceof Error ? error.message : String(error),
-        code: isNodeError(error) ? error.code : undefined,
-      },
-    };
-  }
-}
-
 function runnerPath() {
   const currentPath = process.env.PATH ?? "/usr/bin:/bin";
   const runnerNodeBin = `${process.cwd()}/node_modules/.bin`;
@@ -267,10 +196,6 @@ function absorbCodexEvent(
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
-
-function isNodeError(error: unknown): error is NodeJS.ErrnoException {
-  return error instanceof Error && "code" in error;
 }
 
 function isAgentMessageItem(

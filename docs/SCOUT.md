@@ -30,7 +30,6 @@ judgment, JSON writing, and JSON validation.
 6. Researchers return compact evidence only.
 7. `$scout` uses model judgment to choose the final candidates.
 8. `$scout` writes `scout-output.json`.
-9. The runner reads the artifact back as `scoutArtifact` without ranking or changing it.
 
 ## Responsibility Map
 
@@ -42,7 +41,7 @@ judgment, JSON writing, and JSON validation.
 | X subagent | [`sandbox/codex-agent/.codex/agents/x-researcher.toml`](../sandbox/codex-agent/.codex/agents/x-researcher.toml) | Evidence-only X trend and recent-post researcher. |
 | Exa subagent | [`sandbox/codex-agent/.codex/agents/exa-researcher.toml`](../sandbox/codex-agent/.codex/agents/exa-researcher.toml) | Evidence-only source-backed web researcher. |
 | Codex sandbox config | [`sandbox/codex-agent/.codex/config.toml`](../sandbox/codex-agent/.codex/config.toml) | Registers Scout skills and subagents; keeps `max_depth = 1`. |
-| Runner | [`sandbox/runner/codex.ts`](../sandbox/runner/codex.ts) | Runs Codex SDK, passes research env, reads `scout-output.json` after completion. |
+| Runner | [`sandbox/runner/codex.ts`](../sandbox/runner/codex.ts) | Runs Codex SDK, passes research env, and streams generic Codex events/results. |
 | Base snapshot setup | [`scripts/setup_base_snapshot.ts`](../scripts/setup_base_snapshot.ts) | Copies and smoke-tests the sandbox runtime payload. |
 | Sandbox guide | [`docs/SANDBOX.md`](SANDBOX.md) | Runtime, env, and base snapshot map. |
 
@@ -75,9 +74,9 @@ scout.cultural-moments.v1
 
 Read the Scout skill for the exact JSON shape.
 
-For Scout runs, the runner treats a missing or invalid artifact as failure. A
-Codex turn is not enough by itself; Scout succeeds only when the JSON contract is
-met.
+The runner is intentionally generic and does not enforce this Scout-specific
+artifact contract. E2E tests and any future Scout-specific orchestration layer
+should verify the file exists, parses, and matches the expected schema.
 
 ## Updating The Base Image
 

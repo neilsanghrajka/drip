@@ -171,13 +171,8 @@ CODEX_HOME=/vercel/sandbox/agent-workspace/.codex
 The runner starts Codex SDK with approval policy `never`, web search disabled,
 network access controlled by `DRIP_CODEX_NETWORK_ACCESS_ENABLED`, and
 `sandboxMode: "danger-full-access"` inside the outer Vercel Sandbox isolation
-boundary.
-
-When Scout writes `scout-output.json` in the agent workspace, the runner reads
-and parses that artifact after the Codex turn completes. The parsed JSON is
-attached to the terminal runner result as `scoutArtifact`; the runner does not
-rank, reorder, or reinterpret Scout candidates. For Scout runs, missing or
-invalid `scout-output.json` is a runner failure.
+boundary. The runner is generic: it streams Codex events and final response, but
+does not interpret skill-specific artifacts such as Scout's `scout-output.json`.
 
 ## Env Contract
 
