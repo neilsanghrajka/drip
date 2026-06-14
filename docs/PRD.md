@@ -85,19 +85,29 @@ work, show their outputs, and ask the user to approve the key decisions.
 ## Campaign Flow
 
 ```mermaid
-flowchart TD
-  A["Start from this week's suggestions<br/>or create a Drop Campaign"]
-  B["Scout:<br/>propose up to 5 ideas"]
-  C["User:<br/>approve about 3 ideas"]
-  D["Designer:<br/>create concepts and mock images"]
-  E["User:<br/>select 2-3 mocks per idea"]
-  F["Performance Marketer:<br/>run live Meta ads"]
-  G["Performance Marketer:<br/>recommend the winner"]
-  H["User:<br/>approve Winning Drop"]
-  I["Builder:<br/>build drop website"]
-  J["User:<br/>preview, revise, or share"]
+sequenceDiagram
+  actor User
+  participant Scout
+  participant Designer
+  participant Marketer as Performance Marketer
+  participant Builder
 
-  A --> B --> C --> D --> E --> F --> G --> H --> I --> J
+  User->>Scout: Start from weekly suggestions or create Drop Campaign
+  Scout-->>User: Propose up to 5 merchable ideas
+  User->>Scout: Approve about 3 ideas
+
+  Scout->>Designer: Send approved ideas
+  Designer-->>User: Create concepts and mock images
+  User->>Designer: Select 2-3 mocks per idea
+
+  Designer->>Marketer: Send selected mocks
+  Marketer-->>User: Run live Meta/Instagram ads and report results
+  Marketer-->>User: Recommend the winning drop
+  User->>Marketer: Approve Winning Drop
+
+  Marketer->>Builder: Send approved Winning Drop
+  Builder-->>User: Build drop website
+  User->>Builder: Preview, revise, or share
 ```
 
 **Design intent:** the campaign should feel like one continuous workspace. The

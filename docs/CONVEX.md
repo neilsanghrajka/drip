@@ -4,26 +4,27 @@ Last updated: 2026-06-03
 
 ## How to Update This Document
 
-This document is Drip's Convex architecture and operations note. Keep it focused
-on decisions that future contributors need to understand: what Convex owns, how
-local development is linked, which environment variables belong where, and how
-Convex participates in production deploys.
+This is Drip's Convex reference. Keep it focused on Convex-specific project
+rules: source layout, generated code, deployment secrecy, dev deployment
+behavior, and Convex CLI/plugin usage.
 
 When Convex setup changes:
 
-1. Update the relevant section in this document.
-2. Update `.env.example` in the same change if any environment variable is
-   added, renamed, removed, or moved between local, Vercel, and Convex stores.
-3. Update `AGENTS.md` if the change affects how a new person self-hosts or
-   self-deploys Drip.
-4. Keep real deployment names, URLs, dashboard links, project IDs, deploy keys,
+1. Update this document if a durable Convex rule changes.
+2. Update `docs/DEVELOPMENT.md` if the local workflow changes.
+3. Update `docs/DEPLOYMENT.md` if the production deploy or verification flow
+   changes.
+4. Update `.env.example` in the same change if any env var is added, renamed,
+   removed, or moved.
+5. Keep real deployment names, URLs, dashboard links, project IDs, deploy keys,
    and account-specific values out of committed files.
 
 ## Role in Drip
 
-Drip uses Convex as the backend function and database layer for the Next.js app.
-Application source lives in `src/`, and Convex functions live in `src/convex/`.
-The repo-level `convex.json` points Convex at that function directory:
+Convex is Drip's backend function and database layer. Application source lives
+in `src/`, and Convex functions live in `src/convex/`.
+
+`convex.json` is the source of truth for the Convex function path:
 
 ```json
 {
@@ -31,16 +32,39 @@ The repo-level `convex.json` points Convex at that function directory:
 }
 ```
 
-The current smoke function is `src/convex/smoke.ts`. The browser smoke page at
-`/convex-smoke` calls that function through `NEXT_PUBLIC_CONVEX_URL`, so it is a
-small end-to-end check that the deployed web app can talk to Convex.
+The current smoke function is `src/convex/smoke.ts`. The `/convex-smoke` page
+calls it through `NEXT_PUBLIC_CONVEX_URL`, which makes it the lightweight
+browser-to-Convex health check.
+
+## Local Dev Deployments
+
+Drip has only Local and Prod environments. In Local, Convex work uses throwaway
+Convex dev deployments selected by ignored `.env.local` files. See
+`docs/DEVELOPMENT.md` for the full local workflow and worktree diagram.
+
+Convex plugin guidance for signed-in development is: use a real Convex cloud
+dev deployment. Anonymous/local-only Convex is only for users with no Convex
+account.
+
+When multiple worktrees or agents may change `src/convex/`, give each lane its
+own Convex dev deployment. Sharing one dev deployment lets the last `convex dev`
+push overwrite the backend bundle expected by another worktree.
+
+## Generated Code
+
+Do not hand-edit generated Convex files under `src/convex/_generated/`. Refresh
+them through the Convex CLI:
+
+```bash
+pnpm exec convex codegen
+```
+
+If Convex AI guidance files are installed in the future, read them before
+editing Convex functions, schema, auth, actions, or generated AI-related code.
 
 ## Environment Ownership
 
-Environment values are split by where they are used. The rule is simple: commit
-names and placeholders, never real values.
-
-Local development uses ignored local files:
+Local Convex env names live in ignored `.env.local`:
 
 ```bash
 CONVEX_DEPLOYMENT=
@@ -48,103 +72,34 @@ NEXT_PUBLIC_CONVEX_URL=
 NEXT_PUBLIC_CONVEX_SITE_URL=
 ```
 
-`pnpm exec convex dev` writes these local values to `.env.local` after the
-project is configured. `.env` may exist as an ignored private placeholder or
-override file, but `.env.example` remains the tracked contract.
-
-Vercel Production currently needs only:
+Production deploy authorization lives in Vercel Production:
 
 ```bash
 CONVEX_DEPLOY_KEY=
 ```
 
-Do not manually set `NEXT_PUBLIC_CONVEX_URL` or `NEXT_PUBLIC_CONVEX_SITE_URL` in
-Vercel for the normal production flow. The Convex deploy wrapper injects the
-public Convex client URL into the Next.js build it runs.
+Do not manually set `NEXT_PUBLIC_CONVEX_URL` or
+`NEXT_PUBLIC_CONVEX_SITE_URL` in Vercel for the normal production flow. The
+Convex deploy wrapper injects public Convex URLs into the Next.js production
+build. See `docs/DEPLOYMENT.md`.
 
-`NEXT_PUBLIC_APP_URL` is documented in `.env.example` for smoke checks and
-future app-level URL needs. Set it only when code or an operational check
-actually depends on it.
+## CLI and Plugin Usage
 
-## Local Development
-
-Use `pnpm` for all commands:
-
-```bash
-pnpm install
-cp .env.example .env.local
-pnpm exec convex dev
-pnpm dev
-```
-
-For a brand-new local checkout, configure Convex against the intended existing
-project or create a new project:
-
-```bash
-pnpm exec convex dev --configure existing
-pnpm exec convex dev --configure new
-```
-
-Prefer a cloud dev deployment for normal signed-in development. Anonymous or
-local-only deployments are useful for isolated experiments, but they should not
-be treated as the shared project setup.
-
-## Production Deploys
-
-Convex production deploys are coordinated by Vercel. The production build
-command is defined in `vercel.json`:
-
-```bash
-pnpm exec convex deploy --cmd 'pnpm run build' --cmd-url-env-var-name NEXT_PUBLIC_CONVEX_URL
-```
-
-That command deploys Convex functions first, then runs the Next.js build with
-the public Convex URL available as `NEXT_PUBLIC_CONVEX_URL`. Vercel needs
-`CONVEX_DEPLOY_KEY` in its Production environment so this command can deploy
-Convex during the production build.
-
-Do not run `pnpm exec convex deploy` manually unless the user explicitly asks
-for a manual deploy. The expected production path is a git push to `master`,
-which lets Vercel run the wrapped deploy/build flow.
-
-## Verification
-
-After changing Convex code, run:
-
-```bash
-pnpm exec convex codegen
-pnpm exec convex run smoke:ping '{"label":"cli"}'
-```
-
-For production verification, keep checks bounded and display-safe:
-
-```bash
-pnpm exec convex run smoke:ping '{"label":"prod-check"}'
-```
-
-If you need to target a specific deployment, use an explicit deployment selector
-from private operator config. Do not commit or paste deployment names, dashboard
-URLs, or generated Convex URLs while recording debugging notes.
-
-## Plugin and CLI Usage
-
-In Codex, use the Convex plugin for setup guidance, scaling questions, and
-Convex-specific implementation advice. Use the Convex CLI for project
-configuration, codegen, function checks, env inspection, and deployment-scoped
-operations unless a live account inspection tool is available in the session.
-
-Useful commands:
+Use the Convex plugin for setup guidance, scaling questions, and
+Convex-specific implementation advice. Use the local Convex CLI for repo work:
 
 ```bash
 pnpm exec convex --help
 pnpm exec convex dev
+pnpm exec convex deployment create dev/<lane-name> --type dev --select
 pnpm exec convex codegen
-pnpm exec convex run smoke:ping '{"label":"cli"}'
+pnpm exec convex run smoke:ping '{"label":"local"}'
 pnpm exec convex env list
 pnpm exec convex function-spec
 ```
 
-When inspecting envs, report names and presence only. Never print secret values
-or account-specific deployment identifiers in logs, docs, screenshots, or final
+When inspecting Convex envs or deployments, report names and presence only.
+Never print secret values, deployment URLs, dashboard links, project IDs, or
+account-specific deployment identifiers in docs, screenshots, logs, or final
 responses.
 
