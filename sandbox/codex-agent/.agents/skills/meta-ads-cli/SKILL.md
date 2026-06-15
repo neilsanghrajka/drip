@@ -21,12 +21,14 @@ The runner maps Drip's private Meta env vars into the official CLI env names:
 - `ACCESS_TOKEN`
 - `AD_ACCOUNT_ID`
 - `BUSINESS_ID`
+- `PAGE_ID`
 
 Required private inputs:
 
 - `META_ADS_ACCESS_TOKEN` or `ACCESS_TOKEN`
 - `META_ADS_AD_ACCOUNT_ID` or `AD_ACCOUNT_ID`
 - `META_ADS_BUSINESS_ID` or `BUSINESS_ID` when business-scoped commands need it
+- `META_ADS_PAGE_ID` or `PAGE_ID` when page-list discovery is unavailable
 
 Never print token values. Avoid printing raw business, ad account, app, Page,
 Instagram, campaign, ad set, ad, creative, pixel, catalog, or dataset IDs in
@@ -97,7 +99,10 @@ Do this:
 1. Run independent read-only preflight checks together where practical:
    `meta --version`, `meta auth status`, `meta ads adaccount list`,
    `meta ads page list`, and `meta ads campaign list`.
-2. Select the first accessible Facebook Page from `meta ads page list`.
+2. Select the Facebook Page identity. Prefer `PAGE_ID` when present. If it is
+   missing, select the first accessible Facebook Page from `meta ads page list`.
+   If both are unavailable, stop with a sanitized `no accessible Facebook Page`
+   blocker.
 3. Create one campaign with the Graph campaign-create call below. Required:
    `objective=OUTCOME_TRAFFIC`, `status=PAUSED`, `daily_budget=<budgetMinorUnits>`,
    and `special_ad_categories=[]`.

@@ -113,6 +113,7 @@ The official CLI expects these env names:
 ACCESS_TOKEN=<meta-system-user-token>
 AD_ACCOUNT_ID=act_<ad-account-id>
 BUSINESS_ID=<business-portfolio-id>
+PAGE_ID=<facebook-page-id>
 ```
 
 Drip keeps private runtime env under namespaced app variables and maps them into
@@ -123,13 +124,14 @@ the official CLI names inside the sandbox runner:
 | `META_ADS_ACCESS_TOKEN` | `ACCESS_TOKEN` | System-user token. Secret. |
 | `META_ADS_AD_ACCOUNT_ID` | `AD_ACCOUNT_ID` | Use the CLI account ID with the `act_` prefix. |
 | `META_ADS_BUSINESS_ID` | `BUSINESS_ID` | Optional but useful for business-scoped list operations. |
+| `META_ADS_PAGE_ID` | `PAGE_ID` | Optional Page identity for ad creatives when page-list discovery is unavailable. |
 
 For current local testing, the ignored repo `.env` stores both forms:
 
 - `META_ADS_ACCESS_TOKEN`, `META_ADS_AD_ACCOUNT_ID`,
-  `META_ADS_BUSINESS_ID` for Drip's runtime contract.
-- `ACCESS_TOKEN`, `AD_ACCOUNT_ID`, `BUSINESS_ID` as direct aliases for the
-  official `meta` CLI.
+  `META_ADS_BUSINESS_ID`, `META_ADS_PAGE_ID` for Drip's runtime contract.
+- `ACCESS_TOKEN`, `AD_ACCOUNT_ID`, `BUSINESS_ID`, `PAGE_ID` as direct aliases
+  for the official `meta` CLI.
 
 Keep those values only in private runtime config. Do not copy real values into
 `.env.example`, docs, screenshots, logs, commits, or final agent messages.
@@ -138,6 +140,10 @@ Important gotcha: Meta surfaces several numeric IDs for the same-looking asset.
 For the CLI, `AD_ACCOUNT_ID` must be the usable ad account ID, including the
 `act_` prefix. Passing a business asset ID can cause confusing API errors during
 campaign creation.
+
+For creative creation, prefer an explicit `PAGE_ID` when configured. Some
+system-user tokens can create ads for a Page they are assigned to but still fail
+generic page-list discovery.
 
 ## Local CLI Smoke
 

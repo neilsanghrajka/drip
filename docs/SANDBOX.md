@@ -335,6 +335,7 @@ Never commit or print real values for these names.
 | `META_ADS_ACCESS_TOKEN` | Convex action/runtime | Meta system-user token passed into the Codex process as the official Meta Ads CLI `ACCESS_TOKEN` when present. |
 | `META_ADS_AD_ACCOUNT_ID` | Convex action/runtime | Default Meta ad account passed into the Codex process as `AD_ACCOUNT_ID` when present. Use the CLI-expected value, including the `act_` prefix when applicable. |
 | `META_ADS_BUSINESS_ID` | Convex action/runtime | Optional Meta business portfolio passed into the Codex process as `BUSINESS_ID` when present. |
+| `META_ADS_PAGE_ID` | Convex action/runtime | Optional Facebook Page identity passed into the Codex process as `PAGE_ID` when page-list discovery is unavailable. |
 | `DRIP_SANDBOX_RUNNER_TIMEOUT_MS` | Convex action | Detached runner command timeout. |
 | `DRIP_HEARTBEAT_MS` | Runner | Heartbeat interval. |
 

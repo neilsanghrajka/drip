@@ -213,11 +213,13 @@ function codexEnv(workingDirectory: string) {
     "ACCESS_TOKEN",
     "AD_ACCOUNT_ID",
     "BUSINESS_ID",
+    "PAGE_ID",
     "DRIP_DROP_SITES_VERCEL_PROJECT",
     "DRIP_DROP_SITES_VERCEL_SCOPE",
     "META_ADS_ACCESS_TOKEN",
     "META_ADS_AD_ACCOUNT_ID",
     "META_ADS_BUSINESS_ID",
+    "META_ADS_PAGE_ID",
     "VERCEL_DEPLOY_TOKEN",
     "VERCEL_TEAM_ID",
   ]) {
@@ -242,6 +244,9 @@ function codexEnv(workingDirectory: string) {
   if (!env.BUSINESS_ID && env.META_ADS_BUSINESS_ID) {
     env.BUSINESS_ID = env.META_ADS_BUSINESS_ID;
   }
+  if (!env.PAGE_ID && env.META_ADS_PAGE_ID) {
+    env.PAGE_ID = env.META_ADS_PAGE_ID;
+  }
 
   return env;
 }
@@ -256,6 +261,7 @@ function envPresence(env: NodeJS.ProcessEnv | Record<string, string>) {
       env.META_ADS_AD_ACCOUNT_ID ?? env.AD_ACCOUNT_ID,
     ),
     META_ADS_BUSINESS_ID: Boolean(env.META_ADS_BUSINESS_ID ?? env.BUSINESS_ID),
+    META_ADS_PAGE_ID: Boolean(env.META_ADS_PAGE_ID ?? env.PAGE_ID),
     DRIP_DROP_SITES_VERCEL_PROJECT: Boolean(
       env.DRIP_DROP_SITES_VERCEL_PROJECT,
     ),

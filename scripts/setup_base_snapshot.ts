@@ -960,6 +960,7 @@ function redactionValuesFromEnv(env: EnvMap) {
     env.META_ADS_ACCESS_TOKEN,
     env.META_ADS_AD_ACCOUNT_ID,
     env.META_ADS_BUSINESS_ID,
+    env.META_ADS_PAGE_ID,
     env.VERCEL_OIDC_TOKEN,
     env.VERCEL_PROJECT_ID,
     env.VERCEL_TEAM_ID,
