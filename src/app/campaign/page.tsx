@@ -1699,6 +1699,9 @@ function stageForDrop(dropView: DropView | null | undefined): StageKey {
   if (status === "completed" && dropView?.drop.currentStage) {
     return dropView.drop.currentStage;
   }
+  if (status === "failed" && dropView?.drop.currentStage) {
+    return dropView.drop.currentStage;
+  }
   if (status === "ready_to_market" || status === "marketing" || status === "completed") {
     return "marketer";
   }
