@@ -83,6 +83,7 @@ type DropView = {
     attempt?: number;
     completedAt?: number;
     sandboxId?: string;
+    sandboxRunId?: Id<"sandboxRuns">;
     stage: StageKey;
     startedAt?: number;
     status: string;
@@ -229,6 +230,7 @@ export default function CampaignPage() {
   const startNextStage = useAction(api.dropActions.startNextStage);
   const selectScoutIdeas = useMutation(api.drops.selectScoutIdeas);
   const selectDesignerMocks = useMutation(api.drops.selectDesignerMocks);
+  const cancelSandboxRun = useMutation(api.sandboxRuns.cancelSandboxRun);
 
   const [campaignName, setCampaignName] = useState("Week 52 Drop");
   const campaignDate = "This Week Sunday";
@@ -292,6 +294,7 @@ export default function CampaignPage() {
   );
   const active = stages[activeIndex] ?? stages[0];
   const activityItems = dropView?.activity ?? [];
+  const cancellableRun = useMemo(() => activeDropStageRun(dropView), [dropView]);
 
   async function runAction(label: string, action: () => Promise<void>) {
     setPendingAction(label);
@@ -412,6 +415,16 @@ export default function CampaignPage() {
     });
   }
 
+  async function cancelActiveRun() {
+    if (!cancellableRun?.sandboxRunId) {
+      return;
+    }
+    await runAction("cancel-run", async () => {
+      setManualStage(cancellableRun.stage);
+      await cancelSandboxRun({ sandboxRunId: cancellableRun.sandboxRunId! });
+    });
+  }
+
   function toggleIdea(id: string) {
     setSelectedIdeasOverride((current) =>
       (current ?? selectedIdeas).includes(id)
@@ -504,6 +517,16 @@ export default function CampaignPage() {
                   >
                     Clone
                   </button>
+                  {cancellableRun?.sandboxRunId ? (
+                    <button
+                      className="rounded-[10px] border-[3px] border-black bg-[#ffefee] px-3 py-2 text-xs font-black uppercase text-[#b31310] transition hover:bg-[#ffd9d6] disabled:cursor-wait disabled:opacity-60"
+                      disabled={Boolean(pendingAction)}
+                      onClick={cancelActiveRun}
+                      type="button"
+                    >
+                      Cancel
+                    </button>
+                  ) : null}
                   <button
                     className="rounded-[10px] border-[3px] border-black bg-[#f8ca00] px-3 py-2 text-xs font-black uppercase transition hover:brightness-95"
                     onClick={() => setShowArtifacts((value) => !value)}
@@ -1727,6 +1750,17 @@ function latestStageRun(
   return dropView?.stageRuns
     .filter((stageRun) => stageRun.stage === stage)
     .sort((left, right) => (right.startedAt ?? right.updatedAt ?? 0) - (left.startedAt ?? left.updatedAt ?? 0))[0];
+}
+
+function activeDropStageRun(dropView: DropView | null | undefined) {
+  const activeStatuses = new Set(["queued", "starting", "running", "collecting"]);
+  return dropView?.stageRuns
+    .filter((stageRun) => activeStatuses.has(stageRun.status))
+    .sort(
+      (left, right) =>
+        (right.startedAt ?? right.updatedAt ?? 0) -
+        (left.startedAt ?? left.updatedAt ?? 0),
+    )[0];
 }
 
 function latestArtifact(dropView: DropView | null | undefined, stage: StageKey) {
