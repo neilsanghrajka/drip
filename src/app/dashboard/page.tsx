@@ -23,8 +23,8 @@ export default function DashboardPage() {
   }
 
   return (
-    <main className="drip-shell min-h-svh bg-white text-black">
-      <header className="flex h-[92px] items-center justify-between border-b-[3px] border-black px-8 lg:px-12">
+    <main className="drip-shell flex h-svh flex-col overflow-hidden bg-white text-black">
+      <header className="flex h-[64px] shrink-0 items-center justify-between border-b-[3px] border-black px-8 lg:px-12">
         <Link className="drip-logo group relative" href="/">
           Drip
           <Sparkle className="absolute -right-6 top-1 size-7 fill-[#ffd400] stroke-black stroke-[1.5]" />
@@ -49,8 +49,8 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      <section className="drip-dot-bg min-h-[calc(100svh-92px)] px-8 py-8 lg:px-12">
-        <div className="mx-auto flex min-h-[calc(100svh-156px)] max-w-[1120px] flex-col justify-center">
+      <section className="drip-dot-bg min-h-0 flex-1 overflow-hidden px-8 py-6 lg:px-12">
+        <div className="mx-auto flex h-full max-w-[1120px] flex-col justify-center">
           <Link
             className="mb-6 inline-flex w-fit items-center gap-2 text-[16px] font-black uppercase"
             href="/"
