@@ -97,13 +97,6 @@ const team: TeamMember[] = [
   },
 ];
 
-const features = [
-  { icon: Crosshair, label: "AI finds signals", copy: "before they peak" },
-  { icon: PenLine, label: "Creates designs", copy: "you'll actually sell" },
-  { icon: BarChart3, label: "Tests ads", copy: "to find winners" },
-  { icon: Box, label: "Builds pages", copy: "that convert" },
-];
-
 function TeamCard({
   member,
   active,
@@ -414,29 +407,6 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="mt-10 h-px max-w-[650px] bg-black/25" />
-
-            <div className="mt-5 grid max-w-[650px] grid-cols-2 gap-4 sm:grid-cols-4">
-              {features.map((feature, index) => {
-                const Icon = feature.icon;
-                return (
-                  <div
-                    className="flex min-h-[64px] items-center gap-3 border-black/20 pr-3 sm:border-r"
-                    key={feature.label}
-                  >
-                    <Icon className="size-8 shrink-0 stroke-[2.5]" />
-                    <p className="text-[13px] font-black leading-[1.05]">
-                      {feature.label}
-                      <br />
-                      <span className="font-medium">{feature.copy}</span>
-                    </p>
-                    {index === features.length - 1 ? null : (
-                      <span className="hidden" />
-                    )}
-                  </div>
-                );
-              })}
-            </div>
           </section>
 
           <section className="relative mx-auto grid w-full max-w-[210px] gap-3 xl:max-w-[218px] xl:gap-3.5">
