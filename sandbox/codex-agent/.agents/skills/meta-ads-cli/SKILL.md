@@ -98,11 +98,16 @@ Do this:
 
 1. Run independent read-only preflight checks together where practical:
    `meta --version`, `meta auth status`, `meta ads adaccount list`,
-   `meta ads page list`, and `meta ads campaign list`.
+   and `meta ads campaign list`. Run `meta ads page list` only as an
+   informational check when `PAGE_ID` is missing or when its output can be
+   ignored safely.
 2. Select the Facebook Page identity. Prefer `PAGE_ID` when present. If it is
-   missing, select the first accessible Facebook Page from `meta ads page list`.
-   If both are unavailable, stop with a sanitized `no accessible Facebook Page`
-   blocker.
+   present, use it directly for creative `object_story_spec.page_id`; do not
+   require `meta ads page list` to return a Page and do not stop with
+   `no accessible Facebook Page` just because list discovery is empty. If
+   `PAGE_ID` is missing, select the first accessible Facebook Page from
+   `meta ads page list`. If both are unavailable, stop with a sanitized
+   `no accessible Facebook Page` blocker.
 3. Create one campaign with the Graph campaign-create call below. Required:
    `objective=OUTCOME_TRAFFIC`, `status=PAUSED`, `daily_budget=<budgetMinorUnits>`,
    and `special_ad_categories=[]`.

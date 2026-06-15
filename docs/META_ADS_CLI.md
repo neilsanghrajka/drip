@@ -145,6 +145,9 @@ For creative creation, prefer an explicit `PAGE_ID` when configured. Some
 system-user tokens can create ads for a Page they are assigned to but still fail
 generic page-list discovery.
 
+When `PAGE_ID` is present, page-list discovery is informational only. An empty
+`meta ads page list` result must not block the paused-ad recipe.
+
 ## Local CLI Smoke
 
 In the Vercel Sandbox base image, `meta` should already be on PATH.
