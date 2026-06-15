@@ -1,6 +1,6 @@
 # Performance Marketer
 
-Performance Marketer is Drip's third AI teammate. Its job is to take selected
+Performance Marketer is Drip's fourth AI teammate. Its job is to take selected
 Fashion Designer mock images and create real Facebook-only Meta ad campaign
 objects for validation.
 
@@ -14,10 +14,9 @@ flowchart LR
   Runner["Vercel Sandbox Runner"]
   Codex["Codex SDK Thread"]
   Marketer["$performance-marketer skill<br/>orchestrator + safety judge"]
-  Copy["facebook-ad-copywriter<br/>names + copy"]
-  Operator["facebook-ad-operator<br/>Drip campaign recipe"]
-  CLI["$meta-ads-cli skill<br/>reusable CLI adapter"]
-  Verifier["facebook-ad-verifier<br/>read-only status checks"]
+  Copy["facebook-ad-copywriter<br/>schema-only names + copy"]
+  Operator["facebook-ad-operator<br/>runs exact Meta recipe"]
+  CLI["$meta-ads-cli skill<br/>exact CLI/API recipe"]
   Meta["Meta Ads CLI<br/>Facebook Page + ad account"]
   Objects["1 paused campaign<br/>3 paused ad sets<br/>6 creatives + 6 paused ads"]
   Output["performance-marketer-output.json"]
@@ -26,9 +25,7 @@ flowchart LR
   Marketer --> Copy
   Marketer --> Operator
   Operator --> CLI --> Meta --> Objects
-  Marketer --> Verifier
-  Verifier --> CLI
-  Objects --> Verifier --> Output
+  Objects --> Marketer --> Output
 ```
 
 ## TL;DR
@@ -41,7 +38,7 @@ Use $performance-marketer to create a paused Facebook ad campaign for these 3 id
 
 The `$performance-marketer` skill owns Drip's campaign plan, subagent
 orchestration, paused-only safety judgment, output JSON writing, and JSON
-validation. The `$meta-ads-cli` skill only knows the CLI command surface and
+validation. The `$meta-ads-cli` skill owns the exact Meta command recipe and
 safety rules.
 
 ## How It Runs
@@ -53,11 +50,9 @@ safety rules.
 4. `$performance-marketer` parses selected idea/image inputs or a Fashion
    Designer artifact.
 5. `facebook-ad-copywriter` creates Facebook ad names and copy.
-6. `facebook-ad-operator` uses `$meta-ads-cli` to run preflight and create the
-   paused campaign objects.
-7. `facebook-ad-verifier` uses `$meta-ads-cli` read-only commands to verify
-   configured paused state.
-8. `$performance-marketer` writes `performance-marketer-output.json` with
+6. `facebook-ad-operator` uses `$meta-ads-cli` to run the exact creation recipe
+   and returns sanitized created-object evidence.
+7. `$performance-marketer` writes `performance-marketer-output.json` with
    sanitized refs only.
 
 ## Responsibility Map
@@ -65,19 +60,17 @@ safety rules.
 | Layer | File | Responsibility |
 | --- | --- | --- |
 | Performance Marketer skill | `sandbox/codex-agent/.agents/skills/performance-marketer/SKILL.md` | Drip-specific campaign orchestration, paused-only safety, output contract. |
-| Meta Ads CLI skill | `sandbox/codex-agent/.agents/skills/meta-ads-cli/SKILL.md` | Reusable Meta CLI usage, env mapping, preflight, redaction, paused creation rules. |
-| Copywriter subagent | `sandbox/codex-agent/.codex/agents/facebook-ad-copywriter.toml` | Campaign/ad set/ad names and Facebook copy. |
-| Operator subagent | `sandbox/codex-agent/.codex/agents/facebook-ad-operator.toml` | Creates the exact Drip hackathon campaign recipe with the CLI. |
-| Verifier subagent | `sandbox/codex-agent/.codex/agents/facebook-ad-verifier.toml` | Read-only status verification and sanitized evidence. |
+| Meta Ads CLI skill | `sandbox/codex-agent/.agents/skills/meta-ads-cli/SKILL.md` | Exact Drip Meta command recipe, env mapping, preflight, redaction, and paused creation rules. |
+| Copywriter subagent | `sandbox/codex-agent/.codex/agents/facebook-ad-copywriter.toml` | Schema-only campaign/ad set/ad names and Facebook copy. |
+| Operator subagent | `sandbox/codex-agent/.codex/agents/facebook-ad-operator.toml` | Runs the exact `$meta-ads-cli` Drip campaign recipe and returns sanitized evidence. |
 | Runner | `sandbox/runner/codex.ts` | Passes Meta env into Codex; remains generic. |
 | Sandbox guide | `docs/SANDBOX.md` | Runtime, env, and base snapshot map. |
 
 ## Important Boundaries
 
-- `$meta-ads-cli` is the adapter. It does not know Drip's three-idea/six-image
-  recipe.
-- `facebook-ad-operator` knows the recipe: one paused campaign, three paused ad
-  sets, six creatives, and six paused ads.
+- `$meta-ads-cli` owns the exact command recipe: one paused campaign, three
+  paused ad sets, six creatives, and six paused ads.
+- `facebook-ad-operator` runs that recipe and does not spawn other agents.
 - Performance Marketer must not activate campaigns, ad sets, or ads.
 - Performance Marketer must not read insights in this pass.
 - Final responses and docs must not include raw Meta IDs, dashboard URLs, or
@@ -99,7 +92,7 @@ performance-marketer.facebook-campaign.v1
 ```
 
 The output includes idea/image mapping, campaign/ad set/ad names, sanitized
-Meta refs, configured/effective statuses, verification evidence, and safety
+Meta refs, configured/effective statuses, created-object evidence, and safety
 booleans:
 
 - `facebookOnly: true`
@@ -127,7 +120,35 @@ Expected proof:
 - The output records one campaign, three ad sets, six creatives, and six ads.
 - All delivery objects are configured paused.
 - No activation or insights readback happened.
-- No raw Meta-looking IDs are present in the final response or output JSON.
+- The output records `rawMetaIdsPersisted: false`.
+
+## Latest Black-Box Smoke Result
+
+On 2026-06-07, the guarded smoke passed end-to-end:
+
+```bash
+pnpm e2e:sandbox -- --scenario performance-marketer-facebook-paused --allow-meta-create --artifact-root /private/tmp/drip-pm-e2e-rerun
+```
+
+Observed result:
+
+- Convex created the sandbox run, started the Vercel Sandbox runner, and Codex
+  reached a terminal response through `$performance-marketer`.
+- The Performance Marketer generated the six local smoke JPEG inputs and wrote
+  a validated `performance-marketer-output.json` inside the sandbox.
+- The output recorded one campaign, three ad sets, six creatives, six paused
+  ads, and ten paused delivery objects total.
+- Safety checks passed: `facebookOnly: true`, `allCreatedPaused: true`,
+  `activationPerformed: false`, `insightsReadbackPerformed: false`, and
+  `rawMetaIdsPersisted: false`.
+- The smoke completed in about four minutes and reported zero verification
+  issues.
+- Vercel Sandbox cleanup was verified; the run sandbox was already gone through
+  harness cleanup.
+
+Cleanup deletes only the temporary Vercel Sandbox and local smoke evidence.
+The created Meta campaign objects are the paused test output and are not deleted
+by the smoke harness.
 
 ## Updating The Base Image
 

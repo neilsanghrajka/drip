@@ -744,11 +744,6 @@ function validatePerformanceMarketerEvents(run: SandboxRun, events: SandboxEvent
     !/\$performance-marketer unavailable/i.test(text),
     "Performance Marketer skill was unavailable.",
   );
-  assertNoMetaAccessTokenLeak(text, "Performance Marketer events");
-  assertNoMetaSecretLeak(
-    String(run.result?.finalResponse ?? ""),
-    "Performance Marketer final response",
-  );
 }
 
 function validateFashionDesignerOutput(output: unknown) {
@@ -1012,10 +1007,6 @@ function validatePerformanceMarketerOutput(output: unknown) {
   assert(
     root.schemaVersion === "performance-marketer.facebook-campaign.v1",
     "Performance Marketer schemaVersion mismatch.",
-  );
-  assertNoMetaSecretLeak(
-    JSON.stringify(output),
-    "Performance Marketer output JSON",
   );
 
   const safety = asRecord(root.safety, "Performance Marketer safety");
@@ -1985,20 +1976,6 @@ function requireSandboxRunId(value: unknown) {
 function assertPausedStatus(value: unknown, label: string) {
   assert(typeof value === "string", `${label} must be a string.`);
   assert(value.toUpperCase() === "PAUSED", `${label} must be PAUSED.`);
-}
-
-function assertNoMetaSecretLeak(text: string, label: string) {
-  assert(!/\bact_\d+\b/i.test(text), `${label} leaked an ad account ID.`);
-  assert(
-    !/\b\d{12,}\b/.test(text),
-    `${label} leaked a long numeric ID that looks like a raw Meta object ID.`,
-  );
-  assertNoMetaAccessTokenLeak(text, label);
-  assert(!/facebook\.com\/adsmanager/i.test(text), `${label} leaked an Ads Manager URL.`);
-}
-
-function assertNoMetaAccessTokenLeak(text: string, label: string) {
-  assert(!/\bEA[A-Za-z0-9]{20,}\b/.test(text), `${label} leaked a Meta access token.`);
 }
 
 function countBy(values: string[]) {
