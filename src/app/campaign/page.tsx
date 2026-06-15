@@ -226,7 +226,7 @@ export default function CampaignPage() {
   const selectDesignerMocks = useMutation(api.drops.selectDesignerMocks);
 
   const [campaignName, setCampaignName] = useState("Week 52 Drop");
-  const [campaignDate, setCampaignDate] = useState("This Week Sunday");
+  const campaignDate = "This Week Sunday";
   const dropId = useSyncExternalStore(
     subscribeActiveDropId,
     readStoredDropId,
@@ -428,11 +428,9 @@ export default function CampaignPage() {
 
       {!started ? (
         <StartCampaignScreen
-          campaignDate={campaignDate}
           campaignName={campaignName}
           error={error}
           isStarting={pendingAction === "begin-scouting"}
-          onCampaignDateChange={setCampaignDate}
           onCampaignNameChange={setCampaignName}
           onStart={beginScouting}
         />
@@ -597,19 +595,15 @@ function SessionSelect({
 }
 
 function StartCampaignScreen({
-  campaignDate,
   campaignName,
   error,
   isStarting,
-  onCampaignDateChange,
   onCampaignNameChange,
   onStart,
 }: {
-  campaignDate: string;
   campaignName: string;
   error: string | null;
   isStarting: boolean;
-  onCampaignDateChange: (value: string) => void;
   onCampaignNameChange: (value: string) => void;
   onStart: () => void;
 }) {
@@ -629,7 +623,7 @@ function StartCampaignScreen({
             Campaign
           </h1>
           <p className="mt-6 max-w-[520px] text-[24px] leading-tight">
-            Name the week, choose the run date, then let Scout begin the team run.
+            Name the week, then let Scout begin the team run.
           </p>
 
           <div className="mt-8 grid max-w-[560px] gap-4 rounded-[20px] border-[4px] border-black bg-white p-5 shadow-[7px_7px_0_#000]">
@@ -640,18 +634,6 @@ function StartCampaignScreen({
                 onChange={(event) => onCampaignNameChange(event.target.value)}
                 value={campaignName}
               />
-            </label>
-            <label className="grid gap-2 text-[12px] font-black uppercase tracking-[0.18em]">
-              Campaign date
-              <select
-                className="h-16 rounded-[10px] border-[3px] border-black bg-white px-4 text-xl font-black outline-none transition focus:bg-neutral-100"
-                onChange={(event) => onCampaignDateChange(event.target.value)}
-                value={campaignDate}
-              >
-                <option>This Week Sunday</option>
-                <option>Next Friday</option>
-                <option>Launch Weekend</option>
-              </select>
             </label>
             {error ? (
               <div className="rounded-[12px] border-[3px] border-black bg-[#ffefee] px-4 py-3 text-sm font-black leading-tight text-[#b31310]">
