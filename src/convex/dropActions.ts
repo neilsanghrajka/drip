@@ -237,11 +237,15 @@ export const createDrop = action({
         status: ready.status,
       };
     } catch (error) {
+      const failure = normalizeSandboxProvisioningError(
+        error,
+        "drop_sandbox_create_failed",
+      );
       await ctx.runMutation(markDropSandboxFailed, {
         dropId: created.dropId,
-        error: normalizeError(error, "drop_sandbox_create_failed"),
+        error: failure,
       });
-      throw error;
+      throw new Error(failure.message);
     }
   },
 });
@@ -305,8 +309,11 @@ export const collectStageArtifacts = internalAction({
           ? outputRecord.generatedAt
           : undefined;
 
-      const storageId = await ctx.storage.store(
-        new Blob([toArrayBuffer(outputBuffer)], { type: "application/json" }),
+      const storedOutput = await storeBuffer(
+        ctx,
+        outputBuffer,
+        "application/json",
+        `${stage} output artifact`,
       );
       const assets = await collectAssets(ctx, sandbox, outputJson);
       return await ctx.runMutation(recordCollectedStageArtifact, {
@@ -318,7 +325,7 @@ export const collectStageArtifacts = internalAction({
         schemaVersion,
         generatedAt,
         sandboxPath: outputPath,
-        storageId,
+        storageId: storedOutput.storageId,
         data: outputJson,
         summary: summarizeStageOutput(stage, outputJson),
         assets,
@@ -399,21 +406,42 @@ async function collectAssets(
     if (!buffer) {
       throw new Error(`Missing referenced asset: ${sandboxPath}`);
     }
-    const sha256 = sha256Hex(buffer);
     const contentType = contentTypeForPath(sandboxPath);
-    const storageId = await ctx.storage.store(
-      new Blob([toArrayBuffer(buffer)], { type: contentType }),
+    const storedAsset = await storeBuffer(
+      ctx,
+      buffer,
+      contentType,
+      `asset ${path.posix.basename(sandboxPath)}`,
     );
     assets.push({
       sandboxPath,
-      storageId,
+      storageId: storedAsset.storageId,
       fileName: path.posix.basename(sandboxPath),
       contentType,
       bytes: buffer.byteLength,
-      sha256,
+      sha256: storedAsset.sha256,
     });
   }
   return assets;
+}
+
+async function storeBuffer(
+  ctx: ActionCtx,
+  buffer: Buffer,
+  contentType: string,
+  label: string,
+) {
+  const sha256 = sha256Hex(buffer);
+  try {
+    const storageId = await ctx.storage.store(
+      new Blob([toArrayBuffer(buffer)], { type: contentType }),
+    );
+    return { storageId, sha256 };
+  } catch (error) {
+    throw new Error(
+      `Error uploading ${label} (${contentType}, ${buffer.byteLength} bytes): ${errorMessage(error)}`,
+    );
+  }
 }
 
 function collectWorkspaceImagePaths(value: unknown): string[] {
@@ -517,8 +545,48 @@ function normalizeError(error: unknown, code: string) {
   };
 }
 
+function normalizeSandboxProvisioningError(error: unknown, fallbackCode: string) {
+  const status = httpStatus(error);
+  if (status === 402) {
+    return {
+      message:
+        "Vercel Sandbox creation is blocked for the configured team/project (HTTP 402). Check Sandbox entitlement, billing/quota, and VERCEL_TEAM_ID/VERCEL_PROJECT_ID scope, then retry.",
+      code: "vercel_sandbox_scope_or_entitlement",
+    };
+  }
+  if (status === 403) {
+    return {
+      message:
+        "Vercel Sandbox creation is forbidden for the configured team/project (HTTP 403). Check the Vercel token permissions and sandbox scope, then retry.",
+      code: "vercel_sandbox_forbidden",
+    };
+  }
+  return normalizeError(error, fallbackCode);
+}
+
+function httpStatus(error: unknown) {
+  if (!isRecord(error)) {
+    return null;
+  }
+  const response = error.response;
+  if (!isRecord(response)) {
+    return null;
+  }
+  if (typeof response.status === "number") {
+    return response.status;
+  }
+  if (typeof response.statusCode === "number") {
+    return response.statusCode;
+  }
+  return null;
+}
+
 function sha256Hex(buffer: Buffer) {
   return createHash("sha256").update(buffer).digest("hex");
+}
+
+function errorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
 }
 
 function toArrayBuffer(buffer: Buffer) {

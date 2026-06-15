@@ -88,7 +88,7 @@ pnpm dev
 If port `3000` is busy in another worktree, run Next.js on another local port:
 
 ```bash
-pnpm dev -- -p 3001
+pnpm exec next dev -p 3001
 ```
 
 ## Parallel Worktrees

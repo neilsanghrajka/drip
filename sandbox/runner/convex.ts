@@ -50,7 +50,10 @@ const finishSandboxRun = makeFunctionReference<
 export type RunnerControlClient = ReturnType<typeof createRunnerControlClient>;
 
 export function createRunnerControlClient(config: RunnerConfig) {
-  const convex = new ConvexHttpClient(config.convexUrl);
+  const convex = new ConvexHttpClient(config.convexUrl, {
+    fetch: timeoutFetch(config.convexRequestTimeoutMs),
+    logger: false,
+  });
   const sandboxRunId = config.sandboxRunId;
   const ingestToken = config.ingestToken;
 
@@ -90,5 +93,25 @@ export function createRunnerControlClient(config: RunnerConfig) {
         ...input,
       });
     },
+  };
+}
+
+function timeoutFetch(timeoutMs: number): typeof fetch {
+  return async (input, init = {}) => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      return await fetch(input, {
+        ...init,
+        signal: init.signal ?? controller.signal,
+      });
+    } catch (error) {
+      if (controller.signal.aborted) {
+        throw new Error(`Convex runner request timed out after ${timeoutMs}ms.`);
+      }
+      throw error;
+    } finally {
+      clearTimeout(timer);
+    }
   };
 }

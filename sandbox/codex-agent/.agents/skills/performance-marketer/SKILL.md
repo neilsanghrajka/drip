@@ -1,78 +1,95 @@
 ---
 name: performance-marketer
-description: Use for Drip Performance Marketer work. Performance Marketer turns selected Fashion Designer mock images into real Facebook-only Meta ad campaign objects through the Meta Ads CLI, keeps everything paused, writes performance-marketer-output.json, and stops before activation, insights readback, or winner recommendation.
+description: Use for Drip Performance Marketer work. Performance Marketer turns a generated Builder drop-site URL plus selected product images into one paused Facebook-only drop-of-week ad artifact, writes performance-marketer-output.json, and stops before activation, spend, insights readback, or optimization loops.
 ---
 
 # Performance Marketer
 
-Performance Marketer creates paused Facebook ad test objects for selected Drip
-mock images. It does not discover trends, generate fashion mockups, activate
-ads, read performance, choose a winner, or build storefronts.
+Performance Marketer creates one paused Facebook ad artifact for the generated
+Drip drop site. It does not discover trends, generate fashion mockups, activate
+ads, read performance, run optimization loops, or build storefronts.
 
 The caller can stay lean:
 
 ```text
-Use $performance-marketer to create a paused Facebook ad campaign for these 3 ideas and 6 selected images: [...]
+Use $performance-marketer to create one paused Facebook drop-of-week ad for this Builder website and these selected product images: [...]
 ```
 
 ## Inputs
 
-Accept selected ideas and image paths directly in the prompt or from a provided
-artifact. Infer safe defaults when omitted.
+Accept a Builder website URL plus selected product images directly in the prompt
+or from a provided artifact. Infer safe defaults when omitted.
 
-- `ideas`: default maximum `3`
-- `imagesPerIdea`: default `2`
+- `destinationUrl`: required for normal product runs; use the Builder immutable
+  deployment URL
+- `selectedMocks`: selected product/image records from Fashion Designer
+- `builderArtifact`: optional Builder output JSON, used for site title, URL, and
+  drop copy
+- `images`: selected product image paths or URLs; use all provided selected
+  images as the visual set for the single ad
 - `input`: optional artifact path, default
-  `/vercel/sandbox/agent-workspace/fashion-designer-output.json`
+  `/vercel/sandbox/agent-workspace/builder-output.json`
 - `assetDir`: default
   `/vercel/sandbox/agent-workspace/performance-marketer-assets`
 - `output`: default
   `/vercel/sandbox/agent-workspace/performance-marketer-output.json`
-- `budgetMinorUnits`: default `10000`
+- `budgetMinorUnits`: default `0` for draft planning unless the prompt
+  explicitly asks to create real paused Meta objects
 - `currency`: infer from ad account when possible, otherwise record `unknown`
 - `targetingCountries`: default `IN` unless prompt says otherwise
 - `objective`: always `outcome_traffic` for this v1 recipe
-- `destinationUrl`: default to the selected Facebook Page URL
+- `callToAction`: default `shop_now` when supported, otherwise `learn_more`
 
 For explicit sandbox smoke prompts only, if no real image paths exist and the
-prompt says to create smoke input images, create six simple local JPEG files
+prompt says to create smoke input images, create simple local JPEG files
 under `/vercel/sandbox/agent-workspace/performance-marketer-smoke-input/` and
 record `input.syntheticSmokeImages: true`. Do not use synthetic images in
-normal product runs. Do not install npm/Python packages for smoke images. Use a
-built-in tiny JPEG byte fixture or plain Node standard-library code, copy the
-files into `assetDir`, and validate with extension plus JPEG/PNG/WebP magic
-bytes in Node. Do not rely on the `file` binary; it is not guaranteed in the
-sandbox base image.
+normal product runs. Use Python plus Pillow, already installed in the sandbox
+base image, to generate realistic square RGB JPEGs at 1080x1080 or larger.
+Never use 1x1 fixtures or tiny byte literals for Meta smoke tests; Meta may
+reject them during image upload or creative creation. Do not install npm/Python
+packages for smoke images. Copy the files into `assetDir`, validate with
+extension plus JPEG/PNG/WebP magic bytes in Node, and for smoke images also
+record their width and height in the artifact notes. Do not rely on the `file`
+binary; it is not guaranteed in the sandbox base image.
 
 ## Workflow
 
-1. Parse up to three ideas and exactly two selected images per idea when
-   available. If more are provided, keep the first three ideas and first two
-   images per idea, then record omissions.
+1. Parse the Builder destination URL and selected product images. If more
+   images are provided than a single ad can use, keep the strongest practical
+   carousel set and record omissions. Do not split the images into test
+   variants or separate experiments.
 2. Verify every normal input image path exists, is under the agent workspace,
-   and has a PNG/JPEG/WebP extension. Copy or convert accepted images into
-   `assetDir` when needed.
-3. Build a compact ad brief containing idea refs, product names, mock image
-   paths, targeting country, budget cap, Page requirement, and safety rules.
-4. Ask `facebook-ad-copywriter` for JSON only. It must fill the copy schema and
-   do nothing else.
+   has a PNG/JPEG/WebP extension, and is suitable for a static ad. For smoke
+   inputs, require square RGB JPEG/PNG assets at least 1080px on each side.
+   Copy or convert accepted images into `assetDir` when needed.
+3. Build a compact ad brief containing the Builder website URL, product names,
+   image paths, drop-of-week positioning, Page requirement, and safety rules.
+4. Ask `facebook-ad-copywriter` for JSON only. It must fill the single-ad copy
+   schema and do nothing else.
 5. Ask `facebook-ad-operator` to use `$meta-ads-cli` and create the exact v1
-   recipe. The work order should contain the copywriter JSON, image paths,
-   budget, and country only. Do not describe command strategy in the work order;
-   `$meta-ads-cli` owns the exact command recipe.
+   paused drop-of-week recipe only when the prompt explicitly asks for real
+   paused Meta object creation. The work order should contain the copywriter
+   JSON, image paths, destination URL, budget, and country only. Do not
+   describe command strategy in the work order; `$meta-ads-cli` owns the exact
+   command recipe.
    - one paused Facebook traffic campaign
-   - three paused ad sets, one per idea
-   - six creatives, one per selected image
-   - six paused ads, one per creative
+   - one paused ad set for the drop-of-week audience
+   - one creative/ad using the generated website link and selected product
+     image set
    - no activation and no insights readback
-6. Convert the operator response into the final artifact. Do not spawn a
+6. Convert the operator response into the final artifact. If the operator
+   fails, preserve its sanitized `stage`, `errorCode`, `errorSubcode`,
+   `errorType`, and redacted `errorMessage` fields so the blocker is actionable
+   without exposing raw IDs, tokens, or dashboard URLs. Do not spawn a
    second Meta agent. Do not ask for a second status pass. Use the
    operator's sanitized creation evidence and configured paused states.
 7. Write `performance-marketer-output.json`, replacing any previous file.
 8. Validate the JSON parses and the output records `facebookOnly: true`,
-   `activationPerformed: false`, and `insightsReadbackPerformed: false`.
-9. Return a short status with the output path and created object counts, not
-    raw IDs or dashboard URLs.
+   `activationPerformed: false`, `insightsReadbackPerformed: false`, and
+   `abTestingPerformed: false` as a compatibility safety flag.
+9. Return a short status with the output path and paused-draft evidence, not
+   raw IDs or dashboard URLs.
 
 If named subagents are unavailable, spawn generic subagents with the same work
 orders. Keep Meta execution delegated to the operator; the main thread owns the
@@ -94,15 +111,15 @@ Use this schema:
   "generatedAt": "ISO timestamp",
   "input": {
     "source": "fashion-designer-output.json or prompt",
-    "ideaRefs": ["idea_01", "idea_02", "idea_03"],
-    "imagesPerIdea": 2,
+    "destinationUrl": "https://immutable-builder-url.vercel.app",
+    "selectedImageRefs": ["idea_01-cap-01", "idea_02-sock-01"],
     "syntheticSmokeImages": false,
-    "omittedIdeaRefs": [],
     "omittedImageRefs": []
   },
   "safety": {
     "facebookOnly": true,
     "allCreatedPaused": true,
+    "abTestingPerformed": false,
     "activationPerformed": false,
     "insightsReadbackPerformed": false,
     "rawMetaIdsPersisted": false
@@ -111,14 +128,14 @@ Use this schema:
     "name": "Campaign name",
     "safeRef": "campaign:<redacted-or-hash>",
     "objective": "outcome_traffic",
-    "budgetMinorUnits": 10000,
+    "budgetMinorUnits": 0,
     "currency": "INR",
     "configuredStatus": "PAUSED",
     "effectiveStatus": "PAUSED"
   },
   "adSets": [
     {
-      "ideaRef": "idea_01",
+      "dropRef": "drop-of-week",
       "name": "Ad set name",
       "safeRef": "adset:<redacted-or-hash>",
       "targetingCountries": ["IN"],
@@ -128,8 +145,8 @@ Use this schema:
   ],
   "ads": [
     {
-      "ideaRef": "idea_01",
-      "imageRef": "idea_01-image-01",
+      "dropRef": "drop-of-week",
+      "imageRefs": ["idea_01-image-01", "idea_02-image-01"],
       "imagePath": "/vercel/sandbox/agent-workspace/performance-marketer-assets/idea_01-image-01.jpg",
       "creativeName": "Creative name",
       "adName": "Ad name",
@@ -137,7 +154,8 @@ Use this schema:
       "adSafeRef": "ad:<redacted-or-hash>",
       "headline": "Short headline",
       "body": "Short body copy.",
-      "callToAction": "learn_more",
+      "destinationUrl": "https://immutable-builder-url.vercel.app",
+      "callToAction": "shop_now",
       "configuredStatus": "PAUSED",
       "effectiveStatus": "PENDING_REVIEW"
     }
@@ -146,10 +164,10 @@ Use this schema:
     "verifiedAt": "ISO timestamp",
     "source": "facebook-ad-operator-created-object-evidence",
     "campaignCount": 1,
-    "adSetCount": 3,
-    "creativeCount": 6,
-    "adCount": 6,
-    "pausedObjectCount": 10,
+    "adSetCount": 1,
+    "creativeCount": 1,
+    "adCount": 1,
+    "pausedObjectCount": 3,
     "issues": []
   },
   "strategy": {

@@ -1521,6 +1521,10 @@ function validatePerformanceMarketerOutput(output: unknown) {
   assert(safety.facebookOnly === true, "Performance Marketer must be Facebook-only.");
   assert(safety.allCreatedPaused === true, "Performance Marketer did not verify all objects paused.");
   assert(
+    safety.abTestingPerformed === false,
+    "Performance Marketer must not create multi-variant ad experiments.",
+  );
+  assert(
     safety.activationPerformed === false,
     "Performance Marketer must not activate ads.",
   );
@@ -1531,6 +1535,21 @@ function validatePerformanceMarketerOutput(output: unknown) {
   assert(
     safety.rawMetaIdsPersisted === false,
     "Performance Marketer output must not persist raw Meta IDs.",
+  );
+
+  const input = asRecord(root.input, "Performance Marketer input");
+  const destinationUrl = requireString(input.destinationUrl, "input.destinationUrl");
+  assert(
+    /^https?:\/\//i.test(destinationUrl),
+    "Performance Marketer input destinationUrl must be a URL.",
+  );
+  const selectedImageRefs = asArray(
+    input.selectedImageRefs,
+    "Performance Marketer input.selectedImageRefs",
+  );
+  assert(
+    selectedImageRefs.length > 0,
+    "Performance Marketer must record selected image refs.",
   );
 
   const campaign = asRecord(root.campaign, "Performance Marketer campaign");
@@ -1544,17 +1563,20 @@ function validatePerformanceMarketerOutput(output: unknown) {
   );
   assertNumberAtLeast(
     campaign.budgetMinorUnits,
-    1,
+    0,
     "Performance Marketer campaign budgetMinorUnits",
   );
 
   const adSets = asArray(root.adSets, "Performance Marketer adSets");
-  assert(adSets.length === 3, `Performance Marketer expected 3 ad sets, got ${adSets.length}.`);
+  assert(adSets.length === 1, `Performance Marketer expected 1 ad set, got ${adSets.length}.`);
   for (const [index, value] of adSets.entries()) {
     const adSet = asRecord(value, `Performance Marketer adSet ${index}`);
-    assert(typeof adSet.ideaRef === "string", "Performance Marketer ad set missing ideaRef.");
     assert(typeof adSet.name === "string", "Performance Marketer ad set missing name.");
     assert(typeof adSet.safeRef === "string", "Performance Marketer ad set missing safeRef.");
+    assert(
+      adSet.dropRef === "drop-of-week",
+      "Performance Marketer ad set should be for drop-of-week.",
+    );
     assertPausedStatus(
       adSet.configuredStatus,
       `Performance Marketer adSet ${index} configuredStatus`,
@@ -1562,13 +1584,11 @@ function validatePerformanceMarketerOutput(output: unknown) {
   }
 
   const ads = asArray(root.ads, "Performance Marketer ads");
-  assert(ads.length === 6, `Performance Marketer expected 6 ads, got ${ads.length}.`);
-  const seenIdeaImagePairs = new Set<string>();
+  assert(ads.length === 1, `Performance Marketer expected 1 ad, got ${ads.length}.`);
   for (const [index, value] of ads.entries()) {
     const ad = asRecord(value, `Performance Marketer ad ${index}`);
-    const ideaRef = requireString(ad.ideaRef, `ads[${index}].ideaRef`);
-    const imageRef = requireString(ad.imageRef, `ads[${index}].imageRef`);
-    seenIdeaImagePairs.add(`${ideaRef}:${imageRef}`);
+    const imageRefs = asArray(ad.imageRefs, `ads[${index}].imageRefs`);
+    assert(imageRefs.length > 0, "Performance Marketer ad missing imageRefs.");
     assert(typeof ad.imagePath === "string", "Performance Marketer ad missing imagePath.");
     assert(
       typeof ad.creativeSafeRef === "string" && typeof ad.adSafeRef === "string",
@@ -1576,27 +1596,27 @@ function validatePerformanceMarketerOutput(output: unknown) {
     );
     assert(typeof ad.headline === "string", "Performance Marketer ad missing headline.");
     assert(typeof ad.body === "string", "Performance Marketer ad missing body.");
+    assert(
+      ad.destinationUrl === destinationUrl,
+      "Performance Marketer ad destinationUrl should match Builder URL.",
+    );
     assertPausedStatus(
       ad.configuredStatus,
       `Performance Marketer ad ${index} configuredStatus`,
     );
   }
-  assert(
-    seenIdeaImagePairs.size === 6,
-    "Performance Marketer ads should map to six distinct idea/image pairs.",
-  );
 
   const verification = asRecord(
     root.verification,
     "Performance Marketer verification",
   );
   assert(verification.campaignCount === 1, "Performance Marketer expected one campaign.");
-  assert(verification.adSetCount === 3, "Performance Marketer expected three ad sets.");
-  assert(verification.creativeCount === 6, "Performance Marketer expected six creatives.");
-  assert(verification.adCount === 6, "Performance Marketer expected six ads.");
+  assert(verification.adSetCount === 1, "Performance Marketer expected one ad set.");
+  assert(verification.creativeCount === 1, "Performance Marketer expected one creative.");
+  assert(verification.adCount === 1, "Performance Marketer expected one ad.");
   assertNumberAtLeast(
     verification.pausedObjectCount,
-    10,
+    3,
     "Performance Marketer pausedObjectCount",
   );
   const issues = asArray(verification.issues, "Performance Marketer verification.issues");
@@ -2052,7 +2072,7 @@ const scenarios: Scenario[] = [
     validateOutput: validateBuilderOutput,
     validateSandboxFiles: validateBuilderSandboxFiles,
     task:
-      "Use $builder to create a live drop page for this winning cap product: ideaRef idea_01; productRef winner_cap_01; product Monsoon Crease Cap, a washed black cotton cricket cap with electric-blue rain-stitch embroidery; winning copy Play starts when the rain stops; price INR 2499; ad result 2.7% CTR among Mumbai street-cricket fans. Make it one no-scroll page with the 24-hour countdown at the top, a large auto-advancing product image carousel, and a dummy Buy Now button.",
+      "Use $builder to create a live drop page for this selected cap product: ideaRef idea_01; productRef selected_cap_01; product Monsoon Crease Cap, a washed black cotton cricket cap with electric-blue rain-stitch embroidery; drop copy Play starts when the rain stops; price INR 2499; audience Mumbai street-cricket fans. Make it one no-scroll page with the 24-hour countdown at the top, a large auto-advancing product image carousel, and a dummy Buy Now button.",
   },
   {
     name: "drop-workflow-builder",
@@ -2073,7 +2093,7 @@ const scenarios: Scenario[] = [
     validateEvents: validatePerformanceMarketerEvents,
     validateOutput: validatePerformanceMarketerOutput,
     task:
-      "Use $performance-marketer to create a paused Facebook-only Meta ad campaign for three Drip ideas and two selected candidate images per idea. This is an explicit sandbox smoke: create smoke input images locally before calling Meta. Ideas: idea_01 Mumbai monsoon street cricket comeback; idea_02 Mumbai late-night vada pav study break; idea_03 Mumbai local train first-rain playlist. Use the hackathon recipe: one paused traffic campaign, three paused ad sets, six creatives, six paused ads, no activation, no insights readback. Budget minor units 10000, targeting country IN. Write performance-marketer-output.json with sanitized refs only.",
+      "Use $performance-marketer to create one paused Facebook-only Meta drop-of-week ad for the Builder website https://example.com/drip-e2e-drop and selected product images. This is an explicit sandbox smoke: create smoke input images locally before calling Meta. Selected products: idea_01 Monsoon Crease Cap; idea_02 Vada Pav Study Socks; idea_03 First Rain Playlist Tee. Use the v1 recipe: one paused traffic campaign, one paused ad set, one creative/ad using the Builder link plus the selected product image set, no multi-variant experiments, no activation, no insights readback. Budget minor units 10000, targeting country IN. Write performance-marketer-output.json with sanitized refs only.",
   },
 ];
 

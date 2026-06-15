@@ -22,7 +22,7 @@ import type {
 } from "react";
 import { useState } from "react";
 
-type TeamKey = "scout" | "designer" | "meta" | "builder";
+type TeamKey = "scout" | "designer" | "builder" | "marketer";
 type AuthMode = "signIn" | "signUp";
 
 type TeamMember = {
@@ -70,21 +70,6 @@ const team: TeamMember[] = [
     ],
   },
   {
-    key: "meta",
-    name: "Meta Test",
-    color: "#ff3c38",
-    bg: "bg-[#ff3c38]",
-    icon: BarChart3,
-    portrait: "/drip-team/meta-portrait.png",
-    title: "Tests ads",
-    subtitle: "Measures demand and finds winners.",
-    bullets: [
-      "Ad variants",
-      "Clicks, saves, waitlists",
-      "Build / do-not-build verdict",
-    ],
-  },
-  {
     key: "builder",
     name: "Builder",
     color: "#f8ca00",
@@ -92,8 +77,19 @@ const team: TeamMember[] = [
     icon: Box,
     portrait: "/drip-team/builder-portrait.png",
     title: "Builds pages",
-    subtitle: "Turns the winning drop into a launch page.",
-    bullets: ["Drop website preview", "Product story", "Launch-ready page"],
+    subtitle: "Turns selected products into a limited drop page.",
+    bullets: ["Drop website preview", "Product carousel", "Dummy buy CTA"],
+  },
+  {
+    key: "marketer",
+    name: "Performance Marketer",
+    color: "#ff3c38",
+    bg: "bg-[#ff3c38]",
+    icon: BarChart3,
+    portrait: "/drip-team/meta-portrait.png",
+    title: "Drafts ads",
+    subtitle: "Promotes the drop page with selected product images.",
+    bullets: ["One paused Facebook ad", "Website link", "No experiments"],
   },
 ];
 
@@ -384,10 +380,10 @@ export default function Home() {
               <span className="mt-8 block h-4 w-1 rotate-[-78deg] rounded-full bg-black" />
             </div>
 
-            <h1 className="drip-heading max-w-[760px] text-[68px] leading-[0.96] tracking-[-0.035em] sm:text-[82px] md:text-[72px] lg:text-[84px] xl:text-[112px] 2xl:text-[126px]">
+            <h1 className="drip-heading max-w-[640px] text-[68px] leading-[0.96] tracking-[-0.035em] sm:text-[82px] md:text-[72px] lg:text-[84px] xl:text-[104px] 2xl:text-[112px]">
               Meet your
               <br />
-              <span className="2xl:whitespace-nowrap">AI fashion team</span>
+              <span>AI fashion team</span>
             </h1>
 
             <p className="mt-8 text-[28px] font-medium tracking-[-0.02em]">
@@ -412,7 +408,6 @@ export default function Home() {
                 </span>
               </div>
             </div>
-
           </section>
 
           <section className="relative mx-auto grid w-full max-w-[210px] gap-3 xl:max-w-[218px] xl:gap-3.5">

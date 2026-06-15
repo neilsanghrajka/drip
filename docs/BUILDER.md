@@ -1,8 +1,8 @@
 # Builder
 
-Builder is Drip's fourth AI teammate. Its job is to take the approved Winning
-Drop from Scout, Fashion Designer, and Performance Marketer, then create one
-customer-facing drop website with a shareable live URL.
+Builder is Drip's third AI teammate. Its job is to take the user's selected
+Fashion Designer products and images, then create one customer-facing limited
+drop website with a shareable live URL.
 
 Builder stops at the drop page. It does not discover trends, design the full
 product catalog, run ads, or add checkout logic.
@@ -14,7 +14,7 @@ product catalog, run ads, or add checkout logic.
 The product prompt should stay lean:
 
 ```text
-Use $builder to create a live drop page for this winning cap product: [...]
+Use $builder to create a live drop page for these selected products: [...]
 ```
 
 The `$builder` skill owns the rest: product-page art direction, image-angle
@@ -48,7 +48,7 @@ architecture image above is the current Vercel-only plan.
 
 ```mermaid
 flowchart LR
-  Input["Winning Drop brief<br/>idea + product + marketer result"]
+  Input["Selected product brief<br/>ideas + images + drop copy"]
   Runner["Vercel Sandbox Runner"]
   Codex["Codex SDK Thread"]
   Builder["$builder skill<br/>orchestrator + taste judge"]
@@ -74,8 +74,8 @@ flowchart LR
    `/vercel/sandbox/agent-workspace`.
 3. The runner sets `CODEX_HOME` so Codex can load sandbox skills and subagents.
 4. Codex uses `$builder`.
-5. `$builder` parses the Winning Drop, selected product, selected image, ad
-   results, and positioning.
+5. `$builder` parses the selected products, selected images, drop copy,
+   audience, and positioning.
 6. `$builder` asks `drop-site-builder` to create a one-page static site.
 7. `drop-site-builder` uses `$frontend-skill` for visual direction and
    `$imagegen` for a few same-product angle images.
@@ -113,7 +113,7 @@ Builder creates one page only:
 - Top-of-page 24-hour urgency timer.
 - Large centered auto-advancing product carousel.
 - Selected product image plus two or three same-product angle images as slides.
-- Short drop copy tied to the Winning Drop.
+- Short drop copy tied to the selected products and cultural moment.
 - Visible price.
 - Dummy `Buy now` button.
 - Sizing or fit guidance only when relevant to the product category.
@@ -205,8 +205,7 @@ Suggested schema:
   "schemaVersion": "builder.drop-site.v1",
   "generatedAt": "ISO timestamp",
   "input": {
-    "ideaRef": "idea_01",
-    "productRef": "winner_cap_01",
+    "selectedMockRefs": ["idea_01-cap-01", "idea_02-sock-01"],
     "sourceArtifacts": []
   },
   "site": {
@@ -275,7 +274,7 @@ The `builder-drop-site` black-box scenario sends a lean prompt through a real
 `sandboxRuns` row:
 
 ```text
-Use $builder to create a live drop page for this winning cap product: [...]
+Use $builder to create a live drop page for these selected products: [...]
 ```
 
 Expected proof:

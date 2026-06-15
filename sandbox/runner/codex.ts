@@ -21,6 +21,8 @@ type CodexRunResult = {
   usage: Usage | null;
 };
 
+const terminalFinalResponseIdleMs = 20_000;
+
 export async function runCodexSdk({
   config,
   control,
@@ -94,13 +96,52 @@ export async function runCodexSdk({
     const { events } = await thread.runStreamed(sandboxRun.task, {
       signal: abortController.signal,
     });
+    const iterator = events[Symbol.asyncIterator]();
+    let pendingEvent = iterator.next();
+    let terminalFinalResponseAt: number | null = null;
 
-    for await (const event of events) {
+    while (true) {
+      const next = await Promise.race([
+        pendingEvent.then((result) => ({ kind: "event" as const, result })),
+        delay(nextTickMs(terminalFinalResponseAt, config.heartbeatMs)).then(
+          () => ({ kind: "tick" as const }),
+        ),
+      ]);
+
+      if (next.kind === "tick") {
+        await maybeHeartbeat(true);
+        if (
+          terminalFinalResponseAt !== null &&
+          Date.now() - terminalFinalResponseAt >= terminalFinalResponseIdleMs
+        ) {
+          pendingEvent.catch(() => undefined);
+          abortController.abort("Final response observed and stream went idle.");
+          await emit("runner.stream_idle_completed", {
+            idleMs: terminalFinalResponseIdleMs,
+            expectedOutputPath: sandboxRun.expectedOutputPath,
+          });
+          break;
+        }
+        continue;
+      }
+
+      if (next.result.done) {
+        break;
+      }
+
+      const event = next.result.value as ThreadEvent;
+      const previousFinalResponse = finalResponse;
       ({ codexThreadId, finalResponse, usage } = absorbCodexEvent(event, {
         codexThreadId,
         finalResponse,
         usage,
       }));
+      if (
+        finalResponse !== previousFinalResponse &&
+        isTerminalFinalResponse(finalResponse, sandboxRun.expectedOutputPath)
+      ) {
+        terminalFinalResponseAt = Date.now();
+      }
       await emit(event.type, event);
 
       if (event.type === "turn.failed") {
@@ -111,6 +152,7 @@ export async function runCodexSdk({
       }
 
       await maybeHeartbeat();
+      pendingEvent = iterator.next();
     }
 
     const result: CodexRunResult = {
@@ -134,6 +176,24 @@ export async function runCodexSdk({
       throw error;
     }
   }
+}
+
+function delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function nextTickMs(
+  terminalFinalResponseAt: number | null,
+  heartbeatMs: number,
+) {
+  if (terminalFinalResponseAt === null) {
+    return heartbeatMs;
+  }
+  const remaining = Math.max(
+    terminalFinalResponseIdleMs - (Date.now() - terminalFinalResponseAt),
+    0,
+  );
+  return Math.max(Math.min(remaining, heartbeatMs), 0);
 }
 
 function codexEnv(workingDirectory: string) {
@@ -254,6 +314,16 @@ function isAgentMessageItem(
     value.type === "agent_message" &&
     typeof value.text === "string"
   );
+}
+
+function isTerminalFinalResponse(
+  text: string,
+  expectedOutputPath: string | undefined,
+) {
+  if (!expectedOutputPath) {
+    return false;
+  }
+  return text.includes(expectedOutputPath);
 }
 
 function isUsage(value: unknown): value is Usage {

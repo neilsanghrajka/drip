@@ -1,59 +1,58 @@
 # Drip PRD
 
-Last updated: 2026-06-03
+Last updated: 2026-06-08
 
-> **Product in one line:** Drip is an AI-powered drop studio that turns internet
-> moments into live-tested, limited-edition merch campaigns.
+> **Product in one line:** Drip is an AI-powered drop studio that turns
+> internet moments into limited-edition merch drops, a one-page drop website,
+> and a paused Facebook ad draft for launch.
 
-> **Core product promise:** Tell the user **what to build**, **what not to
-> build**, and **why**, then help them launch the winning drop page.
+> **Core product promise:** Help the user decide what merch should become this
+> week's limited drop, generate the product visuals, build the drop page, and
+> prepare a safe paused ad that points to the page.
 
 ---
 
 ## How to Update This Document
 
 This is Drip's lightweight product requirements document and product changelog.
-Keep it high level: capture what changed, why it matters, core user journeys,
-AI teammate responsibilities, and user acceptance criteria. Detailed specs for
-individual flows should live in separate documents and be linked from here.
+Keep it focused on the user journey, product behavior, decisions, and
+acceptance criteria. Detailed implementation notes belong in the teammate and
+platform docs.
 
 When product requirements change:
 
-1. Update the relevant section if the current product direction has changed.
-2. Add an entry under Amendments with the date, summary, and any linked
-   follow-up specs.
-3. Keep implementation details, API schemas, and deep edge-case handling out of
-   this document unless they are necessary to understand the product.
+1. Update the relevant product journey or acceptance criteria.
+2. Add a dated amendment.
+3. Keep API schemas, env details, and deep technical edge cases out unless they
+   are necessary to understand the product behavior.
 
 ---
 
 ## Product Summary
 
 Drip helps a solo creator, founder, or small fashion-commerce operator move from
-"something is trending" to "this is the drop worth launching" without manually
-coordinating research, fashion design, performance marketing, and web design.
+"something is trending" to "this is the limited drop we can promote this week."
 
-The inspiration is a **limited-edition drop business**: every week, a small set
-of timely items can become collectible because they capture the cultural moment.
-Drip turns that idea into an autonomous AI team for internet-moment merch.
+The product behaves like a small AI team. The user stays in control of the key
+decisions, while each teammate creates a concrete artifact for the next step.
 
 | Teammate | Plain-English Job | Main Output |
 | --- | --- | --- |
-| **Scout** | Finds what is trending and proposes merchable ideas. | Candidate drop ideas |
-| **Designer** | Turns approved ideas into clothing concepts and mock images. | Product concepts and mockups |
-| **Performance Marketer** | Runs live Meta/Instagram A/B tests and identifies the winner. | Ad campaign results and recommendation |
-| **Builder** | Creates the customer-facing website for the winning drop. | Live drop page |
+| **Scout** | Finds timely, merchable cultural moments. | Candidate drop ideas |
+| **Fashion Designer** | Turns approved ideas into clothing concepts and product images. | Product concepts and mock images |
+| **Builder** | Turns selected product images into a one-page limited-drop website. | Live drop page with carousel and CTA |
+| **Performance Marketer** | Creates one paused Facebook ad draft for the generated website. | Paused ad artifact using the page link and product images |
 
-The product is **not** just an image generator or a storefront generator. The
-valuable output is a confident business recommendation:
+Drip is not just an image generator or a storefront generator. The valuable
+output is a complete launch-ready package:
 
-| Decision | What Drip Should Say |
+| Decision | What Drip Should Make Clear |
 | --- | --- |
-| **Build this** | The strongest product, audience, price, and launch angle. |
-| **Do not build that** | Which ideas looked interesting but failed to get traction. |
-| **Why now** | Why the cultural moment is timely. |
-| **Why this won** | The Meta ad, audience, creative, and buyer-intent signals behind the pick. |
-| **How to launch** | The final brief and generated drop page for the winner. |
+| **Why now** | Why this cultural moment is timely and who cares. |
+| **What to make** | Which product ideas and images the user selected. |
+| **Where to send buyers** | The generated single-page limited-drop website. |
+| **How to promote it** | A paused Facebook ad draft using the site link and selected images. |
+| **What is safe** | No ad activation, no experiments, and no real spend by default. |
 
 ---
 
@@ -72,47 +71,47 @@ Today, the workflow is fragmented:
 | Decide whether it is merchable | Not every cultural spike should become a product. |
 | Translate taste into product design | Generic meme merch feels cheap. |
 | Produce credible visuals | Inventory does not exist yet. |
-| Run ad tests | The creator needs traction data before deciding what to make. |
-| Interpret the winner | Clicks, saves, comments, and signups need a clear recommendation. |
-| Build a storefront | The page needs to feel timely, premium, and launch-ready. |
+| Build a launch page | The site must feel timely, premium, and product-led. |
+| Draft paid promotion | Ads need the final page link and strong product images. |
 
 By the time the creator does all of this manually, the moment may already be
-stale. Drip turns the process into one guided campaign where AI teammates do the
-work, show their outputs, and ask the user to approve the key decisions.
+stale. Drip turns the work into one guided campaign where AI teammates do the
+heavy lifting, show their outputs, and ask the user to approve the key handoffs.
 
 ---
 
 ## Campaign Flow
 
+The flow is manual at each major handoff. Drip should not auto-transition past
+the user's approval points.
+
 ```mermaid
 sequenceDiagram
   actor User
   participant Scout
-  participant Designer
-  participant Marketer as Performance Marketer
+  participant Designer as Fashion Designer
   participant Builder
+  participant Marketer as Performance Marketer
 
-  User->>Scout: Start from weekly suggestions or create Drop Campaign
-  Scout-->>User: Propose up to 5 merchable ideas
-  User->>Scout: Approve about 3 ideas
+  User->>Scout: Begin scouting
+  Scout-->>User: Show timely, merchable ideas
+  User->>Scout: Select about 3 ideas
 
   Scout->>Designer: Send approved ideas
-  Designer-->>User: Create concepts and mock images
-  User->>Designer: Select 2-3 mocks per idea
+  Designer-->>User: Generate concepts and product images
+  User->>Designer: Select a few clothes/images
 
-  Designer->>Marketer: Send selected mocks
-  Marketer-->>User: Run live Meta/Instagram ads and report results
-  Marketer-->>User: Recommend the winning drop
-  User->>Marketer: Approve Winning Drop
+  Designer->>Builder: Send selected products and images
+  Builder-->>User: Build one-page limited-drop website
+  User->>Builder: Preview site and continue
 
-  Marketer->>Builder: Send approved Winning Drop
-  Builder-->>User: Build drop website
-  User->>Builder: Preview, revise, or share
+  Builder->>Marketer: Send website link and selected images
+  Marketer-->>User: Create one paused Facebook ad draft
 ```
 
 **Design intent:** the campaign should feel like one continuous workspace. The
-user should be able to see the team working, review outputs in place, and move
-from research to launch without switching between disconnected tools.
+user should be able to watch each teammate work, review outputs in place, and
+move from research to launch assets without switching tools.
 
 ---
 
@@ -120,20 +119,18 @@ from research to launch without switching between disconnected tools.
 
 | Area | Product Requirement |
 | --- | --- |
-| **Product surface** | A desktop web app centered on a single Drop Campaign cockpit. |
-| **Primary user** | An individual operator building a limited-edition merch or fashion-drop business. |
-| **Landing page** | Explain Drip, introduce the AI team, and let users sign up or log in. |
+| **Product surface** | Desktop web app centered on a single Drop Campaign cockpit. |
+| **Primary user** | Individual operator building a limited-edition merch or fashion-drop business. |
+| **Landing page** | Introduce Drip and the four teammates in the correct flow order. |
 | **Authentication** | Simple username/password signup, login, and logout. |
-| **Current-week suggestions** | Show prepared or running suggestions for what is interesting this week. |
-| **Drop creation** | Let the user start from topics, product categories, or auto-discovery. |
-| **Scout research** | Scout proposes up to five ideas with trend context, audience, and urgency. |
-| **Idea approval** | User approves the ideas worth designing, usually about three. |
-| **Design and mocks** | Designer creates clothing concepts and mock images for approved ideas. |
-| **Mock selection** | User selects two to three mock images per approved idea. |
-| **Meta ad testing** | Performance Marketer runs live Meta/Instagram tests for selected mocks. |
-| **Recommendation** | Performance Marketer explains which product got traction and should be built. |
-| **Launch** | Builder creates a unique customer-facing drop website for the winner. |
-| **History** | User can switch between current and past drops by campaign date. |
+| **Drop creation** | Let the user begin scouting from the current campaign setup. |
+| **Scout research** | Scout proposes timely ideas with trend context, audience, and urgency. |
+| **Idea approval** | User selects the ideas worth designing, usually about three. |
+| **Design and images** | Fashion Designer creates clothing concepts and high-quality mock images. |
+| **Product selection** | User selects the clothes/images that should become the drop. |
+| **Website generation** | Builder creates a one-page limited-drop site with a carousel and dummy buy CTA. |
+| **Ad draft** | Performance Marketer creates one paused Facebook ad artifact using the site link and selected images. |
+| **History** | User can revisit current and past campaign artifacts. |
 
 ---
 
@@ -144,15 +141,14 @@ from research to launch without switching between disconnected tools.
 | **User** | The person operating Drip and making final campaign decisions. |
 | **Drop Campaign** | One weekly or moment-based merch launch workflow. |
 | **Current Drop** | The active campaign the user is operating now. |
-| **Drop History** | Previous campaigns, decisions, outputs, ad results, and launched pages. |
-| **AI Team** | Scout, Designer, Performance Marketer, and Builder. |
+| **Drop History** | Previous campaigns, decisions, outputs, ad artifacts, and launched pages. |
+| **AI Team** | Scout, Fashion Designer, Builder, and Performance Marketer. |
 | **Candidate Idea** | A merch direction tied to a trend or user-provided topic. |
-| **Product Concept** | A concrete clothing direction with product type, fit, color, print placement, and rationale. |
-| **Mock Image** | A realistic product, model, bundle, or ad creative generated by Designer. |
-| **Meta Ad Test** | A live Instagram/Meta campaign that tests selected mock images. |
-| **Winning Drop** | The selected product or bundle Drip recommends launching. |
-| **Drop Brief** | The final package of product, audience, creative, ad results, and launch guidance. |
-| **Drop Page** | The standalone customer-facing website created for the winning drop. |
+| **Product Concept** | A concrete clothing direction with product type, fit, color, graphic placement, and rationale. |
+| **Mock Image** | A realistic product or fashion image generated by Fashion Designer. |
+| **Selected Product Set** | The clothes/images the user chooses after Fashion Designer finishes. |
+| **Drop Page** | The standalone one-page website Builder creates from selected products. |
+| **Paused Ad Draft** | The Performance Marketer artifact that uses the drop page link and selected images, with delivery off. |
 
 ---
 
@@ -160,39 +156,35 @@ from research to launch without switching between disconnected tools.
 
 | Principle | What It Means |
 | --- | --- |
-| **Validate before making** | Run demand tests before deciding what to manufacture or launch. |
+| **Keep the user approving the big calls** | The user approves ideas, product images, website handoff, and ad creation. |
 | **Make the moment legible** | Explain why each idea matters now, who cares, and how long the window may last. |
-| **Feel like a team, not a form** | Scout, Designer, Performance Marketer, and Builder should feel like specialists with visible handoffs. |
-| **Keep the user approving the big calls** | The user approves ideas, mock selections, winner selection, and the final page. |
-| **Give a simple final answer** | The product should say: build this, do not build that, and here is why. |
 | **Prefer taste over novelty** | The merch should feel like fashion or collectible streetwear, not low-effort meme merch. |
-| **Preserve evidence** | Recommendations should tie back to trend reasoning, selected mocks, ad campaign status, and winner data. |
-| **Launch one strong drop** | Optimize for a focused limited-edition product or bundle, not a sprawling catalog. |
-| **Make the site feel unique** | Every winning drop gets its own page, visual style, product story, and countdown. |
+| **Build before promoting** | Performance Marketer should point to the generated website, not to an abstract idea. |
+| **No hidden spend** | Ads are paused/draft artifacts unless the user explicitly chooses real activation later. |
+| **One ad in v1** | The current product creates one paused ad for the generated drop page. |
+| **Launch one focused drop** | Optimize for a compact product set and a single limited-drop page, not a sprawling catalog. |
 
 ---
 
 ## AI Team Responsibilities
 
-### Team Map
-
 | Teammate | Inputs | Outputs | Acceptance Criteria |
 | --- | --- | --- | --- |
-| **Scout** | User topics, current-week prompts, cultural signals, taste guidance | Up to five candidate ideas with audience, urgency, merch angle, and rationale | Ideas are understandable, timely, and merchable. |
-| **Designer** | Approved ideas, product categories, audience, taste constraints | Clothing concepts plus mock images across tees, caps, hoodies, socks, bundles, model shots, and ad creatives | User can compare, reject, revise, and select mocks before ad testing. |
-| **Performance Marketer** | Selected mock images, audience, price, copy, campaign goal | Live Meta/Instagram campaign, campaign link/status, traction data, and winner recommendation | The user can see what is being tested and which product won. |
-| **Builder** | Winning Drop, Drop Brief, selected mock images, ad results, positioning | Unique drop website with countdown, images, product copy, CTA, and shareable live link | User can preview, request changes, and approve the final page. |
+| **Scout** | Campaign setup, topics, current cultural signals, product categories, taste guidance | Candidate ideas with audience, urgency, merch angle, and rationale | User can understand and select about three ideas without reading raw research logs. |
+| **Fashion Designer** | Approved ideas, product categories, audience, taste constraints | Clothing concepts plus realistic product images | User can compare images and select the few clothes/images that should become the drop. |
+| **Builder** | Selected products/images, drop name, drop date, taste constraints | One-page limited-drop website with carousel, countdown, price/copy, dummy buy CTA, and live preview URL | User can preview a polished product-led site before creating an ad. |
+| **Performance Marketer** | Builder website URL, selected product images, drop copy, targeting defaults | One paused Facebook ad artifact with sanitized evidence | Ad uses the generated website link and selected images; no activation, insights readback, or spend. |
 
 ### Default Campaign Counts
 
 | Stage | Default Count |
 | --- | --- |
 | Scout candidate ideas | Up to **5** |
-| Ideas approved by user | About **3** |
-| Designer mock images per approved idea | About **5** |
-| Mock images selected for ads | **2-3** per approved idea |
-| Meta ad campaigns | One campaign set for the selected ideas and mocks |
-| Final winner | **1** product or bundle |
+| Ideas selected by user | About **3** |
+| Fashion Designer concepts/images | Multiple concepts per approved idea |
+| Product images selected for website | A few strong clothes/images |
+| Generated drop websites | **1** one-page limited-drop site |
+| Facebook ad artifacts | **1** paused ad for the drop |
 
 ---
 
@@ -200,12 +192,11 @@ from research to launch without switching between disconnected tools.
 
 | Stage | User Decision | Product Requirement |
 | --- | --- | --- |
-| **Drop setup** | Start from prepared suggestions, provide topics, or auto-discover | Make the starting mode clear. |
-| **Scout research** | Approve which candidate ideas move to design | Preserve rejected or deferred ideas in history. |
-| **Designer mocks** | Select which mock images go to Meta ads | The user can compare mocks and select two to three per idea. |
-| **Performance Marketer** | Review live campaign status and winner recommendation | Show campaign link/status and explain which product got the most traction. |
-| **Winner selection** | Approve the Winning Drop | Convert the winner into a clear Drop Brief for Builder. |
-| **Builder** | Preview, revise, or approve the drop website | Keep the generated page separate from the internal campaign cockpit. |
+| **Drop setup** | Begin scouting for the current drop | Make the campaign name/date visible. |
+| **Scout** | Select which candidate ideas move to design | Preserve selected ideas as the Designer input. |
+| **Fashion Designer** | Select which clothes/images become the drop | Selected images should be visible in Builder and Marketer context. |
+| **Builder** | Review the generated drop website | Show the page link and product carousel before marketing. |
+| **Performance Marketer** | Create or review the paused ad artifact | Show that the ad is paused and uses the Builder link plus selected images. |
 
 ---
 
@@ -218,167 +209,127 @@ flowchart LR
   A["Landing page"]
   B["Understand Drip's AI team"]
   C["Sign up or log in"]
-  D["Meet Scout, Designer,<br/>Performance Marketer, Builder"]
-  E["Enter campaign cockpit"]
-  F["Start first Drop Campaign"]
-
-  A --> B --> C --> D --> E --> F
-```
-
-| Moment | Acceptance Criteria |
-| --- | --- |
-| **Landing** | User understands Drip as an autonomous merch drop studio. |
-| **Auth** | User can sign up, log in, and log out with simple credentials. |
-| **Team intro** | User can identify what each AI teammate does. |
-| **Workspace entry** | User lands in the main Drip workspace, not a long onboarding wizard. |
-
-### Journey 2: Create and Shape a Drop Campaign
-
-```mermaid
-flowchart TD
-  A["Open workspace"]
-  B{"Starting point"}
-  C["Choose this week's suggestion"]
-  D["Enter 2-3 topics"]
-  E["Let Scout auto-discover"]
-  F["Select product categories"]
-  G["Create Drop Campaign"]
-
-  A --> B
-  B --> C
-  B --> D
-  B --> E
-  C --> F
-  D --> F
-  E --> F
-  F --> G
-```
-
-| Moment | Acceptance Criteria |
-| --- | --- |
-| **Empty state** | User can create a new campaign from a clean workspace. |
-| **Prepared suggestions** | User can start from this week's Scout suggestions. |
-| **User topics** | User can provide a few topics they already care about. |
-| **Auto-discovery** | User can ask Scout to find trends without a starting topic. |
-| **Campaign setup** | User can select categories such as tees, caps, hoodies, socks, or bundles. |
-
-### Journey 3: Scout Research and User Approval
-
-```mermaid
-flowchart LR
-  A["Scout researches culture"]
-  B["Scout proposes up to 5 ideas"]
-  C["User compares ideas"]
-  D["User approves about 3"]
-  E["Approved ideas go to Designer"]
+  D["Enter campaign cockpit"]
+  E["Begin first Drop Campaign"]
 
   A --> B --> C --> D --> E
 ```
 
-| Stage | Acceptance Criteria |
+| Moment | Acceptance Criteria |
 | --- | --- |
-| **Research output** | Each idea includes title, audience, why-now, merch angle, and urgency. |
-| **Comparison** | User can compare ideas without reading raw research logs. |
-| **Approval** | User chooses which ideas should become design work. |
-| **Persistence** | Approved and rejected ideas remain visible in campaign history. |
+| **Landing** | User understands Drip as an AI merch drop studio. |
+| **Team intro** | User sees Scout, Fashion Designer, Builder, and Performance Marketer in that order. |
+| **Workspace entry** | User lands in the main Drip workspace, not a long onboarding wizard. |
 
-### Journey 4: Designer Concepts, Mock Images, and User Selection
+### Journey 2: Scout Research and Approval
+
+```mermaid
+flowchart LR
+  A["Begin scouting"]
+  B["Scout researches live signals"]
+  C["Scout proposes ideas"]
+  D["User selects about 3"]
+  E["Designer receives approved ideas"]
+
+  A --> B --> C --> D --> E
+```
+
+| Moment | Acceptance Criteria |
+| --- | --- |
+| **Research output** | Each idea includes title, why-now, audience, merch angle, and urgency. |
+| **Selection** | User can select and deselect ideas with clear visual feedback. |
+| **Persistence** | The approved idea set becomes the Fashion Designer input. |
+
+### Journey 3: Fashion Designer Concepts and Selection
 
 ```mermaid
 flowchart LR
   A["Designer receives approved ideas"]
-  B["Designer chooses product directions"]
-  C["Designer creates mock images"]
-  D["User reviews mocks"]
-  E["User selects 2-3 per idea"]
-  F["Selected mocks go to Performance Marketer"]
+  B["Designer creates product directions"]
+  C["Designer generates mock images"]
+  D["User reviews images"]
+  E["User selects a few clothes/images"]
+  F["Builder receives selected products"]
 
   A --> B --> C --> D --> E --> F
 ```
 
-| Stage | Acceptance Criteria |
+| Moment | Acceptance Criteria |
 | --- | --- |
-| **Concepting** | Designer decides product type, fit, colors, print placement, typography, and style direction. |
-| **Mock generation** | Designer creates about five mock images per approved idea. |
-| **Merch variety** | Mocks can include tees, caps, hoodies, socks, bundles, product shots, model shots, or ad creatives. |
-| **Selection** | User selects two to three mocks per idea for live Meta testing. |
-| **Revision** | User can reject or request changes before mocks advance. |
+| **Concepting** | Designer produces product type, fit, color, placement, and style rationale. |
+| **Image quality** | Images should feel premium and product-led, not placeholder-like. |
+| **Selection** | User can select the product images that should appear in the drop site. |
 
-### Journey 5: Performance Marketer Runs Live Meta Ads
+### Journey 4: Builder Creates the Limited Drop Website
 
 ```mermaid
 flowchart LR
-  A["Selected mock images"]
-  B["Performance Marketer creates Meta campaign"]
-  C["Campaign runs on Instagram/Meta"]
-  D["User can view campaign link/status"]
-  E["Performance Marketer compares traction"]
-  F["Recommendation:<br/>build this, not that"]
-  G["User approves Winning Drop"]
+  A["Selected product images"]
+  B["Builder creates site"]
+  C["One-page limited drop"]
+  D["Carousel + countdown + CTA"]
+  E["User previews live link"]
+  F["Performance Marketer receives link + images"]
 
-  A --> B --> C --> D --> E --> F --> G
+  A --> B --> C --> D --> E --> F
 ```
 
-| Stage | Acceptance Criteria |
+| Moment | Acceptance Criteria |
 | --- | --- |
-| **Campaign creation** | Performance Marketer creates live Meta/Instagram A/B tests for selected mocks. |
-| **Visibility** | User can see campaign status and a reviewable campaign link or artifact. |
-| **Signals** | Performance Marketer reports traction signals such as CTR, CPC, likes, saves, comments, waitlist signups, and buyer intent. |
-| **Recommendation** | Performance Marketer explains which merch should be built and which should not. |
-| **Winner** | User approves one product or bundle as the Winning Drop. |
+| **Builder handoff** | Builder receives the selected Fashion Designer products/images. |
+| **Generated site** | Site is a unique one-page limited-drop page, not a dashboard or generic catalog. |
+| **Carousel** | Selected product images appear as the main website visual system. |
+| **CTA** | Buy button is dummy/inert in v1; no checkout or payment collection. |
+| **Live link** | User can open a shareable preview URL separate from the Drip cockpit. |
 
-### Journey 6: Builder and Drop Website
+### Journey 5: Performance Marketer Creates Paused Ad
 
 ```mermaid
 flowchart LR
-  A["Approved Winning Drop"]
-  B["Builder receives Drop Brief"]
-  C["Builder creates unique website"]
-  D["User previews page"]
-  E{"User decision"}
-  F["Request changes"]
-  G["Approve and share live link"]
+  A["Builder website URL"]
+  B["Selected product images"]
+  C["Performance Marketer drafts ad"]
+  D["One paused Facebook ad"]
+  E["User reviews safe artifact"]
 
-  A --> B --> C --> D --> E
-  E --> F --> C
-  E --> G
+  A --> C
+  B --> C
+  C --> D --> E
 ```
 
-| Stage | Acceptance Criteria |
+| Moment | Acceptance Criteria |
 | --- | --- |
-| **Builder handoff** | Builder receives the winning idea, selected mock images, ad results, and campaign description. |
-| **Generated site** | The page is unique to the drop, not a generic template. |
-| **Page content** | Page includes product images, product copy, price or waitlist CTA, model imagery, size/fit guidance, and a large countdown. |
-| **Style** | Page can use a distinct font, layout, and visual direction that fits the drop. |
-| **Preview** | User can preview and request changes before sharing. |
-| **Live link** | Approved page has a shareable link separate from the Drip dashboard. |
+| **Ad input** | The ad uses the Builder website URL and selected product images. |
+| **Ad shape** | One paused Facebook ad draft for the drop of the week. |
+| **Safety** | No activation, no insights readback, no experiments, and no spend. |
+| **Review** | User can see status, destination link, selected image set, and sanitized evidence. |
+
+---
 
 ## Experience Direction
 
 ### Operator Cockpit
 
-Drip should feel like a **desktop-first, single-page campaign cockpit**. The
-user should see the current drop, AI teammate progress, key decisions, generated
-assets, live ad status, and launch readiness in one calm workspace.
+Drip should feel like a desktop-first, single-page campaign cockpit. The user
+should see the current drop, teammate progress, key decisions, generated assets,
+the website link, and the paused ad artifact in one energetic workspace.
 
 | Requirement | Direction |
 | --- | --- |
-| **Information density** | Dense enough for a serious operator, not a broad admin dashboard. |
-| **Navigation** | A clean current-drop/history toggle should keep past drops close without clutter. |
-| **AI presence** | Teammate cards should show role, current status, and latest output. |
-| **Decision making** | Core decisions should be selectable, approvable, rejectable, or editable inline. |
-| **Motion** | Status changes should feel alive without becoming noisy. |
-| **Tone** | Clean, quiet-luxury, fashion-forward, restrained, and legible. |
+| **Visual continuity** | Keep the bold teammate-card visual system from the current mocks. |
+| **Information density** | Dense enough for a serious operator, not a long marketing page. |
+| **Decision making** | Core decisions should be selectable and approvable inline. |
+| **Live progress** | Outputs should refresh from backend state as teammates finish. |
+| **Tone** | Fashion-forward, high-signal, playful, and legible. |
 
 ### Generated Drop Website
 
-The Drip cockpit and the generated drop website should feel intentionally
-distinct.
+The Drip cockpit and generated drop website should feel intentionally distinct.
 
 | Surface | Purpose | Feel |
 | --- | --- | --- |
-| **Drip cockpit** | Internal operator interface for decisions, status, and review. | Calm, structured, high-signal. |
-| **Drop website** | Customer-facing site for the winning product. | Editorial, immersive, product-led, urgent, unique to the drop. |
+| **Drip cockpit** | Internal operator interface for decisions, status, and review. | Bold, structured, teammate-led. |
+| **Drop website** | Customer-facing page for selected products. | Editorial, immersive, product-led, urgent, unique to the drop. |
 
 ---
 
@@ -386,25 +337,13 @@ distinct.
 
 Campaign history supports the core journey without becoming the main product
 loop. The user should be able to switch between the current drop and older drops
-cleanly, review what happened, and reopen the live drop page.
-
-```mermaid
-flowchart LR
-  A["Open history"]
-  B["Choose previous drop"]
-  C["Review Scout ideas"]
-  D["Review Designer mocks"]
-  E["Review Meta ad results"]
-  F["Open launched drop page"]
-
-  A --> B --> C --> D --> E --> F
-```
+cleanly, review what happened, and reopen the generated drop page.
 
 | Stage | Acceptance Criteria |
 | --- | --- |
 | **History list** | User can view active and historical drops by date or campaign. |
-| **Campaign record** | Each campaign preserves research, approved ideas, mock selections, ad status/results, Builder output, and final decisions. |
-| **Explainability** | History makes it easy to understand why a product was recommended or rejected. |
+| **Campaign record** | Each campaign preserves Scout ideas, Designer selections, Builder output, and Performance Marketer artifact. |
+| **Explainability** | History makes it easy to understand why the selected products became the drop. |
 
 ---
 
@@ -412,23 +351,24 @@ flowchart LR
 
 | Topic | Open Question |
 | --- | --- |
-| **Meta ad setup** | What minimum account setup is required before Performance Marketer can run live tests? |
-| **Budget** | What default spend should a live one-day test use? |
-| **Winner threshold** | What counts as enough traction to recommend "build this"? |
-| **User control** | Which teammate outputs are editable, and which are only reviewable? |
-| **Drop page CTA** | Should the first generated site use checkout, waitlist, or interest capture? |
+| **Meta setup** | What exact account/Page setup is required before real paused Meta object creation is available? |
+| **Commerce CTA** | Should future generated sites use checkout, waitlist, preorder, or interest capture? |
+| **Revision loop** | Which teammate outputs are editable, regeneratable, or only reviewable? |
 | **History depth** | How much campaign history should be visible before the cockpit feels crowded? |
+| **Activation path** | What user confirmation is required before future versions can activate ads or spend? |
 
 ---
 
 ## Future Ideas
 
-These are examples of directions Drip could explore later, not committed scope.
+These are examples of directions Drip could explore later, not committed v1
+scope.
 
 | Idea | What It Could Add |
 | --- | --- |
 | **Recurring Auto Drops** | Drip prepares new campaign recommendations automatically. |
-| **Commerce Integration** | Drop websites support real checkout or commerce handoff. |
+| **Ad Activation** | User explicitly approves activation and spend for a prepared ad. |
+| **Commerce Integration** | Drop websites support checkout or commerce handoff. |
 | **Supplier Packets** | Drip prepares production-ready handoff packets. |
 | **Brand Memory** | Teammates remember taste, prior decisions, and launch preferences. |
 
@@ -439,21 +379,19 @@ These are examples of directions Drip could explore later, not committed scope.
 ### 2026-06-03: Initial High-Level PRD
 
 Created the first lightweight product requirements document for Drip. Defined
-the product as an autonomous AI drop studio for internet-moment merch,
-established the top-level Drop Campaign journey, and set the UX direction as a
-desktop-first single-page campaign cockpit with a distinct generated drop page.
-
-### 2026-06-03: Readability Pass
-
-Reworked the PRD into a more readable product document with stronger formatting,
-section dividers, tables, cleaner user journey diagrams, and condensed future
-idea examples. Removed the initial version boundary and initial out-of-scope
-sections to keep the document focused on product direction and user journeys.
+the product as an autonomous AI drop studio for internet-moment merch.
 
 ### 2026-06-03: Four-Teammate Workflow Correction
 
-Updated the PRD to use the corrected four-teammate workflow: Scout, Designer,
-Performance Marketer, and Builder. Made Designer responsible for concepts and
-mock images, made live Meta/Instagram testing the validation step, split Scout
-approval and Designer mock selection into separate journeys, and kept Builder
-as the final website launch step.
+Updated the PRD to use the four-teammate workflow: Scout, Designer, Performance
+Marketer, and Builder. Made Designer responsible for concepts and mock images,
+made live Meta/Instagram testing the validation step, and kept Builder as the
+final website launch step.
+
+### 2026-06-08: Builder Before Performance Marketer
+
+Changed the v1 journey to Scout -> Fashion Designer -> Builder -> Performance
+Marketer. Builder now creates the one-page limited-drop website from selected
+product images before the ad step. Performance Marketer now creates one paused
+Facebook ad artifact using the generated website link and selected images, with
+one paused ad, no activation, and no spend.

@@ -1,18 +1,18 @@
 ---
 name: builder
-description: Use for Drip Builder work. Builder turns one approved winning drop into a reviewed, deployed, one-page static drop site and writes builder-output.json.
+description: Use for Drip Builder work. Builder turns the user's selected Fashion Designer product images into a reviewed, deployed, one-page limited-drop site and writes builder-output.json.
 ---
 
 # Builder
 
-Builder creates the customer-facing website for one approved Winning Drop. It
-does not discover trends, design a product line, run ads, create checkout
-logic, or update Drip app code.
+Builder creates the customer-facing website for the selected Fashion Designer
+products. It does not discover trends, design a product line, run ads, create
+checkout logic, or update Drip app code.
 
 The caller can stay lean:
 
 ```text
-Use $builder to create a live drop page for this winning cap product: [...]
+Use $builder to create a live drop page for these selected drop products: [...]
 ```
 
 Builder owns the plan, subagent orchestration, final page judgment, deployment,
@@ -20,11 +20,12 @@ and output JSON.
 
 ## Inputs
 
-Accept a winning drop brief directly in the prompt or from an artifact path.
+Accept selected Fashion Designer products directly in the prompt or from an
+artifact path.
 Infer reasonable defaults when omitted.
 
-- `winningDrop`: final idea, selected product, selected image or image path,
-  marketer result, positioning, audience, and ad evidence
+- `selectedMocks`: selected Fashion Designer products/images, idea references,
+  product names, image paths, audience, positioning, and drop copy
 - `input`: optional artifact path; use any provided path before defaults
 - `siteDir`: default `/vercel/sandbox/agent-workspace/builder-site`
 - `output`: default `/vercel/sandbox/agent-workspace/builder-output.json`
@@ -41,14 +42,15 @@ display copy; do not create payment or checkout behavior.
 
 ## Workflow
 
-1. Parse the Winning Drop, source artifact paths, product category, approved
-   product image references, price, audience, positioning, and ad result.
+1. Parse the selected Designer products, source artifact paths, product
+   categories, approved product image references, price, audience, positioning,
+   and drop copy.
 2. Create a concise site brief with title, slug, visual thesis, content plan,
    interaction thesis, countdown hours, price, CTA copy, and avoid-list.
    The default layout must be a single no-scroll viewport: top urgency timer,
    large centered product-image carousel, price, and dummy Buy now action.
 3. Ask `drop-site-builder` to create the static site. Its work order must
-   include `siteDir`, the full product brief, any approved product image paths,
+   include `siteDir`, the full drop brief, any approved product image paths,
    and the required page contract.
 4. Require `drop-site-builder` to use `$frontend-skill` for art direction and
    `$imagegen` for raster product imagery. It should save all site assets under
@@ -128,8 +130,8 @@ The finished page must be clean, bright, elegant fashion work:
 - centered product image carousel dominating the page
 - two or three same-product angle images as carousel slides when practical
 - automatic carousel advancement with subtle manual controls or indicators
-- short drop copy tied to the Winning Drop, kept compact enough to preserve the
-  no-scroll one-screen layout
+- short drop copy tied to the selected products and cultural moment, kept
+  compact enough to preserve the no-scroll one-screen layout
 - visible price
 - large 24-hour countdown
 - dummy `Buy now` button
@@ -205,8 +207,7 @@ Use this schema:
   "schemaVersion": "builder.drop-site.v1",
   "generatedAt": "ISO timestamp",
   "input": {
-    "ideaRef": "idea_01",
-    "productRef": "winner_cap_01",
+    "selectedMockRefs": ["idea_01-cap-01", "idea_02-sock-01"],
     "sourceArtifacts": []
   },
   "site": {

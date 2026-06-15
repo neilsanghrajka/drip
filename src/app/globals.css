@@ -146,7 +146,7 @@
   .drip-logo {
     color: #000;
     font-family: Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif;
-    font-size: clamp(3.8rem, 5.3vw, 5.5rem);
+    font-size: clamp(3rem, 4.2vw, 4.4rem);
     font-style: italic;
     font-weight: 900;
     letter-spacing: -0.08em;
@@ -183,6 +183,26 @@
     background: #ffe259;
     box-shadow: 3px 3px 0 #000;
     transform: translate(3px, 3px);
+  }
+
+  .drip-clamp-1,
+  .drip-clamp-2,
+  .drip-clamp-3 {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .drip-clamp-1 {
+    -webkit-line-clamp: 1;
+  }
+
+  .drip-clamp-2 {
+    -webkit-line-clamp: 2;
+  }
+
+  .drip-clamp-3 {
+    -webkit-line-clamp: 3;
   }
 
   .drip-arrow {

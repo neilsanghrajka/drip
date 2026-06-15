@@ -22,6 +22,7 @@ export type RunnerEvent = {
 
 export type RunnerSandboxRun = {
   task: string;
+  expectedOutputPath?: string;
   cancelRequested: boolean;
 };
 

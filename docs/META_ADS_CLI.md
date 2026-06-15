@@ -5,7 +5,7 @@ Last updated: 2026-06-07
 This guide captures the Meta Ads CLI proof for Drip's Performance Marketer.
 The intent is to let a sandbox agent create real Meta ad assets, keep spend
 under operator control, and return enough evidence for the Drip user to review
-what was tested.
+the paused drop-of-week ad draft.
 
 This is not a simulated ad flow. The Performance Marketer should create real
 Meta campaign objects, but it should default to paused objects until the user
@@ -13,22 +13,23 @@ explicitly approves delivery.
 
 ## Product Intent
 
-Drip's Performance Marketer validates selected mock images before the user
-commits to a drop.
+Drip's Performance Marketer promotes the generated Builder drop page with the
+selected product images.
 
 | Product need | Meta Ads CLI behavior |
 | --- | --- |
-| Test demand for selected mock images | Create campaigns, ad sets, creatives, and ads from the selected images. |
+| Promote the generated drop page | Create a paused campaign, one paused ad set, one creative, and one paused ad that links to the Builder URL. |
 | Keep the user in control | Create assets as `PAUSED` first and require explicit approval before activation. |
 | Show visible evidence | Return campaign/ad status, budget, creative names, and an Ads Manager review artifact. |
-| Recommend a winner | Poll insights after delivery and compare CTR, CPC, engagement, comments, saves, or landing-page signals. |
+| Keep the ad focused | Create one paused ad for the Builder page and do not start optimization loops in v1. |
 
 For the hackathon demo, the minimum credible proof is:
 
 1. A Facebook Page identity exists.
 2. A Meta ad account exists with billing ready.
 3. The sandbox agent can authenticate with the official `meta` CLI.
-4. The CLI can create a paused campaign, paused ad set, creative, and paused ad.
+4. The CLI can create a paused campaign, paused ad set, creative, and paused ad
+   for the Builder website URL.
 5. The objects are visible in Ads Manager and verifiable with CLI `list`/`get`.
 
 ## Relationship Map
@@ -179,10 +180,11 @@ This is the flow that worked for the Facebook-only proof.
 
 For the Performance Marketer live smoke, run this flow from one private wrapper
 script instead of a command-by-command agent loop. After the campaign and Page
-are known, create independent ad sets and creatives with bounded concurrency,
-then create/pause ads concurrently and perform read-only status checks in the
-same wrapper. The wrapper should print one sanitized JSON summary plus phase
-timings; raw Meta IDs and raw CLI/Graph JSON stay in private variables/files.
+are known, create one ad set, upload the selected product image or images,
+create one creative, create one paused ad, and perform only the bounded status
+checks needed for paused-object evidence. The wrapper should print one
+sanitized JSON summary plus phase timings; raw Meta IDs and raw CLI/Graph JSON
+stay in private variables/files.
 
 ### 1. Create The Campaign
 
@@ -194,8 +196,9 @@ apparel/drop traffic tests, no special category applies, so use
 The current official `meta` CLI package verified in the sandbox (`meta-ads`
 1.0.1) does not expose a campaign-create flag for this field. If
 `meta ads campaign create` returns that `special_ad_categories` is required, use
-a tiny Graph API fallback only for campaign creation, then continue with the CLI
-for ad sets, creatives, and ads.
+the Graph API fallback for campaign creation, then continue with the CLI for the
+ad set and Graph calls for image upload, creative creation, ad creation, and the
+final pause update.
 
 Graph fallback:
 
@@ -244,23 +247,43 @@ The test account required `--bid-amount`; without it, Meta returned a bid-cap
 requirement error. Keep this field configurable because different account bid
 strategy settings can change what Meta requires.
 
-### 3. Create A Creative
+### 3. Upload Images And Create A Creative
 
 Create the creative under the same ad account and Page identity that the ad will
-use.
+use. Upload selected local images first and use the returned image hash or
+hashes; this is more reliable than relying on CLI local-file creative handling.
+The Performance Marketer v1 path should try a carousel creative when multiple
+selected image hashes exist, then fall back to one static image if Meta rejects
+the carousel shape.
 
 ```bash
 PAGE_ID=<page-id>
+DESTINATION_URL=<builder-url>
+META_API_VERSION="${META_API_VERSION:-v25.0}"
 
-meta ads creative create \
-  --name "Drop by Codex Creative A" \
-  --image ./image-a.jpg \
-  --page-id "$PAGE_ID" \
-  --body "Drop by Codex CLI proof creative." \
-  --link-url "https://www.facebook.com/profile.php?id=$PAGE_ID" \
-  --title "Drop by Codex" \
-  --description "CLI-created Facebook ad demo" \
-  --call-to-action learn_more
+curl -sS -X POST "https://graph.facebook.com/${META_API_VERSION}/${AD_ACCOUNT_ID}/adimages" \
+  -F "filename=@./selected-product.jpg" \
+  -F "access_token=${ACCESS_TOKEN}"
+
+OBJECT_STORY_SPEC='{
+  "page_id": "<page-id>",
+  "link_data": {
+    "image_hash": "<image-hash>",
+    "link": "<builder-url>",
+    "message": "Drop-of-week copy.",
+    "name": "Drop by Codex",
+    "description": "Limited drop for this week.",
+    "call_to_action": {
+      "type": "SHOP_NOW",
+      "value": { "link": "<builder-url>" }
+    }
+  }
+}'
+
+curl -sS -X POST "https://graph.facebook.com/${META_API_VERSION}/${AD_ACCOUNT_ID}/adcreatives" \
+  -F "name=Drop by Codex Creative" \
+  -F "object_story_spec=${OBJECT_STORY_SPEC}" \
+  -F "access_token=${ACCESS_TOKEN}"
 ```
 
 Creative ownership matters. A creative created under one ad account cannot be
@@ -269,16 +292,22 @@ attached to an ad set in another ad account.
 ### 4. Create The Ad
 
 ```bash
-meta ads ad create <ad-set-id> \
-  --name "Drop by Codex Demo Ad" \
-  --creative-id <creative-id> \
-  --status paused
+CREATIVE_JSON='{"creative_id":"<creative-id>"}'
+
+curl -sS -X POST "https://graph.facebook.com/${META_API_VERSION}/${AD_ACCOUNT_ID}/ads" \
+  -F "name=Drop by Codex Demo Ad" \
+  -F "adset_id=<ad-set-id>" \
+  -F "creative=${CREATIVE_JSON}" \
+  -F "status=PAUSED" \
+  -F "access_token=${ACCESS_TOKEN}"
 ```
 
 For extra safety, explicitly update the ad back to paused after creation:
 
 ```bash
-meta ads ad update <ad-id> --status paused
+curl -sS -X POST "https://graph.facebook.com/${META_API_VERSION}/<ad-id>" \
+  -F "status=PAUSED" \
+  -F "access_token=${ACCESS_TOKEN}"
 ```
 
 ### 5. Verify
@@ -308,45 +337,20 @@ Expected safe state after creation:
 The ad can be pending review while still configured paused. That means Meta is
 processing the object, not that delivery is active.
 
-## Two-Image A/B Demo
+## Single Drop Ad Demo
 
-For a simple hackathon demo, prefer two explicit creatives and two paused ads.
-This keeps the output understandable in both CLI logs and Ads Manager.
+For the v1 demo, create one explicit creative/ad for the drop-of-week page. Use
+the Builder URL as `DESTINATION_URL` and the selected product image set as the
+creative input. Keep the selected images together as the one drop ad set.
 
-```bash
-meta ads creative create \
-  --name "Drop by Codex Creative A" \
-  --image ./image-a.jpg \
-  --page-id "$PAGE_ID" \
-  --body "Variant A copy." \
-  --link-url "$DESTINATION_URL" \
-  --title "Drop by Codex" \
-  --call-to-action learn_more
+Use the Graph image-upload plus creative/ad creation recipe above. The output
+should record all selected image refs; the actual creative should use a
+carousel when possible or one static image with a sanitized fallback note.
 
-meta ads creative create \
-  --name "Drop by Codex Creative B" \
-  --image ./image-b.jpg \
-  --page-id "$PAGE_ID" \
-  --body "Variant B copy." \
-  --link-url "$DESTINATION_URL" \
-  --title "Drop by Codex" \
-  --call-to-action learn_more
-
-meta ads ad create "$ADSET_ID" \
-  --name "Drop by Codex Variant A" \
-  --creative-id "$CREATIVE_A_ID" \
-  --status paused
-
-meta ads ad create "$ADSET_ID" \
-  --name "Drop by Codex Variant B" \
-  --creative-id "$CREATIVE_B_ID" \
-  --status paused
-```
-
-The CLI also supports Dynamic Creative Optimization style inputs with repeated
-`--images`, `--titles`, `--bodies`, and `--call-to-actions`. Use that when Meta
-should optimize combinations automatically. For Drip's first demo, explicit
-creative A/B assets are easier to explain and preserve in campaign history.
+The CLI may support Dynamic Creative Optimization style inputs with repeated
+`--images`, `--titles`, `--bodies`, and `--call-to-actions`. Do not use that for
+the v1 Drip flow unless a future product spec reintroduces Meta-managed
+creative testing.
 
 ## Preview And Review Links
 
@@ -380,6 +384,7 @@ Date: 2026-06-07.
 | Rs 50 daily budget was too low for the India test account. | Use Rs 100 for the hackathon demo cap unless a future account reports a lower minimum. |
 | Campaign creation requires `special_ad_categories=[]` for normal Drip apparel/drop tests. | Use the Graph fallback for campaign creation until the official CLI exposes that field. |
 | Ad set creation required `--bid-amount` for the test account. | Keep bid amount configurable and retry with it when Meta asks for a bid cap. |
+| Creative creation can fail with tiny or invalid local image fixtures. | Use real RGB JPEG/PNG assets, 1080x1080 or larger for smoke inputs, and upload them through `/adimages` before creative creation. |
 | Creative ownership is scoped to the ad account. | Create creatives under the same ad account used by the ad set. |
 | A newly created ad may show `PENDING_REVIEW` or `IN_PROCESS` while configured paused. | This is expected review processing; verify `configured_status` or explicit `status` before claiming safety. |
 | The CLI does not provide a public ad preview URL command. | Use Ads Manager plus CLI status as the review artifact. |
@@ -393,6 +398,7 @@ Date: 2026-06-07.
 | Campaign create returns generic API error | Wrong ad account ID, account not ready, missing billing, first-time policy prompt, or missing required API field. | Confirm `meta ads adaccount list`, use `act_...`, clear setup prompts, verify billing, and validate `special_ad_categories=[]`. |
 | Rs 50 budget rejected | Account minimum daily budget is higher. | Use the account's minimum or Rs 100 for India demo. |
 | Ad set asks for bid cap | Account/campaign bid strategy requires `bid_amount`. | Retry ad set create with `--bid-amount`. |
+| Creative create fails after campaign/ad set creation | Invalid image fixture, CLI local-file upload limitation, Page/ad-account mismatch, or Meta policy validation. | Generate real 1080x1080 RGB smoke images, upload through `/adimages`, create the creative from `image_hash`, and return sanitized `stage`, `errorCode`, `errorSubcode`, `errorType`, and `errorMessage` if it still fails. |
 | Creative cannot attach to ad | Creative belongs to another ad account. | Recreate the creative under the same current `AD_ACCOUNT_ID`. |
 | Ad is pending review | Meta review is processing the ad. | Keep status paused and poll until review completes if delivery is needed. |
 | Need Instagram-only placement | Instagram account and placement configuration are not yet wired. | Start with Facebook-only; add Instagram asset linking later. |
@@ -421,11 +427,11 @@ The product should eventually store these fields on the Drop Campaign record:
 | Campaign name and sanitized Meta object references | Lets the cockpit reopen/reconcile the Meta test. |
 | Budget cap and currency | Makes spend controls visible to the user. |
 | Objective, audience, and optimization goal | Explains what was being tested. |
-| Creative names and image references | Ties ad results back to selected Designer mocks. |
+| Creative names and image references | Ties the ad artifact back to selected Designer mocks. |
 | Configured/effective statuses | Separates user-controlled pause state from Meta review state. |
 | Review artifact | Link or reference for an admin to inspect in Ads Manager. |
-| Insights snapshot | CTR, CPC, spend, impressions, clicks, and engagement after delivery. |
-| Winner recommendation | Performance Marketer's final "build this, not that" output. |
+| Destination URL | The Builder website link used by the ad. |
+| Selected image references | Ties the ad back to the Fashion Designer selections. |
 
 Open product questions:
 
@@ -435,4 +441,4 @@ Open product questions:
 | Is Instagram needed for v1 demo? | No. Facebook-only is simpler and proves the CLI path. |
 | Can we show a public ad link? | Not reliably for paused/pending ads. Show Ads Manager artifact plus CLI status. |
 | What is the smallest budget? | Account-specific. Rs 50 failed; Rs 100 succeeded in the India proof. |
-| Should we use DCO or explicit A/B ads? | Explicit A/B ads first; DCO later if we want Meta-managed combinations. |
+| Should we use dynamic creative optimization? | No for v1. The current product creates one paused ad for the Builder page. |

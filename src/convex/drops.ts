@@ -46,7 +46,7 @@ export const getDrop = query({
       return null;
     }
 
-    const [stageRuns, artifacts, selections] = await Promise.all([
+    const [stageRuns, artifacts, assets, selections] = await Promise.all([
       ctx.db
         .query("dropStageRuns")
         .withIndex("by_drop_stage_attempt", (q) => q.eq("dropId", args.dropId))
@@ -56,16 +56,123 @@ export const getDrop = query({
         .withIndex("by_drop_stage_created", (q) => q.eq("dropId", args.dropId))
         .collect(),
       ctx.db
+        .query("dropAssets")
+        .withIndex("by_drop_stage_created", (q) => q.eq("dropId", args.dropId))
+        .collect(),
+      ctx.db
         .query("dropSelections")
         .withIndex("by_drop_kind", (q) => q.eq("dropId", args.dropId))
         .collect(),
     ]);
+    const assetsWithUrls = await Promise.all(
+      assets
+        .sort((left, right) => left.createdAt - right.createdAt)
+        .map(async (asset) => ({
+          ...asset,
+          url: await ctx.storage.getUrl(asset.storageId),
+        })),
+    );
 
     return {
       drop,
       stageRuns: stageRuns.sort((left, right) => left.createdAt - right.createdAt),
       artifacts: artifacts.sort((left, right) => left.createdAt - right.createdAt),
+      assets: assetsWithUrls,
       selections,
+    };
+  },
+});
+
+export const getDropReplay = query({
+  args: {
+    dropId: v.id("drops"),
+  },
+  handler: async (ctx, args) => {
+    const drop = await ctx.db.get(args.dropId);
+    if (!drop) {
+      return null;
+    }
+
+    const [stageRuns, artifacts, assets, selections, dropEvents] =
+      await Promise.all([
+        ctx.db
+          .query("dropStageRuns")
+          .withIndex("by_drop_stage_attempt", (q) => q.eq("dropId", args.dropId))
+          .collect(),
+        ctx.db
+          .query("dropArtifacts")
+          .withIndex("by_drop_stage_created", (q) => q.eq("dropId", args.dropId))
+          .collect(),
+        ctx.db
+          .query("dropAssets")
+          .withIndex("by_drop_stage_created", (q) => q.eq("dropId", args.dropId))
+          .collect(),
+        ctx.db
+          .query("dropSelections")
+          .withIndex("by_drop_kind", (q) => q.eq("dropId", args.dropId))
+          .collect(),
+        ctx.db
+          .query("dropEvents")
+          .withIndex("by_drop_seq", (q) => q.eq("dropId", args.dropId))
+          .collect(),
+      ]);
+
+    const sortedStageRuns = stageRuns.sort(
+      (left, right) => left.createdAt - right.createdAt,
+    );
+    const sortedArtifacts = artifacts.sort(
+      (left, right) => left.createdAt - right.createdAt,
+    );
+    const sortedDropEvents = dropEvents.sort((left, right) => left.seq - right.seq);
+    const sandboxEvents = (
+      await Promise.all(
+        sortedStageRuns
+          .filter((stageRun) => stageRun.sandboxRunId)
+          .map(async (stageRun) => {
+            const sandboxRunId = stageRun.sandboxRunId;
+            if (!sandboxRunId) {
+              return [];
+            }
+            const events = await ctx.db
+              .query("sandboxRunEvents")
+              .withIndex("by_sandbox_run_seq", (q) =>
+                q.eq("sandboxRunId", sandboxRunId),
+              )
+              .take(80);
+            return events.map((event) => ({
+              ...event,
+              stage: stageRun.stage,
+              dropStageRunId: stageRun._id,
+            }));
+          }),
+      )
+    ).flat();
+    const assetsWithUrls = await Promise.all(
+      assets
+        .sort((left, right) => left.createdAt - right.createdAt)
+        .map(async (asset) => ({
+          ...asset,
+          url: await ctx.storage.getUrl(asset.storageId),
+        })),
+    );
+
+    return {
+      drop,
+      stageRuns: sortedStageRuns,
+      artifacts: sortedArtifacts,
+      assets: assetsWithUrls,
+      selections,
+      dropEvents: sortedDropEvents,
+      sandboxEvents: sandboxEvents.sort(
+        (left, right) => left.createdAt - right.createdAt || left.seq - right.seq,
+      ),
+      activity: buildReplayActivity({
+        drop,
+        stageRuns: sortedStageRuns,
+        artifacts: sortedArtifacts,
+        dropEvents: sortedDropEvents,
+        sandboxEvents,
+      }),
     };
   },
 });
@@ -127,8 +234,8 @@ export const selectDesignerMocks = mutation({
   },
   handler: async (ctx, args) => {
     await upsertSelection(ctx, args.dropId, "selectedMocks", args.selectedMocks);
-    await patchDropStatus(ctx, args.dropId, "ready_to_market");
-    return { status: "ready_to_market" as const };
+    await patchDropStatus(ctx, args.dropId, "ready_to_build");
+    return { status: "ready_to_build" as const };
   },
 });
 
@@ -432,8 +539,11 @@ export const recordCollectedStageArtifact = internalMutation({
       updatedAt: timestamp,
     });
 
+    const drop = await getDropOrThrow(ctx, args.dropId);
+    const nextStatus = statusAfterSuccessfulCollection(args.stage, drop);
     const dropPatch: Partial<Doc<"drops">> = {
-      status: statusAfterSuccessfulCollection(args.stage),
+      status: nextStatus,
+      currentStage: currentStageAfterCollection(args.stage, nextStatus),
       updatedAt: timestamp,
     };
     if (args.stage === "builder") {
@@ -441,7 +551,6 @@ export const recordCollectedStageArtifact = internalMutation({
       if (websiteUrl) {
         dropPatch.websiteUrl = websiteUrl;
       }
-      dropPatch.currentStage = "builder";
     }
     await ctx.db.patch(args.dropId, dropPatch);
 
@@ -599,16 +708,47 @@ async function buildStageInput(
         productCategories: drop.productCategories ?? [],
         tasteConstraints: drop.tasteConstraints ?? [],
       };
-    case "marketer":
+    case "marketer": {
+      const builderArtifact = await latestArtifact(ctx, drop._id, "builder");
+      if (!builderArtifact) {
+        throw new Error("Missing Builder artifact for Performance Marketer.");
+      }
+      const destinationUrl = drop.websiteUrl ?? readBuilderUrl(builderArtifact.data);
+      if (!destinationUrl) {
+        throw new Error("Missing Builder website URL for Performance Marketer.");
+      }
       return {
         selectedMocks: await selectionValue(ctx, drop._id, "selectedMocks"),
+        builderArtifact: builderArtifact.data,
+        destinationUrl,
+        dropName: drop.name,
+        dropDate: drop.dropDate,
       };
+    }
     case "builder":
       return {
-        winningDrop:
-          drop.winningDrop ?? (await selectionValue(ctx, drop._id, "winningDrop")),
+        dropName: drop.name,
+        dropDate: drop.dropDate,
+        selectedMocks:
+          drop.winningDrop ?? (await selectionValue(ctx, drop._id, "selectedMocks")),
+        productCategories: drop.productCategories ?? [],
+        tasteConstraints: drop.tasteConstraints ?? [],
       };
   }
+}
+
+async function latestArtifact(
+  ctx: MutationCtx,
+  dropId: Id<"drops">,
+  stage: DropStage,
+) {
+  return await ctx.db
+    .query("dropArtifacts")
+    .withIndex("by_drop_stage_created", (q) =>
+      q.eq("dropId", dropId).eq("stage", stage),
+    )
+    .order("desc")
+    .first();
 }
 
 async function selectionValue(
@@ -659,15 +799,16 @@ function buildStageTask({
       ].join("\n");
     case "marketer":
       return [
-        "Use $performance-marketer to create the paused Facebook-only campaign for the selected mocks in the input JSON.",
+        "Use $performance-marketer to create one paused Facebook-only drop-of-week ad artifact for the generated Builder website in the input JSON.",
         `Input JSON: ${inputJson}`,
         `Use assetDir ${rootDir}/performance-marketer-assets.`,
         `Write the Performance Marketer artifact to ${outputPath}.`,
-        "Return a short status with the artifact path and sanitized object counts.",
+        "Use the Builder destination URL and selected product images. Create exactly one paused ad artifact; do not activate delivery or spend money.",
+        "Return a short status with the artifact path and sanitized paused-draft evidence.",
       ].join("\n");
     case "builder":
       return [
-        "Use $builder to create the live one-page drop site for the approved Winning Drop in the input JSON.",
+        "Use $builder to create the live one-page drop site for the selected Designer products in the input JSON.",
         `Input JSON: ${inputJson}`,
         `Use siteDir ${rootDir}/builder-site.`,
         `Write the Builder artifact to ${outputPath}.`,
@@ -714,10 +855,10 @@ function nextStageForStatus(status: DropStatus): DropStage | null {
       return "scout";
     case "ready_to_design":
       return "designer";
-    case "ready_to_market":
-      return "marketer";
     case "ready_to_build":
       return "builder";
+    case "ready_to_market":
+      return "marketer";
     default:
       return null;
   }
@@ -736,17 +877,30 @@ function runningStatus(stage: DropStage): DropStatus {
   }
 }
 
-function statusAfterSuccessfulCollection(stage: DropStage): DropStatus {
+function statusAfterSuccessfulCollection(
+  stage: DropStage,
+  drop: Doc<"drops">,
+): DropStatus {
   switch (stage) {
     case "scout":
       return "awaiting_idea_selection";
     case "designer":
       return "awaiting_mock_selection";
     case "marketer":
-      return "awaiting_winner_approval";
-    case "builder":
       return "completed";
+    case "builder":
+      return drop.winningDrop ? "completed" : "ready_to_market";
   }
+}
+
+function currentStageAfterCollection(
+  stage: DropStage,
+  status: DropStatus,
+): DropStage | undefined {
+  if (status === "completed") {
+    return stage;
+  }
+  return currentStageForStatus(status);
 }
 
 function currentStageForStatus(status: DropStatus): DropStage | undefined {
@@ -759,14 +913,15 @@ function currentStageForStatus(status: DropStatus): DropStage | undefined {
     case "designing":
     case "awaiting_mock_selection":
       return "designer";
+    case "ready_to_build":
+    case "building":
+      return "builder";
     case "ready_to_market":
     case "marketing":
     case "awaiting_winner_approval":
       return "marketer";
-    case "ready_to_build":
-    case "building":
     case "completed":
-      return "builder";
+      return undefined;
     default:
       return undefined;
   }
@@ -803,7 +958,7 @@ function selectionMessage(kind: "approvedIdeas" | "selectedMocks" | "winningDrop
     case "approvedIdeas":
       return "Scout ideas selected.";
     case "selectedMocks":
-      return "Designer mocks selected.";
+      return "Designer products selected for Builder.";
     case "winningDrop":
       return "Winning Drop selected.";
   }
@@ -819,6 +974,197 @@ function stageLabel(stage: DropStage) {
       return "Performance Marketer";
     case "builder":
       return "Builder";
+  }
+}
+
+type ReplayActivityStatus = "pending" | "running" | "complete" | "failed";
+
+type ReplayActivityInput = {
+  drop: Doc<"drops">;
+  stageRuns: Doc<"dropStageRuns">[];
+  artifacts: Doc<"dropArtifacts">[];
+  dropEvents: Doc<"dropEvents">[];
+  sandboxEvents: Array<Doc<"sandboxRunEvents"> & { stage: DropStage }>;
+};
+
+function buildReplayActivity(input: ReplayActivityInput) {
+  return (["scout", "designer", "builder", "marketer"] as DropStage[]).flatMap(
+    (stage) => buildStageActivity(stage, input),
+  );
+}
+
+function buildStageActivity(stage: DropStage, input: ReplayActivityInput) {
+  const steps = activitySteps(stage);
+  const stageRuns = input.stageRuns.filter((run) => run.stage === stage);
+  const latestRun = stageRuns[stageRuns.length - 1];
+  const hasArtifact = input.artifacts.some((artifact) => artifact.stage === stage);
+  const latestDropEvent = [...input.dropEvents]
+    .reverse()
+    .find((event) => event.stage === stage && event.visibility === "user");
+  const sandboxEventCount = input.sandboxEvents.filter(
+    (event) => event.stage === stage,
+  ).length;
+  const status = latestRun?.status;
+  const failed = status === "failed" || input.drop.status === "failed";
+  const runningIndex = stageRunningIndex(status, sandboxEventCount, steps.length);
+  const completeCount = hasArtifact
+    ? steps.length
+    : status === "collecting"
+      ? Math.max(steps.length - 1, 0)
+      : status === "succeeded"
+        ? Math.max(steps.length - 1, 0)
+        : Math.max(runningIndex, 0);
+
+  return steps.map((step, index) => {
+    let itemStatus: ReplayActivityStatus = "pending";
+    if (index < completeCount) {
+      itemStatus = "complete";
+    } else if (index === runningIndex && status) {
+      itemStatus = failed ? "failed" : "running";
+    }
+    return {
+      stage,
+      label: step.label,
+      detail:
+        index === runningIndex && latestDropEvent?.message
+          ? latestDropEvent.message
+          : step.detail,
+      status: itemStatus,
+      attempt: latestRun?.attempt ?? null,
+      createdAt: latestDropEvent?.createdAt ?? latestRun?.updatedAt ?? null,
+    };
+  });
+}
+
+function stageRunningIndex(
+  status: Doc<"dropStageRuns">["status"] | undefined,
+  sandboxEventCount: number,
+  stepCount: number,
+) {
+  if (!status || status === "queued") {
+    return 0;
+  }
+  if (status === "starting") {
+    return Math.min(1, stepCount - 1);
+  }
+  if (status === "running") {
+    return Math.min(2 + Math.floor(sandboxEventCount / 8), stepCount - 2);
+  }
+  if (status === "collecting" || status === "succeeded") {
+    return stepCount - 1;
+  }
+  if (status === "failed" || status === "cancelled") {
+    return Math.min(2, stepCount - 1);
+  }
+  return 0;
+}
+
+function activitySteps(stage: DropStage) {
+  switch (stage) {
+    case "scout":
+      return [
+        {
+          label: "Preparing trend brief",
+          detail: "Collecting the topics, categories, and taste constraints.",
+        },
+        {
+          label: "Searching X",
+          detail: "Looking for live cultural signals and early momentum.",
+        },
+        {
+          label: "Searching Exa",
+          detail: "Checking shopping, culture, and web context.",
+        },
+        {
+          label: "Dedupe signals",
+          detail: "Removing repeats and weak trend evidence.",
+        },
+        {
+          label: "Rank merchable moments",
+          detail: "Scoring ideas that can become a limited drop.",
+        },
+        {
+          label: "Write Scout proposals",
+          detail: "Saving proposal cards for user selection.",
+        },
+      ];
+    case "designer":
+      return [
+        {
+          label: "Read selected Scout ideas",
+          detail: "Turning approved moments into product briefs.",
+        },
+        {
+          label: "Generate product directions",
+          detail: "Exploring fits, graphics, and product angles.",
+        },
+        {
+          label: "Create mock images",
+          detail: "Generating merch visuals for review.",
+        },
+        {
+          label: "Review image quality",
+          detail: "Checking whether the mockups look usable.",
+        },
+        {
+          label: "Package mockups",
+          detail: "Saving image assets and structured Designer output.",
+        },
+      ];
+    case "builder":
+      return [
+        {
+          label: "Read selected clothes/images",
+          detail: "Loading the exact products chosen by the user.",
+        },
+        {
+          label: "Generate carousel assets",
+          detail: "Preparing selected product images for the drop site.",
+        },
+        {
+          label: "Build static drop page",
+          detail: "Creating the limited-drop page and buy CTA.",
+        },
+        {
+          label: "Run visual review",
+          detail: "Checking layout, image quality, and mobile fit.",
+        },
+        {
+          label: "Deploy preview URL",
+          detail: "Publishing the reviewed site preview.",
+        },
+        {
+          label: "Save Builder artifact",
+          detail: "Persisting the site URL, files, and proof.",
+        },
+      ];
+    case "marketer":
+      return [
+        {
+          label: "Read Builder URL",
+          detail: "Using the generated site link as the ad destination.",
+        },
+        {
+          label: "Prepare selected product images",
+          detail: "Packaging the same product images for Facebook.",
+        },
+        {
+          label: "Write Facebook ad copy",
+          detail: "Drafting product-safe drop-of-week creative.",
+        },
+        {
+          label: "Create paused campaign/ad set/ad",
+          detail: "Creating paused Meta objects without spend.",
+        },
+        {
+          label: "Verify paused status",
+          detail: "Confirming nothing is active or spending.",
+        },
+        {
+          label: "Save sanitized ad artifact",
+          detail: "Persisting IDs and proof without raw secret data.",
+        },
+      ];
   }
 }
 

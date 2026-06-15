@@ -172,16 +172,20 @@ export const cancelSandboxRun = mutation({
     }
 
     const timestamp = now();
-    const nextStatus =
-      sandboxRun.status === "queued" ? "cancelled" : sandboxRun.status;
-
     await ctx.db.patch(args.sandboxRunId, {
-      status: nextStatus,
+      status: "cancelled",
       cancelRequestedAt: timestamp,
       updatedAt: timestamp,
     });
 
-    return { status: nextStatus };
+    if (sandboxRun.dropId && sandboxRun.dropStageRunId && sandboxRun.stage) {
+      await markDropStageFinished(ctx, sandboxRun, "cancelled", {
+        message: "Sandbox run cancelled.",
+        code: "sandbox_run_cancelled",
+      });
+    }
+
+    return { status: "cancelled" as const };
   },
 });
 
@@ -196,6 +200,7 @@ export const getSandboxRunForRunner = mutation({
 
     return {
       task: sandboxRun.task,
+      expectedOutputPath: sandboxRun.expectedOutputPath,
       cancelRequested: sandboxRun.cancelRequestedAt !== undefined,
     };
   },

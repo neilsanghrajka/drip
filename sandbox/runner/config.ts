@@ -1,6 +1,7 @@
 export type RunnerConfig = {
   codexReasoningEffort: ModelReasoningEffort;
   codexNetworkAccessEnabled: boolean;
+  convexRequestTimeoutMs: number;
   convexUrl: string;
   heartbeatMs: number;
   ingestToken: string;
@@ -18,6 +19,11 @@ export function readRunnerConfig(env: NodeJS.ProcessEnv = process.env) {
       false,
     ),
     codexReasoningEffort: reasoningEffort(env.CODEX_REASONING_EFFORT),
+    convexRequestTimeoutMs: numberEnv(
+      env,
+      "DRIP_RUNNER_CONVEX_REQUEST_TIMEOUT_MS",
+      20_000,
+    ),
     convexUrl: must(env, "CONVEX_URL"),
     heartbeatMs: numberEnv(env, "DRIP_HEARTBEAT_MS", 5000),
     ingestToken: must(env, "INGEST_TOKEN"),

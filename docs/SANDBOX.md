@@ -267,8 +267,9 @@ Builder-specific base image additions:
 ## Performance Marketer Meta Ads
 
 Performance Marketer uses the same generic runner and sandbox workspace as
-Scout, Fashion Designer, and Builder. It creates real Facebook-only Meta ad
-objects, but v1 stops before activation or insights readback.
+Scout, Fashion Designer, and Builder. It creates one paused Facebook-only ad
+artifact for the generated Builder website, and v1 stops before activation,
+insights readback, optimization loops, or spend.
 Campaign creation uses a Graph API fallback when the installed CLI cannot send
 Meta's required `special_ad_categories=[]` field; ad sets, creatives, ads, and
 pause updates continue through the CLI.
@@ -278,10 +279,11 @@ The responsibility split is:
 - `$meta-ads-cli` is a reusable adapter skill for CLI commands, env mapping,
   preflight, redaction, paused-object safety, and the exact Drip creation
   recipe.
-- `$performance-marketer` owns Drip's campaign recipe and output artifact.
+- `$performance-marketer` owns Drip's one-ad drop-of-week recipe and output artifact.
 - `facebook-ad-copywriter` fills the copy schema only.
-- `facebook-ad-operator` runs the exact `$meta-ads-cli` creation recipe and
-  returns sanitized created-object evidence. It does not spawn other agents.
+- `facebook-ad-operator` runs the exact `$meta-ads-cli` paused creation recipe
+  when real Meta object creation is explicitly allowed and returns sanitized
+  created-object evidence. It does not spawn other agents.
 
 Performance Marketer writes:
 
@@ -375,9 +377,19 @@ Use `--start-attempts <count>` when Vercel Sandbox creation is temporarily
 throttled. The harness retries only transient platform start failures such as
 429/5xx responses; skill output assertions stay strict.
 
-Performance Marketer's smoke creates real paused Meta ad objects. It is guarded:
-running the scenario directly requires `--allow-meta-create`, and `--scenario
-all` skips it unless that flag is also present.
+If Drop creation or stage startup fails with
+`vercel_sandbox_scope_or_entitlement`, the Vercel Sandbox API returned HTTP
+402 for the configured team/project. Verify Sandbox entitlement, billing/quota,
+and the private `VERCEL_TEAM_ID`/`VERCEL_PROJECT_ID` pairing before rerunning;
+the harness cannot prove agent behavior until Sandbox creation succeeds.
+In the latest local verification pass, team/project lookup and Sandbox list
+endpoints succeeded for the configured scope, while Sandbox creation failed.
+That means the blocker is create-time entitlement, quota, billing, or plan
+state rather than basic token or linked-project read access.
+
+Performance Marketer's smoke may create real paused Meta ad objects. It is
+guarded: running the scenario directly requires `--allow-meta-create`, and
+`--scenario all` skips it unless that flag is also present.
 
 The harness writes ignored evidence under `.sandbox-e2e/`:
 
@@ -425,10 +437,11 @@ without exposing credential values.
 Performance Marketer smoke tests verify that the run wrote
 `performance-marketer-output.json` with schema
 `performance-marketer.facebook-campaign.v1`, Meta env presence, one campaign,
-three ad sets, six creatives, six paused ads, no activation, no insights
-readback, and no raw Meta-looking IDs in the final response or output JSON.
-The live path has no second Meta agent. Created-object evidence from the
-operator is enough for the hackathon artifact.
+one ad set, one creative/ad, the Builder destination URL, selected image refs,
+no optimization loop, no activation, no insights readback, and no raw Meta-looking
+IDs in the final response or output JSON. The live path has no second Meta
+agent. Created-object evidence from the operator is enough for the hackathon
+artifact.
 
 By default the harness deletes the Vercel Sandbox after inspection. Use
 `--keep-sandbox` for manual debugging, or set
