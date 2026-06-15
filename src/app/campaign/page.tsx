@@ -489,20 +489,20 @@ export default function CampaignPage() {
           onStart={beginScouting}
         />
       ) : (
-        <section className="drip-dot-bg min-h-0 flex-1 overflow-hidden px-5 py-5 lg:px-8">
-          <div className="mx-auto grid h-full max-w-[1740px] gap-4 lg:grid-cols-[286px_minmax(0,1fr)]">
-            <aside className="grid h-full min-h-0 content-start gap-2.5 overflow-hidden">
-              <div className="rounded-[18px] border-[4px] border-black bg-white p-3.5 shadow-[4px_4px_0_#000]">
+        <section className="drip-dot-bg min-h-0 flex-1 overflow-hidden px-5 py-4 lg:px-8">
+          <div className="mx-auto grid h-full max-w-[1740px] gap-4 lg:grid-cols-[276px_minmax(0,1fr)]">
+            <aside className="grid h-full min-h-0 content-start gap-2 overflow-hidden">
+              <div className="rounded-[18px] border-[4px] border-black bg-white p-3 shadow-[4px_4px_0_#000]">
                 <p className="text-[11px] font-black uppercase tracking-[0.2em] text-neutral-500">
                   Active campaign
                 </p>
-                <h1 className="mt-1.5 text-[26px] font-black leading-none tracking-[-0.04em]">
+                <h1 className="mt-1 text-[24px] font-black leading-none tracking-[-0.04em]">
                   {dropView?.drop.name ?? campaignName}
                 </h1>
-                <p className="mt-1.5 text-[13px] font-bold leading-tight text-neutral-500">
+                <p className="mt-1 text-[12px] font-bold leading-tight text-neutral-500">
                   {dropView?.drop.dropDate ?? campaignDate} · four-teammate workflow
                 </p>
-                <div className="mt-3 rounded-[10px] border-[2px] border-black bg-neutral-50 px-2.5 py-2">
+                <div className="mt-2 rounded-[10px] border-[2px] border-black bg-neutral-50 px-2.5 py-1.5">
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-[10px] font-black uppercase tracking-[0.16em] text-neutral-500">
                       Workspace
@@ -514,20 +514,20 @@ export default function CampaignPage() {
                       {workspaceStatus.label}
                     </span>
                   </div>
-                  <p className="drip-clamp-1 mt-1 text-[11px] font-bold leading-tight text-neutral-600">
+                  <p className="drip-clamp-1 mt-0.5 text-[10px] font-bold leading-tight text-neutral-600">
                     {workspaceStatus.detail}
                   </p>
                 </div>
-                <div className="mt-3 flex flex-wrap gap-2">
+                <div className="mt-2 flex flex-wrap gap-1.5">
                   <button
-                    className="rounded-[10px] border-[3px] border-black bg-white px-3 py-2 text-xs font-black uppercase transition hover:bg-neutral-100"
+                    className="rounded-[10px] border-[3px] border-black bg-white px-2.5 py-1.5 text-[11px] font-black uppercase transition hover:bg-neutral-100"
                     onClick={clearActiveDrop}
                     type="button"
                   >
                     Remove
                   </button>
                   <button
-                    className="rounded-[10px] border-[3px] border-black bg-white px-3 py-2 text-xs font-black uppercase transition hover:bg-neutral-100 disabled:cursor-wait disabled:opacity-60"
+                    className="rounded-[10px] border-[3px] border-black bg-white px-2.5 py-1.5 text-[11px] font-black uppercase transition hover:bg-neutral-100 disabled:cursor-wait disabled:opacity-60"
                     disabled={Boolean(pendingAction)}
                     onClick={cloneActiveDrop}
                     type="button"
@@ -536,7 +536,7 @@ export default function CampaignPage() {
                   </button>
                   {cancellableRun?.sandboxRunId ? (
                     <button
-                      className="rounded-[10px] border-[3px] border-black bg-[#ffefee] px-3 py-2 text-xs font-black uppercase text-[#b31310] transition hover:bg-[#ffd9d6] disabled:cursor-wait disabled:opacity-60"
+                      className="rounded-[10px] border-[3px] border-black bg-[#ffefee] px-2.5 py-1.5 text-[11px] font-black uppercase text-[#b31310] transition hover:bg-[#ffd9d6] disabled:cursor-wait disabled:opacity-60"
                       disabled={Boolean(pendingAction)}
                       onClick={cancelActiveRun}
                       type="button"
@@ -545,7 +545,7 @@ export default function CampaignPage() {
                     </button>
                   ) : null}
                   <button
-                    className="rounded-[10px] border-[3px] border-black bg-[#f8ca00] px-3 py-2 text-xs font-black uppercase transition hover:brightness-95"
+                    className="rounded-[10px] border-[3px] border-black bg-[#f8ca00] px-2.5 py-1.5 text-[11px] font-black uppercase transition hover:brightness-95"
                     onClick={() => setShowArtifacts((value) => !value)}
                     type="button"
                   >
@@ -554,7 +554,7 @@ export default function CampaignPage() {
                 </div>
               </div>
 
-              <div className="grid gap-2.5">
+              <div className="grid gap-2">
                 {stages.map((stage, index) => (
                   <StageRailCard
                     active={stage.key === active.key}
@@ -864,36 +864,36 @@ function StageRailCard({
     >
       <article
         className={`overflow-hidden rounded-[18px] border-[4px] border-black bg-white shadow-[5px_5px_0_#000] transition-all duration-300 ${
-          active ? "min-h-[148px]" : "min-h-[74px]"
+          active ? "min-h-[124px]" : "min-h-[64px]"
         }`}
         style={{ boxShadow: active ? `7px 7px 0 ${stage.color}` : undefined }}
       >
-        <div className="grid grid-cols-[64px_1fr]">
-          <div className="relative h-[72px]" style={{ backgroundColor: stage.color }}>
+        <div className="grid grid-cols-[56px_1fr]">
+          <div className="relative h-[60px]" style={{ backgroundColor: stage.color }}>
             <img
               alt={`${stage.name} portrait`}
               className="h-full w-full object-cover object-[center_30%]"
               src={stage.portrait}
             />
           </div>
-          <div className="p-2.5">
+          <div className="p-2">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-[10px] font-black uppercase text-neutral-500">
+                <p className="text-[9px] font-black uppercase text-neutral-500">
                   Teammate {stage.step}
                 </p>
-                <h3 className="text-[20px] font-black leading-none tracking-[-0.04em]">
+                <h3 className="text-[18px] font-black leading-none tracking-[-0.04em]">
                   {stage.shortName}
                 </h3>
               </div>
               <div
-                className="grid size-8 shrink-0 place-items-center rounded-full border-[3px] border-black bg-white"
+                className="grid size-7 shrink-0 place-items-center rounded-full border-[3px] border-black bg-white"
                 style={{ color: stage.color }}
               >
                 {completed ? (
-                  <Check className="size-5 stroke-[4]" />
+                  <Check className="size-4 stroke-[4]" />
                 ) : (
-                  <Icon className="size-5 stroke-[3]" />
+                  <Icon className="size-4 stroke-[3]" />
                 )}
               </div>
             </div>
@@ -901,18 +901,18 @@ function StageRailCard({
         </div>
 
         {active ? (
-          <div className="border-t-[4px] border-black p-2.5">
-            <div className="mb-1.5 flex items-center justify-between text-[10px] font-black uppercase">
+          <div className="border-t-[4px] border-black px-2 py-1.5">
+            <div className="mb-1 flex items-center justify-between text-[9px] font-black uppercase">
               <span>{completed ? "Complete" : "In progress"}</span>
               <span>{progress}%</span>
             </div>
-            <div className="h-2.5 overflow-hidden rounded-full border-[2px] border-black bg-white">
+            <div className="h-2 overflow-hidden rounded-full border-[2px] border-black bg-white">
               <div
                 className="h-full rounded-full transition-all duration-500"
                 style={{ backgroundColor: stage.color, width: `${progress}%` }}
               />
             </div>
-            <p className="drip-clamp-1 mt-2 text-[12px] font-bold leading-tight text-neutral-700">
+            <p className="drip-clamp-1 mt-1.5 text-[11px] font-bold leading-tight text-neutral-700">
               {completed ? "Output is ready." : stage.line}
             </p>
           </div>
