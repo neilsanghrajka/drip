@@ -1,12 +1,10 @@
 "use client";
 
 import { useAuthActions, useConvexAuth } from "@convex-dev/auth/react";
-import { useQuery } from "convex/react";
 import {
   BarChart3,
   Box,
   Check,
-  ChevronDown,
   Crosshair,
   Loader2,
   PenLine,
@@ -15,7 +13,7 @@ import {
   X,
 } from "lucide-react";
 import Image from "next/image";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import type {
   ComponentType,
   CSSProperties,
@@ -23,8 +21,6 @@ import type {
   MouseEvent,
 } from "react";
 import { useState } from "react";
-
-import { api } from "../convex/_generated/api";
 
 type TeamKey = "scout" | "designer" | "meta" | "builder";
 type AuthMode = "signIn" | "signUp";
@@ -334,10 +330,8 @@ function clearAuthQueryParam() {
 }
 
 export default function Home() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const { isAuthenticated, isLoading } = useConvexAuth();
-  const me = useQuery(api.users.me, isAuthenticated ? {} : "skip");
   const [activeKey, setActiveKey] = useState<TeamKey>("designer");
   const [authMode, setAuthMode] = useState<AuthMode | null>(null);
   const visibleAuthMode =
@@ -351,10 +345,10 @@ export default function Home() {
 
   function handleStartScouting(event: MouseEvent<HTMLButtonElement>) {
     event.preventDefault();
-    if (isAuthenticated) {
-      router.push("/dashboard");
+    if (isLoading || isAuthenticated) {
       return;
     }
+    window.history.pushState(null, "", "/?auth=login");
     openAuth("signIn");
   }
 
@@ -365,49 +359,6 @@ export default function Home() {
           Drip
           <Sparkle className="absolute -right-6 top-1 size-7 fill-[#ffd400] stroke-black stroke-[1.5] transition group-hover:rotate-12" />
         </a>
-
-        <nav className="hidden items-center gap-9 text-[18px] font-black lg:flex">
-          <a className="inline-flex items-center gap-2" href="#product">
-            Product <ChevronDown className="size-4" />
-          </a>
-          <a className="inline-flex items-center gap-2" href="#use-cases">
-            Use Cases <ChevronDown className="size-4" />
-          </a>
-          <a href="#pricing">Pricing</a>
-          <a className="inline-flex items-center gap-2" href="#resources">
-            Resources <ChevronDown className="size-4" />
-          </a>
-          {isAuthenticated ? (
-            <span
-              className="inline-flex items-center gap-2"
-              data-testid="auth-status"
-            >
-              <span className="size-3 rounded-full bg-[#31c767]" />
-              Logged in
-              {me?.username ? (
-                <span className="max-w-[120px] truncate text-[14px] uppercase text-black/60">
-                  {me.username}
-                </span>
-              ) : null}
-            </span>
-          ) : (
-            <button
-              className="font-black"
-              disabled={isLoading}
-              onClick={() => openAuth("signIn")}
-              type="button"
-            >
-              Log in
-            </button>
-          )}
-          <button
-            className="drip-button px-8 py-4 text-xl"
-            onClick={() => openAuth("signUp")}
-            type="button"
-          >
-            Get Started
-          </button>
-        </nav>
       </header>
 
       {visibleAuthMode !== null && !isAuthenticated ? (
