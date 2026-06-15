@@ -201,110 +201,117 @@ function AuthPanel({
   return (
     <section
       aria-label="Drip authentication"
-      className="fixed right-4 top-[112px] z-50 w-[calc(100vw-2rem)] max-w-[390px] rounded-[18px] border-[4px] border-black bg-white p-5 shadow-[8px_8px_0_#000] sm:right-8"
+      className="drip-dot-bg fixed inset-0 z-50 grid min-h-svh place-items-center overflow-y-auto bg-white p-4 sm:p-8"
       data-testid="auth-panel"
     >
-      <div className="mb-5 flex items-start justify-between gap-4">
-        <div>
-          <p className="drip-heading text-[48px] leading-none tracking-[-0.04em]">
-            Drip
-          </p>
-          <p className="mt-1 text-[13px] font-black uppercase">
-            Username and password
-          </p>
-        </div>
-        <button
-          aria-label="Close login"
-          className="grid size-11 place-items-center rounded-[10px] border-[3px] border-black bg-white transition hover:bg-[#ffd400]"
-          onClick={onClose}
-          type="button"
-        >
-          <X className="size-6 stroke-[3]" />
-        </button>
-      </div>
+      <div className="relative w-full max-w-[520px]">
+        <div className="absolute inset-0 translate-x-3 translate-y-3 rounded-[22px] bg-black sm:translate-x-4 sm:translate-y-4" />
+        <div className="relative rounded-[22px] border-[4px] border-black bg-white p-6 shadow-[0_0_0_1px_#000] sm:p-8">
+          <div className="mb-7 flex items-start justify-between gap-4">
+            <div>
+              <p className="drip-heading text-[58px] leading-none sm:text-[68px]">
+                Drip
+              </p>
+              <p className="mt-2 text-[13px] font-black uppercase sm:text-[15px]">
+                Username and password
+              </p>
+            </div>
+            <button
+              aria-label="Close login"
+              className="grid size-12 shrink-0 place-items-center rounded-[12px] border-[3px] border-black bg-white transition hover:bg-[#ffd400] sm:size-14"
+              onClick={onClose}
+              type="button"
+            >
+              <X className="size-7 stroke-[3]" />
+            </button>
+          </div>
 
-      <div className="mb-5 grid grid-cols-2 overflow-hidden rounded-[10px] border-[3px] border-black">
-        <button
-          className={`h-12 text-[16px] font-black uppercase ${
-            mode === "signIn" ? "bg-[#ffd400]" : "bg-white"
-          }`}
-          onClick={() => {
-            setError(null);
-            onModeChange("signIn");
-          }}
-          type="button"
-        >
-          Log in
-        </button>
-        <button
-          className={`h-12 border-l-[3px] border-black text-[16px] font-black uppercase ${
-            mode === "signUp" ? "bg-[#ffd400]" : "bg-white"
-          }`}
-          onClick={() => {
-            setError(null);
-            onModeChange("signUp");
-          }}
-          type="button"
-        >
-          Sign up
-        </button>
-      </div>
+          <div className="mb-7 grid grid-cols-2 overflow-hidden rounded-[10px] border-[3px] border-black">
+            <button
+              className={`h-14 text-[16px] font-black uppercase sm:h-16 sm:text-[18px] ${
+                mode === "signIn" ? "bg-[#ffd400]" : "bg-white"
+              }`}
+              onClick={() => {
+                setError(null);
+                onModeChange("signIn");
+              }}
+              type="button"
+            >
+              Log in
+            </button>
+            <button
+              className={`h-14 border-l-[3px] border-black text-[16px] font-black uppercase sm:h-16 sm:text-[18px] ${
+                mode === "signUp" ? "bg-[#ffd400]" : "bg-white"
+              }`}
+              onClick={() => {
+                setError(null);
+                onModeChange("signUp");
+              }}
+              type="button"
+            >
+              Sign up
+            </button>
+          </div>
 
-      <form className="grid gap-4" onSubmit={handleSubmit}>
-        <label className="grid gap-1.5 text-[13px] font-black uppercase">
-          Username
-          <input
-            autoComplete="username"
-            className="h-12 rounded-[8px] border-[3px] border-black bg-white px-3 text-base font-bold outline-none focus:ring-4 focus:ring-[#ffd400]/60"
-            data-testid="auth-username"
-            name="username"
-            required
-            type="text"
-          />
-        </label>
-        <label className="grid gap-1.5 text-[13px] font-black uppercase">
-          Password
-          <input
-            autoComplete={mode === "signIn" ? "current-password" : "new-password"}
-            className="h-12 rounded-[8px] border-[3px] border-black bg-white px-3 text-base font-bold outline-none focus:ring-4 focus:ring-[#ffd400]/60"
-            data-testid="auth-password"
-            minLength={8}
-            name="password"
-            required
-            type="password"
-          />
-        </label>
-        {error ? (
-          <p
-            className="rounded-[8px] border-[3px] border-[#ff3c38] bg-[#ffefee] px-3 py-2 text-sm font-black text-[#b31310]"
-            data-testid="auth-error"
+          <form className="grid gap-5" onSubmit={handleSubmit}>
+            <label className="grid gap-2 text-[13px] font-black uppercase sm:text-[15px]">
+              Username
+              <input
+                autoComplete="username"
+                className="h-14 rounded-[8px] border-[3px] border-black bg-white px-4 text-lg font-bold outline-none focus:ring-4 focus:ring-[#ffd400]/60 sm:h-16"
+                data-testid="auth-username"
+                name="username"
+                required
+                type="text"
+              />
+            </label>
+            <label className="grid gap-2 text-[13px] font-black uppercase sm:text-[15px]">
+              Password
+              <input
+                autoComplete={
+                  mode === "signIn" ? "current-password" : "new-password"
+                }
+                className="h-14 rounded-[8px] border-[3px] border-black bg-white px-4 text-lg font-bold outline-none focus:ring-4 focus:ring-[#ffd400]/60 sm:h-16"
+                data-testid="auth-password"
+                minLength={8}
+                name="password"
+                required
+                type="password"
+              />
+            </label>
+            {error ? (
+              <p
+                className="rounded-[8px] border-[3px] border-[#ff3c38] bg-[#ffefee] px-4 py-3 text-sm font-black text-[#b31310]"
+                data-testid="auth-error"
+              >
+                {error}
+              </p>
+            ) : null}
+            <button
+              className="drip-button mt-1 h-16 px-7 text-xl disabled:translate-x-0 disabled:translate-y-0 disabled:cursor-wait disabled:opacity-70 sm:h-[68px] sm:text-2xl"
+              data-testid="auth-submit"
+              disabled={isSubmitting}
+              type="submit"
+            >
+              {isSubmitting ? (
+                <Loader2 className="mr-2 size-5 animate-spin stroke-[3]" />
+              ) : null}
+              {title}
+            </button>
+          </form>
+
+          <button
+            className="mx-auto mt-7 block text-[13px] font-black uppercase underline decoration-[3px] underline-offset-4 sm:text-[15px]"
+            onClick={() => {
+              setError(null);
+              onModeChange(otherMode);
+            }}
+            type="button"
           >
-            {error}
-          </p>
-        ) : null}
-        <button
-          className="drip-button mt-1 h-14 px-7 text-xl disabled:translate-x-0 disabled:translate-y-0 disabled:cursor-wait disabled:opacity-70"
-          data-testid="auth-submit"
-          disabled={isSubmitting}
-          type="submit"
-        >
-          {isSubmitting ? (
-            <Loader2 className="mr-2 size-5 animate-spin stroke-[3]" />
-          ) : null}
-          {title}
-        </button>
-      </form>
-
-      <button
-        className="mx-auto mt-5 block text-[13px] font-black uppercase underline decoration-[3px] underline-offset-4"
-        onClick={() => {
-          setError(null);
-          onModeChange(otherMode);
-        }}
-        type="button"
-      >
-        {mode === "signIn" ? "New here? Sign up" : "Already in? Log in"}
-      </button>
+            {mode === "signIn" ? "New here? Sign up" : "Already in? Log in"}
+          </button>
+        </div>
+      </div>
     </section>
   );
 }
