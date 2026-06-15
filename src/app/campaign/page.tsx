@@ -1547,8 +1547,8 @@ function MarketerFocus({
   const previewProducts = designerMocks.filter((mock) => selectedMocks.includes(mock.id));
   const heroProduct = previewProducts.find((mock) => mock.imageUrl) ?? previewProducts[0];
   const previewCard = (
-    <div className="mt-3 overflow-hidden rounded-[14px] border-[3px] border-white/30 bg-white text-black">
-      <div className="relative grid aspect-[1/0.74] place-items-center overflow-hidden bg-[#ff3c38]">
+    <div className="mt-2 overflow-hidden rounded-[14px] border-[3px] border-white/30 bg-white text-black">
+      <div className="relative grid aspect-[1/0.56] place-items-center overflow-hidden bg-[#ff3c38]">
         {heroProduct?.imageUrl ? (
           <img
             alt={heroProduct.name}
@@ -1558,15 +1558,15 @@ function MarketerFocus({
         ) : (
           <div className="px-5 text-center text-xl font-black">Drop of the week</div>
         )}
-        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 to-transparent p-3 text-white">
-          <p className="drip-clamp-1 text-lg font-black">
+        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 to-transparent p-2.5 text-white">
+          <p className="drip-clamp-1 text-base font-black">
             {readString(campaign.name, "Website + selected images")}
           </p>
           <p className="mt-0.5 text-xs font-bold text-white/80">{previewStatus}</p>
         </div>
       </div>
       {previewProducts.length > 1 ? (
-        <div className="grid grid-cols-3 gap-1.5 border-t-[3px] border-black bg-white p-2">
+        <div className="grid grid-cols-3 gap-1.5 border-t-[3px] border-black bg-white p-1.5">
           {previewProducts.slice(0, 3).map((mock) => (
             <div
               className="aspect-square overflow-hidden rounded-[8px] border-[2px] border-black bg-neutral-100"
@@ -1591,10 +1591,10 @@ function MarketerFocus({
   );
 
   return (
-    <div className="grid h-full min-h-0 gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
-      <section className="rounded-[18px] border-[3px] border-black bg-white shadow-[5px_5px_0_#000]">
+    <div className="grid h-full min-h-0 gap-3 lg:grid-cols-[minmax(0,1fr)_300px]">
+      <section className="min-w-0 overflow-hidden rounded-[18px] border-[3px] border-black bg-white shadow-[5px_5px_0_#000]">
         {metaBlocked ? (
-          <div className="border-b-[3px] border-black bg-[#f8ca00] px-4 py-3">
+          <div className="border-b-[3px] border-black bg-[#f8ca00] px-3 py-2.5">
             <p className="text-[12px] font-black uppercase tracking-[0.18em] text-black/60">
               Meta blocked
             </p>
@@ -1603,7 +1603,7 @@ function MarketerFocus({
             </p>
           </div>
         ) : null}
-        <div className="grid grid-cols-[1fr_150px_130px] border-b-[3px] border-black bg-neutral-50 px-4 py-3 text-[12px] font-black uppercase text-neutral-500">
+        <div className="grid grid-cols-[minmax(0,1fr)_92px_46px] border-b-[3px] border-black bg-neutral-50 px-3 py-2.5 text-[11px] font-black uppercase text-neutral-500">
           <span>Artifact</span>
           <span>Status</span>
           <span>Count</span>
@@ -1614,12 +1614,14 @@ function MarketerFocus({
           ["Ad", "Website + selected images", metaBlocked && adCount === 0 ? "NOT CREATED" : "DRAFT", String(adCount)],
         ].map(([kind, name, status, count]) => (
           <div
-            className="grid grid-cols-[1fr_150px_130px] items-center border-b border-black/10 px-4 py-3 text-sm"
+            className="grid grid-cols-[minmax(0,1fr)_92px_46px] items-center border-b border-black/10 px-3 py-2.5 text-xs"
             key={kind}
           >
-            <span>
+            <span className="min-w-0">
               <span className="font-black">{kind}</span>
-              <span className="ml-2 text-neutral-500">{name}</span>
+              <span className="ml-2 inline-block max-w-[70%] truncate align-bottom text-neutral-500">
+                {name}
+              </span>
             </span>
             <span className="font-bold text-[#ff3c38]">{status}</span>
             <span className="font-black">{count}</span>
@@ -1627,7 +1629,7 @@ function MarketerFocus({
         ))}
       </section>
 
-      <aside className="rounded-[18px] border-[3px] border-black bg-black p-4 text-white shadow-[5px_5px_0_#ff3c38]">
+      <aside className="flex h-full min-h-0 flex-col overflow-hidden rounded-[18px] border-[3px] border-black bg-black p-3 text-white shadow-[5px_5px_0_#ff3c38]">
         <p className="text-[12px] font-black uppercase tracking-[0.2em] text-[#ff3c38]">
           Ad preview
         </p>
@@ -1643,30 +1645,20 @@ function MarketerFocus({
         ) : (
           previewCard
         )}
-        {builderUrl ? (
-          <a
-            className="mt-4 inline-flex items-center gap-2 text-sm font-black uppercase underline decoration-[3px] underline-offset-4"
-            href={builderUrl}
-            rel="noreferrer"
-            target="_blank"
-          >
-            Open drop link <ExternalLink className="size-4" />
-          </a>
-        ) : null}
-        <div className="mt-4 grid grid-cols-3 gap-2 text-center">
+        <div className="mt-2 grid grid-cols-3 gap-1.5 text-center">
           {[
             ["Spend", "0"],
             ["Status", "Paused"],
             ["Link", builderUrl ? "Site" : "Pending"],
           ].map(([label, value]) => (
-            <div className="rounded-[10px] border border-white/20 p-2.5" key={label}>
-              <p className="text-[11px] font-black uppercase text-white/60">{label}</p>
-              <p className="mt-1 text-xl font-black">{value}</p>
+            <div className="rounded-[10px] border border-white/20 p-1.5" key={label}>
+              <p className="text-[10px] font-black uppercase text-white/60">{label}</p>
+              <p className="mt-0.5 text-lg font-black">{value}</p>
             </div>
           ))}
         </div>
         <button
-          className="drip-button mt-4 w-full px-6 py-3.5 text-base disabled:cursor-wait disabled:opacity-70"
+          className="drip-button mt-2 w-full px-5 py-2.5 text-sm disabled:cursor-wait disabled:opacity-70"
           disabled={!canRetryMeta}
           onClick={onMarketDrop}
           type="button"

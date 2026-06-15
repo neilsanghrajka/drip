@@ -13,9 +13,9 @@ export default function ConvexSmokePage() {
     <main className="flex min-h-svh items-center justify-center bg-background px-6 py-12">
       <Card className="w-full max-w-lg">
         <CardHeader>
-          <CardTitle>Convex Smoke</CardTitle>
+          <CardTitle>Backend Smoke</CardTitle>
           <CardDescription>
-            Production verifies this page through a live Convex query.
+            Production verifies this page through a live backend query.
           </CardDescription>
         </CardHeader>
         <CardContent>

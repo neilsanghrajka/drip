@@ -32,8 +32,8 @@ function ConvexSmokeStatus() {
       </p>
       <dl className="grid gap-2 text-sm">
         <div className="flex items-center justify-between gap-4">
-          <dt className="text-muted-foreground">Function</dt>
-          <dd className="font-mono">{smoke.name}</dd>
+          <dt className="text-muted-foreground">Check</dt>
+          <dd className="font-mono">{smoke.ok ? "live-query" : "unavailable"}</dd>
         </div>
         <div className="flex items-center justify-between gap-4">
           <dt className="text-muted-foreground">Label</dt>
