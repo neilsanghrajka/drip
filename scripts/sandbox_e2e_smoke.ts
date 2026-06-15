@@ -2214,7 +2214,6 @@ async function convexRun<T = unknown>(
   }
   if (functionName === "dropActions:createDrop") {
     return (await client.action(api.dropActions.createDrop, {
-      workspaceId: requireString(args.workspaceId, "workspaceId"),
       name: requireString(args.name, "name"),
       dropDate: requireString(args.dropDate, "dropDate"),
       startingMode: requireString(args.startingMode, "startingMode"),

@@ -1,3 +1,4 @@
+import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 
 import type { Doc, Id } from "./_generated/dataModel";
@@ -24,13 +25,17 @@ const artifactRoot = "/vercel/sandbox/agent-workspace/drops";
 
 export const listDrops = query({
   args: {
-    workspaceId: v.string(),
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    const workspaceId = await currentUserWorkspaceId(ctx);
+    if (!workspaceId) {
+      return [];
+    }
+
     return await ctx.db
       .query("drops")
-      .withIndex("by_workspace_date", (q) => q.eq("workspaceId", args.workspaceId))
+      .withIndex("by_workspace_date", (q) => q.eq("workspaceId", workspaceId))
       .order("desc")
       .take(Math.min(args.limit ?? 50, 100));
   },
@@ -42,7 +47,7 @@ export const getDrop = query({
   },
   handler: async (ctx, args) => {
     const drop = await ctx.db.get(args.dropId);
-    if (!drop) {
+    if (!drop || !(await ownsDropWorkspace(ctx, drop))) {
       return null;
     }
 
@@ -89,7 +94,7 @@ export const getDropReplay = query({
   },
   handler: async (ctx, args) => {
     const drop = await ctx.db.get(args.dropId);
-    if (!drop) {
+    if (!drop || !(await ownsDropWorkspace(ctx, drop))) {
       return null;
     }
 
@@ -184,6 +189,11 @@ export const listDropEvents = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    const drop = await ctx.db.get(args.dropId);
+    if (!drop || !(await ownsDropWorkspace(ctx, drop))) {
+      return [];
+    }
+
     const query = ctx.db
       .query("dropEvents")
       .withIndex("by_drop_seq", (q) => {
@@ -203,6 +213,11 @@ export const listDropArtifacts = query({
     stage: v.optional(dropStage),
   },
   handler: async (ctx, args) => {
+    const drop = await ctx.db.get(args.dropId);
+    if (!drop || !(await ownsDropWorkspace(ctx, drop))) {
+      return [];
+    }
+
     const artifacts = await ctx.db
       .query("dropArtifacts")
       .withIndex("by_drop_stage_created", (q) =>
@@ -221,6 +236,7 @@ export const selectScoutIdeas = mutation({
     approvedIdeas: v.any(),
   },
   handler: async (ctx, args) => {
+    await getOwnedDropOrThrow(ctx, args.dropId);
     await upsertSelection(ctx, args.dropId, "approvedIdeas", args.approvedIdeas);
     await patchDropStatus(ctx, args.dropId, "ready_to_design");
     return { status: "ready_to_design" as const };
@@ -233,6 +249,7 @@ export const selectDesignerMocks = mutation({
     selectedMocks: v.any(),
   },
   handler: async (ctx, args) => {
+    await getOwnedDropOrThrow(ctx, args.dropId);
     await upsertSelection(ctx, args.dropId, "selectedMocks", args.selectedMocks);
     await patchDropStatus(ctx, args.dropId, "ready_to_build");
     return { status: "ready_to_build" as const };
@@ -245,6 +262,7 @@ export const approveWinningDrop = mutation({
     winningDrop: v.any(),
   },
   handler: async (ctx, args) => {
+    await getOwnedDropOrThrow(ctx, args.dropId);
     await upsertSelection(ctx, args.dropId, "winningDrop", args.winningDrop);
     await ctx.db.patch(args.dropId, {
       winningDrop: args.winningDrop,
@@ -268,7 +286,7 @@ export const restoreCompletedFromMarketerArtifact = mutation({
     dropId: v.id("drops"),
   },
   handler: async (ctx, args) => {
-    const drop = await getDropOrThrow(ctx, args.dropId);
+    const drop = await getOwnedDropOrThrow(ctx, args.dropId);
     if (drop.currentStage !== "marketer") {
       throw new Error("Only Marketer-stage drops can be restored to completed.");
     }
@@ -724,6 +742,36 @@ async function patchDropStatus(
   });
 }
 
+async function currentUserWorkspaceId(ctx: QueryCtx | MutationCtx) {
+  const userId = await getAuthUserId(ctx);
+  return userId ? workspaceIdForUser(userId) : null;
+}
+
+async function requireUserWorkspaceId(ctx: QueryCtx | MutationCtx) {
+  const workspaceId = await currentUserWorkspaceId(ctx);
+  if (!workspaceId) {
+    throw new Error("Sign in to access campaign history.");
+  }
+  return workspaceId;
+}
+
+async function ownsDropWorkspace(ctx: QueryCtx | MutationCtx, drop: Doc<"drops">) {
+  const workspaceId = await currentUserWorkspaceId(ctx);
+  return Boolean(workspaceId && drop.workspaceId === workspaceId);
+}
+
+async function getOwnedDropOrThrow(
+  ctx: QueryCtx | MutationCtx,
+  dropId: Id<"drops">,
+) {
+  const workspaceId = await requireUserWorkspaceId(ctx);
+  const drop = await ctx.db.get(dropId);
+  if (!drop || drop.workspaceId !== workspaceId) {
+    throw new Error("Drop not found.");
+  }
+  return drop;
+}
+
 async function getDropOrThrow(
   ctx: Pick<QueryCtx, "db"> | Pick<MutationCtx, "db">,
   dropId: Id<"drops">,
@@ -733,6 +781,10 @@ async function getDropOrThrow(
     throw new Error("Drop not found.");
   }
   return drop;
+}
+
+function workspaceIdForUser(userId: Id<"users">) {
+  return `user:${userId}`;
 }
 
 async function activeStageRun(ctx: MutationCtx, dropId: Id<"drops">) {

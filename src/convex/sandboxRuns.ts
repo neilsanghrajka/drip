@@ -1,8 +1,9 @@
-import { v } from "convex/values";
+import { getAuthUserId } from "@convex-dev/auth/server";
 import {
   makeFunctionReference,
   type FunctionReference,
 } from "convex/server";
+import { v } from "convex/values";
 
 import type { Doc, Id } from "./_generated/dataModel";
 import {
@@ -48,6 +49,31 @@ type SandboxRunError = {
 
 function now() {
   return Date.now();
+}
+
+async function currentUserWorkspaceId(ctx: QueryCtx | MutationCtx) {
+  const userId = await getAuthUserId(ctx);
+  return userId ? workspaceIdForUser(userId) : null;
+}
+
+async function requireUserWorkspaceId(ctx: QueryCtx | MutationCtx) {
+  const workspaceId = await currentUserWorkspaceId(ctx);
+  if (!workspaceId) {
+    throw new Error("Sign in to access campaign runs.");
+  }
+  return workspaceId;
+}
+
+async function ownsSandboxRun(
+  ctx: QueryCtx | MutationCtx,
+  sandboxRun: Doc<"sandboxRuns">,
+) {
+  const workspaceId = await currentUserWorkspaceId(ctx);
+  return Boolean(workspaceId && sandboxRun.workspaceId === workspaceId);
+}
+
+function workspaceIdForUser(userId: Id<"users">) {
+  return `user:${userId}`;
 }
 
 async function getSandboxRunOrThrow(
@@ -113,9 +139,10 @@ export const createSandboxRun = mutation({
     expectedOutputPath: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const workspaceId = await requireUserWorkspaceId(ctx);
     const timestamp = now();
     const sandboxRunId = await ctx.db.insert("sandboxRuns", {
-      workspaceId: args.workspaceId,
+      workspaceId,
       task: args.task,
       status: "queued",
       dropId: args.dropId,
@@ -137,7 +164,10 @@ export const getSandboxRun = query({
   },
   handler: async (ctx, args) => {
     const sandboxRun = await ctx.db.get(args.sandboxRunId);
-    return sandboxRun ? safeSandboxRun(sandboxRun) : null;
+    if (!sandboxRun || !(await ownsSandboxRun(ctx, sandboxRun))) {
+      return null;
+    }
+    return safeSandboxRun(sandboxRun);
   },
 });
 
@@ -147,6 +177,11 @@ export const listSandboxRunEvents = query({
     afterSeq: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    const sandboxRun = await ctx.db.get(args.sandboxRunId);
+    if (!sandboxRun || !(await ownsSandboxRun(ctx, sandboxRun))) {
+      return [];
+    }
+
     const query = ctx.db
       .query("sandboxRunEvents")
       .withIndex("by_sandbox_run_seq", (q) => {
@@ -166,6 +201,9 @@ export const cancelSandboxRun = mutation({
   },
   handler: async (ctx, args) => {
     const sandboxRun = await getSandboxRunOrThrow(ctx, args.sandboxRunId);
+    if (!(await ownsSandboxRun(ctx, sandboxRun))) {
+      throw new Error("Sandbox run not found.");
+    }
 
     if (terminalStatuses.has(sandboxRun.status)) {
       return { status: sandboxRun.status };

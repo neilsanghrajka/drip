@@ -3,6 +3,7 @@
 import { createHash } from "node:crypto";
 import path from "node:path";
 
+import { getAuthUserId } from "@convex-dev/auth/server";
 import { Sandbox } from "@vercel/sandbox";
 import {
   makeFunctionReference,
@@ -126,6 +127,17 @@ const prepareNextStageRun = makeFunctionReference<
   PreparedStageRun
 >;
 
+const getDropForAction = makeFunctionReference<
+  "query",
+  { dropId: Id<"drops"> },
+  Doc<"drops"> | null
+>("drops:getDropForAction") as unknown as FunctionReference<
+  "query",
+  "internal",
+  { dropId: Id<"drops"> },
+  Doc<"drops"> | null
+>;
+
 const getStageRunForCollector = makeFunctionReference<
   "query",
   { sandboxRunId: Id<"sandboxRuns"> },
@@ -210,7 +222,6 @@ const startSandboxRun = makeFunctionReference<
 
 export const createDrop = action({
   args: {
-    workspaceId: v.string(),
     name: v.string(),
     dropDate: v.string(),
     startingMode: v.string(),
@@ -220,7 +231,11 @@ export const createDrop = action({
     winningDrop: v.optional(v.any()),
   },
   handler: async (ctx, args) => {
-    const created = await ctx.runMutation(createDropFromAction, args);
+    const workspaceId = await requireUserWorkspaceId(ctx);
+    const created = await ctx.runMutation(createDropFromAction, {
+      ...args,
+      workspaceId,
+    });
     try {
       const sandbox = await getOrCreateDropSandbox(created.sandboxName);
       await assertSandboxReady(sandbox);
@@ -255,6 +270,7 @@ export const startNextStage = action({
     dropId: v.id("drops"),
   },
   handler: async (ctx, args) => {
+    await requireOwnedDrop(ctx, args.dropId);
     const prepared = await ctx.runMutation(prepareNextStageRun, {
       dropId: args.dropId,
     });
@@ -342,6 +358,27 @@ export const collectStageArtifacts = internalAction({
     }
   },
 });
+
+async function requireUserWorkspaceId(ctx: ActionCtx) {
+  const userId = await getAuthUserId(ctx);
+  if (!userId) {
+    throw new Error("Sign in to access campaign history.");
+  }
+  return workspaceIdForUser(userId);
+}
+
+async function requireOwnedDrop(ctx: ActionCtx, dropId: Id<"drops">) {
+  const workspaceId = await requireUserWorkspaceId(ctx);
+  const drop = await ctx.runQuery(getDropForAction, { dropId });
+  if (!drop || drop.workspaceId !== workspaceId) {
+    throw new Error("Drop not found.");
+  }
+  return drop;
+}
+
+function workspaceIdForUser(userId: Id<"users">) {
+  return `user:${userId}`;
+}
 
 async function getOrCreateDropSandbox(name: string) {
   return await getOrCreateSnapshotSandbox({

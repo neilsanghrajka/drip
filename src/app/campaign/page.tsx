@@ -15,8 +15,9 @@ import {
   Sparkle,
 } from "lucide-react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import type { ComponentType, CSSProperties } from "react";
-import { useMemo, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { useAction, useMutation, useQuery } from "convex/react";
 
 import { api } from "../../convex/_generated/api";
@@ -170,7 +171,6 @@ type DesignerMock = {
   raw: unknown;
 };
 
-const workspaceId = "drip-campaign-default";
 const dropIdStorageKey = "drip.activeDropId";
 const dropIdStorageEvent = "drip-active-drop-change";
 
@@ -226,6 +226,7 @@ const stages: Stage[] = [
 ];
 
 export default function CampaignPage() {
+  const searchParams = useSearchParams();
   const createDrop = useAction(api.dropActions.createDrop);
   const startNextStage = useAction(api.dropActions.startNextStage);
   const selectScoutIdeas = useMutation(api.drops.selectScoutIdeas);
@@ -255,12 +256,23 @@ export default function CampaignPage() {
     dropId ? { dropId } : "skip",
   );
   const dropView = rawDropView as DropView | null | undefined;
-  const rawRecentDrops = useQuery(api.drops.listDrops, {
-    workspaceId,
-    limit: 8,
-  });
+  const rawRecentDrops = useQuery(api.drops.listDrops, { limit: 8 });
   const recentDrops = (rawRecentDrops ?? []) as DropSummary[];
   const started = Boolean(dropId);
+  const requestedDropId = searchParams.get("drop") as Id<"drops"> | null;
+
+  useEffect(() => {
+    if (requestedDropId && requestedDropId !== dropId) {
+      writeStoredDropId(requestedDropId);
+    }
+  }, [dropId, requestedDropId]);
+
+  useEffect(() => {
+    if (dropId && rawDropView === null) {
+      window.localStorage.removeItem(dropIdStorageKey);
+      window.dispatchEvent(new Event(dropIdStorageEvent));
+    }
+  }, [dropId, rawDropView]);
 
   const artifacts = useMemo(
     () => ({
@@ -312,7 +324,6 @@ export default function CampaignPage() {
   async function beginScouting() {
     await runAction("begin-scouting", async () => {
       const created = await createDrop({
-        workspaceId,
         name: campaignName,
         dropDate: campaignDate,
         startingMode: "weekly-scout",
@@ -401,7 +412,6 @@ export default function CampaignPage() {
     }
     await runAction("clone-drop", async () => {
       const cloned = await createDrop({
-        workspaceId: dropView.drop.workspaceId,
         name: `${dropView.drop.name} copy`,
         dropDate: dropView.drop.dropDate,
         startingMode: dropView.drop.startingMode ?? "weekly-scout",
