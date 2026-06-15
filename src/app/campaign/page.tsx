@@ -1603,21 +1603,32 @@ function MarketerFocus({
   const adSetCount = readNumber(verification.adSetCount, 0);
   const adCount = readNumber(verification.adCount, 0);
   const allCreatedPaused = safety.allCreatedPaused === true;
-  const metaBlocked = Boolean(marketerArtifact && (!allCreatedPaused || issue));
-  const canRetryMeta =
+  const missingPausedObjects =
+    campaignCount === 0 || adSetCount === 0 || adCount === 0;
+  const metaReady = Boolean(
+    marketerArtifact && allCreatedPaused && !issue && !missingPausedObjects,
+  );
+  const metaBlocked = Boolean(
+    marketerArtifact && (!allCreatedPaused || missingPausedObjects || issue),
+  );
+  const canRunMeta =
     !isPending &&
     dropView?.drop.currentStage === "marketer" &&
     (dropView.drop.status === "ready_to_market" ||
-      dropView.drop.status === "completed" ||
       dropView.drop.status === "failed" ||
-      dropView.drop.status === "cancelled");
+      dropView.drop.status === "cancelled" ||
+      metaBlocked);
   const actionLabel =
-    dropView?.drop.status === "ready_to_market"
-      ? "Create paused ad"
-      : metaBlocked
-        ? "Retry paused ad"
-        : "Create paused ad";
-  const previewStatus = metaBlocked ? "Paused draft blocked" : "Paused draft · no spend";
+    metaReady
+      ? "Paused ad ready"
+      : dropView?.drop.status === "ready_to_market" && !metaBlocked
+        ? "Create paused ad"
+        : "Retry paused ad";
+  const previewStatus = metaReady
+    ? "Paused ad ready · no spend"
+    : metaBlocked
+      ? "Paused draft blocked"
+      : "Paused draft · no spend";
   const previewProducts = designerMocks.filter((mock) => selectedMocks.includes(mock.id));
   const heroProduct = previewProducts.find((mock) => mock.imageUrl) ?? previewProducts[0];
   const previewCard = (
@@ -1687,7 +1698,7 @@ function MarketerFocus({
         {[
           ["Campaign", readString(campaign.name, "Drop of the week"), readString(campaign.configuredStatus, metaBlocked ? "NOT CREATED" : "PAUSED"), String(campaignCount)],
           ["Ad set", "Drop audience", metaBlocked && adSetCount === 0 ? "NOT CREATED" : "PAUSED", String(adSetCount)],
-          ["Ad", "Website + selected images", metaBlocked && adCount === 0 ? "NOT CREATED" : "DRAFT", String(adCount)],
+          ["Ad", "Website + selected images", metaBlocked && adCount === 0 ? "NOT CREATED" : "PAUSED", String(adCount)],
         ].map(([kind, name, status, count]) => (
           <div
             className="grid grid-cols-[minmax(0,1fr)_92px_46px] items-center border-b border-black/10 px-3 py-2.5 text-xs"
@@ -1735,7 +1746,7 @@ function MarketerFocus({
         </div>
         <button
           className="drip-button mt-1.5 w-full px-4 py-1.5 text-xs disabled:cursor-wait disabled:opacity-70"
-          disabled={!canRetryMeta}
+          disabled={!canRunMeta}
           onClick={onMarketDrop}
           type="button"
         >
@@ -2078,6 +2089,9 @@ function readNumber(value: unknown, fallback: number) {
 
 function firstVerificationIssue(verification: Record<string, unknown>) {
   const issues = Array.isArray(verification.issues) ? verification.issues : [];
+  if (issues.length === 0) {
+    return null;
+  }
   const first = issues[0];
   if (typeof first === "string") {
     return "Meta paused-ad setup stopped before any objects were created. Nothing is spending.";
