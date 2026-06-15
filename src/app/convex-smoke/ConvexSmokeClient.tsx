@@ -1,17 +1,11 @@
 "use client";
 
-import { ConvexProvider, ConvexReactClient, useQuery } from "convex/react";
+import { useQuery } from "convex/react";
 
 import { api } from "../../convex/_generated/api";
 
-const convex = new ConvexReactClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
-
 export function ConvexSmokeClient() {
-  return (
-    <ConvexProvider client={convex}>
-      <ConvexSmokeStatus />
-    </ConvexProvider>
-  );
+  return <ConvexSmokeStatus />;
 }
 
 function ConvexSmokeStatus() {

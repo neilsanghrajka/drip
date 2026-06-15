@@ -4,12 +4,15 @@ import {
 } from "convex/server";
 import type { FunctionReference } from "convex/server";
 
+import { auth } from "./auth";
 import { httpAction } from "./_generated/server";
 
 const http = httpRouter();
 const ingestInternal = makeFunctionReference<"mutation">(
   "sandboxPrototype:ingestInternal",
 ) as unknown as FunctionReference<"mutation", "internal">;
+
+auth.addHttpRoutes(http);
 
 http.route({
   path: "/sandbox-prototype/ingest",

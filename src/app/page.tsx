@@ -1,20 +1,33 @@
 "use client";
 
+import { useAuthActions, useConvexAuth } from "@convex-dev/auth/react";
+import { useQuery } from "convex/react";
 import {
   BarChart3,
   Box,
   Check,
   ChevronDown,
   Crosshair,
+  Loader2,
   PenLine,
   Sparkle,
   Star,
+  X,
 } from "lucide-react";
 import Image from "next/image";
-import type { ComponentType, CSSProperties } from "react";
+import { useRouter } from "next/navigation";
+import type {
+  ComponentType,
+  CSSProperties,
+  FormEvent,
+  MouseEvent,
+} from "react";
 import { useState } from "react";
 
+import { api } from "../convex/_generated/api";
+
 type TeamKey = "scout" | "designer" | "meta" | "builder";
+type AuthMode = "signIn" | "signUp";
 
 type TeamMember = {
   key: TeamKey;
@@ -84,11 +97,7 @@ const team: TeamMember[] = [
     portrait: "/drip-team/builder-portrait.png",
     title: "Builds pages",
     subtitle: "Turns the winning drop into a launch page.",
-    bullets: [
-      "Drop website preview",
-      "Product story",
-      "Launch-ready page",
-    ],
+    bullets: ["Drop website preview", "Product story", "Launch-ready page"],
   },
 ];
 
@@ -153,10 +162,197 @@ function TeamCard({
   );
 }
 
+function AuthPanel({
+  mode,
+  onClose,
+  onModeChange,
+  onSuccess,
+}: {
+  mode: AuthMode;
+  onClose: () => void;
+  onModeChange: (mode: AuthMode) => void;
+  onSuccess: () => void;
+}) {
+  const { signIn } = useAuthActions();
+  const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(null);
+    setIsSubmitting(true);
+
+    const formData = new FormData(event.currentTarget);
+    formData.set("flow", mode);
+
+    try {
+      await signIn("username", formData);
+      onSuccess();
+    } catch (caught) {
+      setError(readAuthError(caught));
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  const title = mode === "signIn" ? "Log in" : "Sign up";
+  const otherMode = mode === "signIn" ? "signUp" : "signIn";
+
+  return (
+    <section
+      aria-label="Drip authentication"
+      className="fixed right-4 top-[112px] z-50 w-[calc(100vw-2rem)] max-w-[390px] rounded-[18px] border-[4px] border-black bg-white p-5 shadow-[8px_8px_0_#000] sm:right-8"
+      data-testid="auth-panel"
+    >
+      <div className="mb-5 flex items-start justify-between gap-4">
+        <div>
+          <p className="drip-heading text-[48px] leading-none tracking-[-0.04em]">
+            Drip
+          </p>
+          <p className="mt-1 text-[13px] font-black uppercase">
+            Username and password
+          </p>
+        </div>
+        <button
+          aria-label="Close login"
+          className="grid size-11 place-items-center rounded-[10px] border-[3px] border-black bg-white transition hover:bg-[#ffd400]"
+          onClick={onClose}
+          type="button"
+        >
+          <X className="size-6 stroke-[3]" />
+        </button>
+      </div>
+
+      <div className="mb-5 grid grid-cols-2 overflow-hidden rounded-[10px] border-[3px] border-black">
+        <button
+          className={`h-12 text-[16px] font-black uppercase ${
+            mode === "signIn" ? "bg-[#ffd400]" : "bg-white"
+          }`}
+          onClick={() => {
+            setError(null);
+            onModeChange("signIn");
+          }}
+          type="button"
+        >
+          Log in
+        </button>
+        <button
+          className={`h-12 border-l-[3px] border-black text-[16px] font-black uppercase ${
+            mode === "signUp" ? "bg-[#ffd400]" : "bg-white"
+          }`}
+          onClick={() => {
+            setError(null);
+            onModeChange("signUp");
+          }}
+          type="button"
+        >
+          Sign up
+        </button>
+      </div>
+
+      <form className="grid gap-4" onSubmit={handleSubmit}>
+        <label className="grid gap-1.5 text-[13px] font-black uppercase">
+          Username
+          <input
+            autoComplete="username"
+            className="h-12 rounded-[8px] border-[3px] border-black bg-white px-3 text-base font-bold outline-none focus:ring-4 focus:ring-[#ffd400]/60"
+            data-testid="auth-username"
+            name="username"
+            required
+            type="text"
+          />
+        </label>
+        <label className="grid gap-1.5 text-[13px] font-black uppercase">
+          Password
+          <input
+            autoComplete={mode === "signIn" ? "current-password" : "new-password"}
+            className="h-12 rounded-[8px] border-[3px] border-black bg-white px-3 text-base font-bold outline-none focus:ring-4 focus:ring-[#ffd400]/60"
+            data-testid="auth-password"
+            minLength={8}
+            name="password"
+            required
+            type="password"
+          />
+        </label>
+        {error ? (
+          <p
+            className="rounded-[8px] border-[3px] border-[#ff3c38] bg-[#ffefee] px-3 py-2 text-sm font-black text-[#b31310]"
+            data-testid="auth-error"
+          >
+            {error}
+          </p>
+        ) : null}
+        <button
+          className="drip-button mt-1 h-14 px-7 text-xl disabled:translate-x-0 disabled:translate-y-0 disabled:cursor-wait disabled:opacity-70"
+          data-testid="auth-submit"
+          disabled={isSubmitting}
+          type="submit"
+        >
+          {isSubmitting ? (
+            <Loader2 className="mr-2 size-5 animate-spin stroke-[3]" />
+          ) : null}
+          {title}
+        </button>
+      </form>
+
+      <button
+        className="mx-auto mt-5 block text-[13px] font-black uppercase underline decoration-[3px] underline-offset-4"
+        onClick={() => {
+          setError(null);
+          onModeChange(otherMode);
+        }}
+        type="button"
+      >
+        {mode === "signIn" ? "New here? Sign up" : "Already in? Log in"}
+      </button>
+    </section>
+  );
+}
+
+function readAuthError(caught: unknown) {
+  const message =
+    caught instanceof Error ? caught.message : "Could not authenticate.";
+  return message
+    .replace(/^.*ConvexError:\s*/, "")
+    .replace(/^.*Error:\s*/, "")
+    .trim();
+}
+
+function clearAuthQueryParam() {
+  const url = new URL(window.location.href);
+  if (url.searchParams.has("auth")) {
+    url.searchParams.delete("auth");
+    window.history.replaceState(null, "", `${url.pathname}${url.search}`);
+  }
+}
+
 export default function Home() {
+  const router = useRouter();
+  const { isAuthenticated, isLoading } = useConvexAuth();
+  const me = useQuery(api.users.me, isAuthenticated ? {} : "skip");
   const [activeKey, setActiveKey] = useState<TeamKey>("designer");
+  const [authMode, setAuthMode] = useState<AuthMode | null>(() => {
+    if (typeof window === "undefined") {
+      return null;
+    }
+    const params = new URLSearchParams(window.location.search);
+    return params.get("auth") === "login" ? "signIn" : null;
+  });
   const active = team.find((member) => member.key === activeKey) ?? team[1];
   const ActiveIcon = active.icon;
+
+  function openAuth(mode: AuthMode) {
+    setAuthMode(mode);
+  }
+
+  function handleStartScouting(event: MouseEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    if (isAuthenticated) {
+      router.push("/dashboard");
+      return;
+    }
+    openAuth("signIn");
+  }
 
   return (
     <main className="drip-shell min-h-svh bg-white text-black" id="top">
@@ -177,16 +373,55 @@ export default function Home() {
           <a className="inline-flex items-center gap-2" href="#resources">
             Resources <ChevronDown className="size-4" />
           </a>
-          <a href="#login">Log in</a>
-          <a className="drip-button px-8 py-4 text-xl" href="#start">
+          {isAuthenticated ? (
+            <span
+              className="inline-flex items-center gap-2"
+              data-testid="auth-status"
+            >
+              <span className="size-3 rounded-full bg-[#31c767]" />
+              Logged in
+              {me?.username ? (
+                <span className="max-w-[120px] truncate text-[14px] uppercase text-black/60">
+                  {me.username}
+                </span>
+              ) : null}
+            </span>
+          ) : (
+            <button
+              className="font-black"
+              disabled={isLoading}
+              onClick={() => openAuth("signIn")}
+              type="button"
+            >
+              Log in
+            </button>
+          )}
+          <button
+            className="drip-button px-8 py-4 text-xl"
+            onClick={() => openAuth("signUp")}
+            type="button"
+          >
             Get Started
-          </a>
+          </button>
         </nav>
       </header>
 
-      <section
-        className="drip-dot-bg overflow-hidden px-8 pb-0 pt-10 lg:px-12 lg:pt-14"
-      >
+      {authMode !== null && !isAuthenticated ? (
+        <AuthPanel
+          mode={authMode}
+          onClose={() => {
+            setAuthMode(null);
+            clearAuthQueryParam();
+          }}
+          onModeChange={setAuthMode}
+          onSuccess={() => {
+            setAuthMode(null);
+            clearAuthQueryParam();
+          }}
+        />
+      ) : null}
+
+      <section className="drip-dot-bg overflow-hidden px-8 pb-0 pt-10 lg:px-12 lg:pt-14">
         <div className="mx-auto grid max-w-[1720px] gap-8 min-[900px]:grid-cols-[minmax(300px,0.9fr)_minmax(165px,0.45fr)_minmax(250px,0.68fr)] min-[900px]:items-center xl:grid-cols-[0.83fr_0.52fr_0.76fr] xl:gap-9">
           <section className="min-w-0">
             <div className="mb-6 ml-2 flex gap-1">
@@ -206,9 +441,14 @@ export default function Home() {
             </p>
 
             <div className="mt-8 flex flex-wrap items-center gap-8">
-              <a className="drip-button px-11 py-5 text-2xl" href="#start">
+              <button
+                className="drip-button px-11 py-5 text-2xl"
+                data-testid="start-scouting"
+                onClick={handleStartScouting}
+                type="button"
+              >
                 Start scouting
-              </a>
+              </button>
               <div className="hidden items-center gap-5 text-[22px] font-black italic leading-none sm:flex">
                 <span className="drip-arrow" aria-hidden="true" />
                 <span className="-rotate-6 font-[cursive]">
@@ -278,7 +518,10 @@ export default function Home() {
                   Active
                 </span>
               </div>
-              <div className="relative aspect-[1/0.82]" style={{ backgroundColor: active.color }}>
+              <div
+                className="relative aspect-[1/0.82]"
+                style={{ backgroundColor: active.color }}
+              >
                 <Image
                   alt={`${active.name} dominant portrait`}
                   className="h-full w-full object-cover object-center"
@@ -303,11 +546,17 @@ export default function Home() {
               style={{ borderColor: active.color }}
             >
               <div className="mb-7 grid size-16 place-items-center rounded-[12px] border-[3px] border-black">
-                <ActiveIcon className="size-9" style={{ color: active.color }} />
+                <ActiveIcon
+                  className="size-9"
+                  style={{ color: active.color }}
+                />
               </div>
               <ul className="space-y-5">
                 {active.bullets.map((bullet) => (
-                  <li className="flex gap-3 text-[16px] leading-tight" key={bullet}>
+                  <li
+                    className="flex gap-3 text-[16px] leading-tight"
+                    key={bullet}
+                  >
                     <span
                       className="grid size-6 shrink-0 place-items-center rounded-full text-white"
                       style={{ backgroundColor: active.color }}

@@ -1,3 +1,4 @@
+import { authTables } from "@convex-dev/auth/server";
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
@@ -21,6 +22,15 @@ const sandboxControlRunStatus = v.union(
 );
 
 export default defineSchema({
+  ...authTables,
+
+  users: defineTable({
+    name: v.optional(v.string()),
+    username: v.string(),
+    usernameNormalized: v.string(),
+    isAnonymous: v.optional(v.boolean()),
+  }).index("by_usernameNormalized", ["usernameNormalized"]),
+
   sandboxRuns: defineTable({
     workspaceId: v.string(),
     task: v.string(),
