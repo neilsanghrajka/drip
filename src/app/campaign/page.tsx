@@ -295,6 +295,7 @@ export default function CampaignPage() {
   const active = stages[activeIndex] ?? stages[0];
   const activityItems = dropView?.activity ?? [];
   const cancellableRun = useMemo(() => activeDropStageRun(dropView), [dropView]);
+  const workspaceStatus = workspaceLifecycleStatus(dropView, cancellableRun);
 
   async function runAction(label: string, action: () => Promise<void>) {
     setPendingAction(label);
@@ -501,6 +502,22 @@ export default function CampaignPage() {
                 <p className="mt-1.5 text-[13px] font-bold leading-tight text-neutral-500">
                   {dropView?.drop.dropDate ?? campaignDate} · four-teammate workflow
                 </p>
+                <div className="mt-3 rounded-[10px] border-[2px] border-black bg-neutral-50 px-2.5 py-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[10px] font-black uppercase tracking-[0.16em] text-neutral-500">
+                      Workspace
+                    </span>
+                    <span
+                      className="rounded-full border-[2px] border-black px-2 py-0.5 text-[9px] font-black uppercase"
+                      style={{ backgroundColor: workspaceStatus.color }}
+                    >
+                      {workspaceStatus.label}
+                    </span>
+                  </div>
+                  <p className="drip-clamp-1 mt-1 text-[11px] font-bold leading-tight text-neutral-600">
+                    {workspaceStatus.detail}
+                  </p>
+                </div>
                 <div className="mt-3 flex flex-wrap gap-2">
                   <button
                     className="rounded-[10px] border-[3px] border-black bg-white px-3 py-2 text-xs font-black uppercase transition hover:bg-neutral-100"
@@ -1761,6 +1778,68 @@ function activeDropStageRun(dropView: DropView | null | undefined) {
         (right.startedAt ?? right.updatedAt ?? 0) -
         (left.startedAt ?? left.updatedAt ?? 0),
     )[0];
+}
+
+function workspaceLifecycleStatus(
+  dropView: DropView | null | undefined,
+  activeRun: ReturnType<typeof activeDropStageRun>,
+) {
+  if (!dropView) {
+    return {
+      label: "Loading",
+      detail: "Reading the campaign workspace state.",
+      color: "#fff",
+    };
+  }
+  if (activeRun) {
+    return {
+      label: "Running",
+      detail: `${stageLabel(activeRun.stage)} is ${activeRun.status}. Cancel is available.`,
+      color: "#f8ca00",
+    };
+  }
+  if (dropView.drop.status === "creating") {
+    return {
+      label: "Creating",
+      detail: "Preparing the persistent drop workspace.",
+      color: "#f8ca00",
+    };
+  }
+  if (dropView.drop.status === "failed") {
+    return {
+      label: "Failed",
+      detail: "The workspace stopped on an error. Retry is available on the active teammate.",
+      color: "#ffefee",
+    };
+  }
+  if (dropView.drop.status === "cancelled") {
+    return {
+      label: "Cancelled",
+      detail: "The active workspace run was cancelled and can be retried.",
+      color: "#ffefee",
+    };
+  }
+  const latestRun = [...dropView.stageRuns].sort(
+    (left, right) =>
+      (right.startedAt ?? right.updatedAt ?? 0) -
+      (left.startedAt ?? left.updatedAt ?? 0),
+  )[0];
+  if (latestRun) {
+    return {
+      label: "Idle",
+      detail: `${stageLabel(latestRun.stage)} last ${latestRun.status}; history is preserved.`,
+      color: "#eaffdf",
+    };
+  }
+  return {
+    label: "Ready",
+    detail: "Persistent workspace is ready for the next teammate.",
+    color: "#eaffdf",
+  };
+}
+
+function stageLabel(stage: StageKey) {
+  return stages.find((item) => item.key === stage)?.shortName ?? stage;
 }
 
 function latestArtifact(dropView: DropView | null | undefined, stage: StageKey) {
