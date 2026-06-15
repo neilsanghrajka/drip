@@ -1519,19 +1519,50 @@ function MarketerFocus({
   const output = asRecord(marketerArtifact?.data);
   const campaign = asRecord(output.campaign);
   const verification = asRecord(output.verification);
+  const safety = asRecord(output.safety);
+  const issue = firstVerificationIssue(verification);
+  const campaignCount = readNumber(verification.campaignCount, 0);
+  const adSetCount = readNumber(verification.adSetCount, 0);
+  const adCount = readNumber(verification.adCount, 0);
+  const allCreatedPaused = safety.allCreatedPaused === true;
+  const metaBlocked = Boolean(marketerArtifact && (!allCreatedPaused || issue));
+  const canRetryMeta =
+    !isPending &&
+    dropView?.drop.currentStage === "marketer" &&
+    (dropView.drop.status === "ready_to_market" ||
+      dropView.drop.status === "completed" ||
+      dropView.drop.status === "failed" ||
+      dropView.drop.status === "cancelled");
+  const actionLabel =
+    dropView?.drop.status === "ready_to_market"
+      ? "Create paused ad"
+      : metaBlocked
+        ? "Retry paused ad"
+        : "Create paused ad";
+  const previewStatus = metaBlocked ? "Paused draft blocked" : "Paused draft · no spend";
 
   return (
     <div className="grid h-full min-h-0 gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
       <section className="rounded-[18px] border-[3px] border-black bg-white shadow-[5px_5px_0_#000]">
+        {metaBlocked ? (
+          <div className="border-b-[3px] border-black bg-[#f8ca00] px-4 py-3">
+            <p className="text-[12px] font-black uppercase tracking-[0.18em] text-black/60">
+              Meta blocked
+            </p>
+            <p className="mt-1 text-sm font-black leading-tight">
+              {issue || "Meta did not return created paused objects. Nothing is spending."}
+            </p>
+          </div>
+        ) : null}
         <div className="grid grid-cols-[1fr_150px_130px] border-b-[3px] border-black bg-neutral-50 px-4 py-3 text-[12px] font-black uppercase text-neutral-500">
           <span>Artifact</span>
           <span>Status</span>
           <span>Count</span>
         </div>
         {[
-          ["Campaign", readString(campaign.name, "Drop of the week"), readString(campaign.configuredStatus, "PAUSED"), readString(verification.campaignCount, "1")],
-          ["Ad set", "Drop audience", "PAUSED", readString(verification.adSetCount, "1")],
-          ["Ad", "Website + selected images", "DRAFT", readString(verification.adCount, "1")],
+          ["Campaign", readString(campaign.name, "Drop of the week"), readString(campaign.configuredStatus, metaBlocked ? "NOT CREATED" : "PAUSED"), String(campaignCount)],
+          ["Ad set", "Drop audience", metaBlocked && adSetCount === 0 ? "NOT CREATED" : "PAUSED", String(adSetCount)],
+          ["Ad", "Website + selected images", metaBlocked && adCount === 0 ? "NOT CREATED" : "DRAFT", String(adCount)],
         ].map(([kind, name, status, count]) => (
           <div
             className="grid grid-cols-[1fr_150px_130px] items-center border-b border-black/10 px-4 py-3 text-sm"
@@ -1559,7 +1590,7 @@ function MarketerFocus({
             <p className="text-lg font-black">
               {readString(campaign.name, "Website + selected images")}
             </p>
-            <p className="mt-1 text-sm">Paused draft · no spend</p>
+            <p className="mt-1 text-sm">{previewStatus}</p>
           </div>
         </div>
         {builderUrl ? (
@@ -1586,12 +1617,12 @@ function MarketerFocus({
         </div>
         <button
           className="drip-button mt-4 w-full px-6 py-3.5 text-base disabled:cursor-wait disabled:opacity-70"
-          disabled={isPending || dropView?.drop.status !== "ready_to_market"}
+          disabled={!canRetryMeta}
           onClick={onMarketDrop}
           type="button"
         >
           {isPending ? <Loader2 className="mr-2 size-5 animate-spin" /> : null}
-          Create paused ad
+          {actionLabel}
         </button>
       </aside>
     </div>
@@ -1841,4 +1872,31 @@ function readString(value: unknown, fallback: string) {
     return value.filter((item) => typeof item === "string").join(", ") || fallback;
   }
   return fallback;
+}
+
+function readNumber(value: unknown, fallback: number) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+  }
+  return fallback;
+}
+
+function firstVerificationIssue(verification: Record<string, unknown>) {
+  const issues = Array.isArray(verification.issues) ? verification.issues : [];
+  const first = issues[0];
+  if (typeof first === "string") {
+    return first;
+  }
+  const issue = asRecord(first);
+  const stage = readString(issue.stage, "");
+  const errorType = readString(issue.errorType, "");
+  const message = readString(
+    issue.errorMessage ?? issue.redactedErrorMessage,
+    "Meta rejected the paused object request.",
+  );
+  return [stage, errorType, message].filter(Boolean).join(": ");
 }
