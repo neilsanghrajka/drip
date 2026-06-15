@@ -1318,9 +1318,7 @@ function DesignerFocus({
           </p>
           <div className="min-h-0 flex-1 overflow-hidden">
             <div className="grid h-full content-start gap-3 md:grid-cols-2 lg:grid-cols-3">
-              {waiting ? (
-                <LoadingTiles label="Images" />
-              ) : (
+              {waiting ? null : (
                 designerMocks.map((mock, index) => {
                   const selected = selectedMocks.includes(mock.id);
                   return (
@@ -1889,14 +1887,18 @@ function firstVerificationIssue(verification: Record<string, unknown>) {
   const issues = Array.isArray(verification.issues) ? verification.issues : [];
   const first = issues[0];
   if (typeof first === "string") {
-    return first;
+    return "Meta paused-ad setup stopped before any objects were created. Nothing is spending.";
   }
   const issue = asRecord(first);
   const stage = readString(issue.stage, "");
-  const errorType = readString(issue.errorType, "");
   const message = readString(
     issue.errorMessage ?? issue.redactedErrorMessage,
     "Meta rejected the paused object request.",
   );
-  return [stage, errorType, message].filter(Boolean).join(": ");
+  if (message.toLowerCase().includes("unknown error")) {
+    return "Meta rejected campaign creation before any paused objects were created. Nothing is spending.";
+  }
+  return stage
+    ? `Meta paused-ad setup stopped at ${stage}. Nothing is spending.`
+    : "Meta paused-ad setup stopped before any objects were created. Nothing is spending.";
 }
