@@ -375,7 +375,7 @@ export const prepareNextStageRun = internalMutation({
   },
   handler: async (ctx, args) => {
     const drop = await getDropOrThrow(ctx, args.dropId);
-    const stage = nextStageForStatus(drop.status);
+    const stage = nextStageForDrop(drop);
     if (!stage) {
       throw new Error(`Drop is not ready to start a stage: ${drop.status}.`);
     }
@@ -426,6 +426,7 @@ export const prepareNextStageRun = internalMutation({
     await ctx.db.patch(args.dropId, {
       status: runningStatus(stage),
       currentStage: stage,
+      error: undefined,
       updatedAt: timestamp,
     });
     await insertDropEvent(ctx, {
@@ -434,7 +435,8 @@ export const prepareNextStageRun = internalMutation({
       sandboxRunId,
       stage,
       type: "stage.queued",
-      message: `${stageLabel(stage)} queued.`,
+      message:
+        attempt > 1 ? `${stageLabel(stage)} retry queued.` : `${stageLabel(stage)} queued.`,
       visibility: "user",
       payload: {
         attempt,
@@ -862,6 +864,13 @@ function nextStageForStatus(status: DropStatus): DropStage | null {
     default:
       return null;
   }
+}
+
+function nextStageForDrop(drop: Doc<"drops">): DropStage | null {
+  if (drop.status === "failed" && drop.currentStage) {
+    return drop.currentStage;
+  }
+  return nextStageForStatus(drop.status);
 }
 
 function runningStatus(stage: DropStage): DropStatus {

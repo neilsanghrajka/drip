@@ -372,6 +372,17 @@ export default function CampaignPage() {
     });
   }
 
+  async function retryCurrentStage() {
+    if (!dropView || dropView.drop.status !== "failed") {
+      return;
+    }
+    await runAction("retry-stage", async () => {
+      const retryStage = dropView.drop.currentStage ?? active.key;
+      setManualStage(retryStage);
+      await startNextStage({ dropId: dropView.drop._id });
+    });
+  }
+
   function toggleIdea(id: string) {
     setSelectedIdeasOverride((current) =>
       (current ?? selectedIdeas).includes(id)
@@ -496,13 +507,14 @@ export default function CampaignPage() {
                 builderUrl={builderUrl}
                 designerMocks={designerMocks}
                 dropView={dropView}
-                error={error ?? dropView?.drop.error?.message ?? null}
+                error={cleanNullableError(error ?? dropView?.drop.error?.message)}
                 isPending={Boolean(pendingAction)}
                 marketerArtifact={artifacts.marketer}
                 activityItems={activityItems}
                 onApproveIdeas={approveIdeasAndDesign}
                 onApproveProducts={approveProductsAndBuild}
                 onMarketDrop={marketDrop}
+                onRetryStage={retryCurrentStage}
                 onSelectIdea={toggleIdea}
                 onSelectMock={toggleMock}
                 scoutIdeas={scoutIdeas}
@@ -968,6 +980,7 @@ function StageWorkspace({
   onApproveIdeas,
   onApproveProducts,
   onMarketDrop,
+  onRetryStage,
   onSelectIdea,
   onSelectMock,
   scoutIdeas,
@@ -986,6 +999,7 @@ function StageWorkspace({
   onApproveIdeas: () => void;
   onApproveProducts: () => void;
   onMarketDrop: () => void;
+  onRetryStage: () => void;
   onSelectIdea: (id: string) => void;
   onSelectMock: (id: string) => void;
   scoutIdeas: ScoutIdea[];
@@ -993,6 +1007,8 @@ function StageWorkspace({
   selectedMocks: string[];
 }) {
   const Icon = active.icon;
+  const canRetry =
+    dropView?.drop.status === "failed" && dropView.drop.currentStage === active.key;
   const body =
     active.key === "scout" ? (
       <ScoutFocus
@@ -1074,8 +1090,18 @@ function StageWorkspace({
       </div>
 
       {error ? (
-        <div className="border-b-[3px] border-black bg-[#ffefee] px-5 py-3 text-sm font-black text-[#b31310]">
-          {error}
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b-[3px] border-black bg-[#ffefee] px-5 py-2 text-sm font-black text-[#b31310]">
+          <span>{error}</span>
+          {canRetry ? (
+            <button
+              className="rounded-[10px] border-[3px] border-black bg-white px-3 py-1.5 text-[11px] font-black uppercase text-black transition hover:bg-neutral-100 disabled:opacity-50"
+              disabled={isPending}
+              onClick={onRetryStage}
+              type="button"
+            >
+              Retry {active.shortName}
+            </button>
+          ) : null}
         </div>
       ) : null}
 
@@ -1707,9 +1733,16 @@ function stageProgress(stage: StageKey, dropView: DropView | null | undefined) {
 
 function cleanActionError(error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
+  const parsedMessage = parseErrorMessage(message);
+  if (/InternalServerError/i.test(message) || /Try again later/i.test(message)) {
+    return "This teammate hit a temporary generation issue. Retry the stage when ready.";
+  }
+  if (parsedMessage && parsedMessage !== message) {
+    return cleanActionError(parsedMessage);
+  }
   const sandboxMessage = /Vercel Sandbox creation is [^.]+\.[^.]+\./.exec(message);
   if (sandboxMessage) {
-    return sandboxMessage[0];
+    return "The drop workspace could not be created. Check the sandbox setup and retry.";
   }
   return message
     .replace(/\[Request ID:[^\]]+\]\s*/g, "")
@@ -1719,6 +1752,32 @@ function cleanActionError(error: unknown) {
     .replace(/\s+at handler \([^)]*\)[\s\S]*$/, "")
     .replace(/\s+Called by client\s*$/i, "")
     .trim();
+}
+
+function cleanNullableError(error: unknown) {
+  if (!error) {
+    return null;
+  }
+  return cleanActionError(error);
+}
+
+function parseErrorMessage(message: string) {
+  const trimmed = message.trim();
+  if (!trimmed.startsWith("{")) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(trimmed) as unknown;
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      const parsedMessage = (parsed as Record<string, unknown>).message;
+      if (typeof parsedMessage === "string") {
+        return parsedMessage;
+      }
+    }
+  } catch {
+    return null;
+  }
+  return null;
 }
 
 function readScoutIdeas(data: unknown): ScoutIdea[] {
