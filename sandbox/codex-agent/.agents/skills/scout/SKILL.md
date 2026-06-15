@@ -29,8 +29,12 @@ Scout owns orchestration. The caller should not need to describe the research pl
 4. Ask `exa-researcher` to use `$exa-search` for source-backed web context.
 5. If the first pass returns opaque X trend names or weak source evidence, ask a focused follow-up from the relevant researcher.
 6. Use Scout judgment to select up to five diverse final candidates.
-7. Write the final JSON file, replacing any existing file.
-8. Verify the JSON parses, then return a short status with the artifact path.
+7. Write the final JSON file, replacing any existing file. Set `generatedAt` to
+   the current wall-clock ISO timestamp at write time, for example
+   `new Date().toISOString()`. Do not use midnight, the input date, or a
+   source publication date for `generatedAt`.
+8. Verify the JSON parses and `generatedAt` is a fresh ISO timestamp, then
+   return a short status with the artifact path.
 
 Keep responsibilities separated:
 
@@ -54,10 +58,11 @@ Do not use deterministic code to rank, score, or select final candidates. Cultur
 
 ## Output
 
-Write the final artifact to `scout-output.json` unless the user explicitly gives another output path. Validate it parses:
+Write the final artifact to `scout-output.json` unless the user explicitly gives another output path. Validate it parses and has a fresh generated timestamp:
 
 ```bash
 node -e 'JSON.parse(require("node:fs").readFileSync("scout-output.json", "utf8")); console.log("json-ok")'
+node -e 'const x=JSON.parse(require("node:fs").readFileSync("scout-output.json","utf8")); const t=Date.parse(x.generatedAt); if(!Number.isFinite(t) || Math.abs(Date.now()-t)>10*60*1000) throw new Error("generatedAt is not fresh"); console.log("generatedAt-ok")'
 ```
 
 Use this schema:

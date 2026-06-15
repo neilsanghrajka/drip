@@ -753,24 +753,71 @@ async function waitForRun(sandboxRunId: string, options: CliOptions) {
   const started = Date.now();
   const events: SandboxEvent[] = [];
   let afterSeq: number | undefined;
+  let transientPollFailures = 0;
 
   while (Date.now() - started < options.timeoutMs) {
-    const nextEvents = await listSandboxRunEvents(sandboxRunId, afterSeq);
-    if (nextEvents.length > 0) {
-      events.push(...nextEvents);
-      afterSeq = Math.max(...nextEvents.map((event) => event.seq));
-    }
+    try {
+      const nextEvents = await listSandboxRunEvents(sandboxRunId, afterSeq);
+      if (nextEvents.length > 0) {
+        events.push(...nextEvents);
+        afterSeq = Math.max(...nextEvents.map((event) => event.seq));
+      }
 
-    const run = await getSandboxRun(sandboxRunId);
-    assert(run, `Sandbox run disappeared: ${sandboxRunId}`);
-    if (terminalStatuses.has(run.status)) {
-      return { run, events };
+      const run = await getSandboxRun(sandboxRunId);
+      assert(run, `Sandbox run disappeared: ${sandboxRunId}`);
+      transientPollFailures = 0;
+      if (terminalStatuses.has(run.status)) {
+        await drainSandboxRunEvents({
+          afterSeq,
+          events,
+          options,
+          sandboxRunId,
+        });
+        return { run, events };
+      }
+    } catch (error) {
+      if (!isTransientSandboxStartError(error)) {
+        throw error;
+      }
+      transientPollFailures += 1;
+      if (transientPollFailures > 10) {
+        throw error;
+      }
+      console.warn(
+        `sandbox run polling failed transiently; continuing ${transientPollFailures}/10.`,
+      );
     }
 
     await sleep(options.pollMs);
   }
 
   throw new Error(`Timed out waiting for sandbox run ${sandboxRunId}.`);
+}
+
+async function drainSandboxRunEvents({
+  afterSeq,
+  events,
+  options,
+  sandboxRunId,
+}: {
+  afterSeq: number | undefined;
+  events: SandboxEvent[];
+  options: CliOptions;
+  sandboxRunId: string;
+}) {
+  let latestSeq = afterSeq;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const nextEvents = await listSandboxRunEvents(sandboxRunId, latestSeq);
+    if (nextEvents.length === 0) {
+      if (attempt === 0) {
+        await sleep(Math.min(options.pollMs, 1_000));
+        continue;
+      }
+      return;
+    }
+    events.push(...nextEvents);
+    latestSeq = Math.max(...nextEvents.map((event) => event.seq));
+  }
 }
 
 async function readSandboxOutput(
@@ -2567,7 +2614,7 @@ function keepSandboxAfterFailure(options: CliOptions) {
 
 function isTransientSandboxStartError(error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
-  return /Status code (429|5\d\d) is not ok|ECONNRESET|ETIMEDOUT|fetch failed/i.test(
+  return /Status code (429|5\d\d) is not ok|ECONNRESET|ETIMEDOUT|fetch failed|InternalServerError|try again later/i.test(
     message,
   );
 }

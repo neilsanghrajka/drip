@@ -423,16 +423,6 @@ export default function CampaignPage() {
             onOpenDrop={openHistoricalDrop}
             recentDrops={recentDrops}
           />
-          <select
-            aria-label="Campaign date"
-            className="h-12 rounded-[10px] border-[3px] border-black bg-white px-3 text-sm font-black outline-none focus:bg-neutral-100"
-            onChange={(event) => setCampaignDate(event.target.value)}
-            value={dropView?.drop.dropDate ?? campaignDate}
-          >
-            <option>This Week Sunday</option>
-            <option>Next Friday</option>
-            <option>Launch Weekend</option>
-          </select>
         </div>
       </header>
 
@@ -575,9 +565,7 @@ function SessionSelect({
 
   return (
     <label className="flex items-center gap-3">
-      <span className="text-[11px] font-black uppercase tracking-[0.18em] text-neutral-500">
-        Session
-      </span>
+      <span className="sr-only">Campaign session</span>
       <select
         aria-label="Campaign session"
         className="h-11 min-w-[250px] rounded-[10px] border-[3px] border-black bg-white px-3 text-sm font-black outline-none focus:bg-neutral-100"
@@ -594,12 +582,12 @@ function SessionSelect({
         value={value}
       >
         {activeDropId && !activeDropInList ? (
-          <option value="__current__">{currentName} · current</option>
+          <option value="__current__">{currentName}</option>
         ) : null}
         {!activeDropId ? <option value="__current__">{currentName}</option> : null}
         {recentDrops.map((drop) => (
           <option key={drop._id} value={drop._id}>
-            {drop.name} · {statusLabel(drop.status)} · {formatTimestamp(drop.updatedAt)}
+            {drop.name}
           </option>
         ))}
         <option value="__new__">New drop</option>
@@ -1695,18 +1683,6 @@ function formatArtifactPreview(artifact: DropArtifact) {
   }
 }
 
-function formatTimestamp(timestamp: number | undefined) {
-  if (!timestamp) {
-    return "not yet";
-  }
-  return new Intl.DateTimeFormat(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(new Date(timestamp));
-}
-
 function stageForDrop(dropView: DropView | null | undefined): StageKey {
   const status = dropView?.drop.status;
   if (!status) {
@@ -1745,13 +1721,6 @@ function stageProgress(stage: StageKey, dropView: DropView | null | undefined) {
     return dropView.drop.status.startsWith("awaiting") ? 86 : 58;
   }
   return 0;
-}
-
-function statusLabel(status: DropStatus | undefined) {
-  if (!status) {
-    return "loading";
-  }
-  return status.replaceAll("_", " ");
 }
 
 function cleanActionError(error: unknown) {
