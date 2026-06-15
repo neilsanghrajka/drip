@@ -1621,8 +1621,8 @@ function MarketerFocus({
   const previewProducts = designerMocks.filter((mock) => selectedMocks.includes(mock.id));
   const heroProduct = previewProducts.find((mock) => mock.imageUrl) ?? previewProducts[0];
   const previewCard = (
-    <div className="mt-2 overflow-hidden rounded-[14px] border-[3px] border-white/30 bg-white text-black">
-      <div className="relative grid aspect-[1/0.56] place-items-center overflow-hidden bg-[#ff3c38]">
+    <div className="mt-1.5 overflow-hidden rounded-[14px] border-[3px] border-white/30 bg-white text-black">
+      <div className="relative grid h-[76px] place-items-center overflow-hidden bg-[#ff3c38]">
         {heroProduct?.imageUrl ? (
           <img
             alt={heroProduct.name}
@@ -1632,18 +1632,20 @@ function MarketerFocus({
         ) : (
           <div className="px-5 text-center text-xl font-black">Drop of the week</div>
         )}
-        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 to-transparent p-2.5 text-white">
-          <p className="drip-clamp-1 text-base font-black">
+        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 to-transparent px-2 py-1.5 text-white">
+          <p className="drip-clamp-1 text-sm font-black">
             {readString(campaign.name, "Website + selected images")}
           </p>
-          <p className="mt-0.5 text-xs font-bold text-white/80">{previewStatus}</p>
+          <p className="drip-clamp-1 mt-0.5 text-[10px] font-bold text-white/80">
+            {previewStatus}
+          </p>
         </div>
       </div>
       {previewProducts.length > 1 ? (
-        <div className="grid grid-cols-3 gap-1.5 border-t-[3px] border-black bg-white p-1.5">
+        <div className="grid grid-cols-3 gap-1.5 border-t-[3px] border-black bg-white p-1">
           {previewProducts.slice(0, 3).map((mock) => (
             <div
-              className="aspect-square overflow-hidden rounded-[8px] border-[2px] border-black bg-neutral-100"
+              className="h-8 overflow-hidden rounded-[8px] border-[2px] border-black bg-neutral-100"
               key={mock.id}
             >
               {mock.imageUrl ? (
@@ -1703,8 +1705,8 @@ function MarketerFocus({
         ))}
       </section>
 
-      <aside className="flex h-full min-h-0 flex-col overflow-hidden rounded-[18px] border-[3px] border-black bg-black p-3 text-white shadow-[5px_5px_0_#ff3c38]">
-        <p className="text-[12px] font-black uppercase tracking-[0.2em] text-[#ff3c38]">
+      <aside className="flex h-full min-h-0 flex-col overflow-hidden rounded-[18px] border-[3px] border-black bg-black p-2.5 text-white shadow-[5px_5px_0_#ff3c38]">
+        <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#ff3c38]">
           Ad preview
         </p>
         {builderUrl ? (
@@ -1719,20 +1721,20 @@ function MarketerFocus({
         ) : (
           previewCard
         )}
-        <div className="mt-2 grid grid-cols-3 gap-1.5 text-center">
+        <div className="mt-1.5 grid grid-cols-3 gap-1.5 text-center">
           {[
             ["Spend", "0"],
             ["Status", "Paused"],
             ["Link", builderUrl ? "Site" : "Pending"],
           ].map(([label, value]) => (
-            <div className="rounded-[10px] border border-white/20 p-1.5" key={label}>
-              <p className="text-[10px] font-black uppercase text-white/60">{label}</p>
-              <p className="mt-0.5 text-lg font-black">{value}</p>
+            <div className="rounded-[10px] border border-white/20 p-1" key={label}>
+              <p className="text-[9px] font-black uppercase text-white/60">{label}</p>
+              <p className="mt-0.5 text-sm font-black">{value}</p>
             </div>
           ))}
         </div>
         <button
-          className="drip-button mt-2 w-full px-5 py-2.5 text-sm disabled:cursor-wait disabled:opacity-70"
+          className="drip-button mt-1.5 w-full px-4 py-1.5 text-xs disabled:cursor-wait disabled:opacity-70"
           disabled={!canRetryMeta}
           onClick={onMarketDrop}
           type="button"
