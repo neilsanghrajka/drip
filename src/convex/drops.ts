@@ -263,6 +263,37 @@ export const approveWinningDrop = mutation({
   },
 });
 
+export const restoreCompletedFromMarketerArtifact = mutation({
+  args: {
+    dropId: v.id("drops"),
+  },
+  handler: async (ctx, args) => {
+    const drop = await getDropOrThrow(ctx, args.dropId);
+    if (drop.currentStage !== "marketer") {
+      throw new Error("Only Marketer-stage drops can be restored to completed.");
+    }
+    const marketerArtifact = await latestArtifact(ctx, args.dropId, "marketer");
+    if (!marketerArtifact) {
+      throw new Error("Missing Marketer artifact for completed restore.");
+    }
+    await ctx.db.patch(args.dropId, {
+      status: "completed",
+      currentStage: "marketer",
+      error: undefined,
+      updatedAt: now(),
+    });
+    await insertDropEvent(ctx, {
+      dropId: args.dropId,
+      stage: "marketer",
+      type: "drop.restored_completed",
+      message: "Drop restored to completed from collected Marketer artifact.",
+      visibility: "debug",
+      payload: { artifactId: marketerArtifact._id },
+    });
+    return { status: "completed" as const };
+  },
+});
+
 export const createDropFromAction = internalMutation({
   args: {
     workspaceId: v.string(),
@@ -801,12 +832,17 @@ function buildStageTask({
       ].join("\n");
     case "marketer":
       return [
-        "Use $performance-marketer to create one paused Facebook-only drop-of-week ad artifact for the generated Builder website in the input JSON.",
+        "Use $performance-marketer to create one paused Facebook-only Meta drop-of-week ad for the generated Builder website in the input JSON.",
         `Input JSON: ${inputJson}`,
         `Use assetDir ${rootDir}/performance-marketer-assets.`,
         `Write the Performance Marketer artifact to ${outputPath}.`,
-        "Use the Builder destination URL and selected product images. Create exactly one paused ad artifact; do not activate delivery or spend money.",
-        "Return a short status with the artifact path and sanitized paused-draft evidence.",
+        "The user clicked Create paused ad, so this is explicit authorization to create real paused Meta objects when Meta credentials are present.",
+        "Before running the Meta operator, verify `python3 -c \"import requests\"`; if requests is missing in this persistent sandbox, install it with `python3 -m pip install --user requests` and retry the import once.",
+        "Use the Builder destination URL and selected product images. Create exactly one paused traffic campaign, one paused ad set, one creative/ad using those images, and one paused ad.",
+        "Use budget minor units 10000 for Meta API validity, but keep every campaign/ad set/ad delivery object configured PAUSED so no spend can occur.",
+        "Do not activate delivery, do not spend money, do not run insights readback, and do not create A/B or multi-variant experiments.",
+        "Persist sanitized refs/evidence only; never write raw Meta IDs, access tokens, account IDs, business IDs, or secrets into the artifact.",
+        "Return a short status with the artifact path and sanitized paused-object evidence.",
       ].join("\n");
     case "builder":
       return [
@@ -869,6 +905,9 @@ function nextStageForStatus(status: DropStatus): DropStage | null {
 function nextStageForDrop(drop: Doc<"drops">): DropStage | null {
   if ((drop.status === "failed" || drop.status === "cancelled") && drop.currentStage) {
     return drop.currentStage;
+  }
+  if (drop.status === "completed" && drop.currentStage === "marketer") {
+    return "marketer";
   }
   return nextStageForStatus(drop.status);
 }

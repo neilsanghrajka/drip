@@ -139,13 +139,14 @@ the base snapshot.
 The setup command also preinstalls Node and Python tool dependencies into the
 base image. Node tools include the Vercel CLI for Builder deploys and
 `agent-browser` plus its browser dependency for Builder review. Python tools
-include `openai` and `pillow` for the official `$imagegen` fallback, plus `uv`
-and the verified Meta Ads CLI package (`meta-ads`) for ad-account and campaign
-automation. `meta-ads` requires Python 3.12+, so the setup installs it as a
-uv-managed tool rather than relying on the sandbox system Python. That keeps
-agent runs focused on the task rather than per-run dependency bootstrap. If
-Meta's official Ads CLI docs change the package/auth model, update the setup
-script, `$meta-ads-cli` skill, and smoke checks together.
+include `openai` and `pillow` for the official `$imagegen` fallback, `requests`
+for the Meta wrapper preflight, plus `uv` and the verified Meta Ads CLI package
+(`meta-ads`) for ad-account and campaign automation. `meta-ads` requires
+Python 3.12+, so the setup installs it as a uv-managed tool rather than relying
+on the sandbox system Python. That keeps agent runs focused on the task rather
+than per-run dependency bootstrap. If Meta's official Ads CLI docs change the
+package/auth model, update the setup script, `$meta-ads-cli` skill, and smoke
+checks together.
 
 ![Codex agent runtime base image](whiteboard/codex_agent_runtime.png)
 

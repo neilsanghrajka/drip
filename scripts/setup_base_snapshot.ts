@@ -617,7 +617,7 @@ async function installSandboxPythonToolDependencies(
 
   await runSandboxCommand(sandbox, "install sandbox python tool dependencies", {
     cmd: "python3",
-    args: ["-m", "pip", "install", "--user", "openai", "pillow", "uv"],
+    args: ["-m", "pip", "install", "--user", "openai", "pillow", "requests", "uv"],
     cwd: config.agentWorkdir,
     timeoutMs: 300_000,
   });
@@ -651,7 +651,7 @@ async function verifySandboxPythonToolDependencies(
       cmd: "python3",
       args: [
         "-c",
-        "import openai; import PIL; print('sandbox-python-tool-imports-ok')",
+        "import openai; import PIL; import requests; print('sandbox-python-tool-imports-ok')",
       ],
       cwd: config.agentWorkdir,
       timeoutMs: 60_000,
