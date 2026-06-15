@@ -13,7 +13,7 @@ import {
   X,
 } from "lucide-react";
 import Image from "next/image";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import type {
   ComponentType,
   CSSProperties,
@@ -323,6 +323,7 @@ function clearAuthQueryParam() {
 }
 
 export default function Home() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const { isAuthenticated, isLoading } = useConvexAuth();
   const [activeKey, setActiveKey] = useState<TeamKey>("designer");
@@ -338,7 +339,11 @@ export default function Home() {
 
   function handleStartScouting(event: MouseEvent<HTMLButtonElement>) {
     event.preventDefault();
-    if (isLoading || isAuthenticated) {
+    if (isLoading) {
+      return;
+    }
+    if (isAuthenticated) {
+      router.push("/campaign");
       return;
     }
     window.history.pushState(null, "", "/?auth=login");
@@ -365,6 +370,7 @@ export default function Home() {
           onSuccess={() => {
             setAuthMode(null);
             clearAuthQueryParam();
+            router.push("/campaign");
           }}
         />
       ) : null}
