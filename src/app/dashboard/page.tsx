@@ -49,10 +49,10 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      <section className="drip-dot-bg min-h-[calc(100svh-92px)] px-8 py-12 lg:px-12">
-        <div className="mx-auto flex min-h-[calc(100svh-188px)] max-w-[1120px] flex-col justify-center">
+      <section className="drip-dot-bg min-h-[calc(100svh-92px)] px-8 py-8 lg:px-12">
+        <div className="mx-auto flex min-h-[calc(100svh-156px)] max-w-[1120px] flex-col justify-center">
           <Link
-            className="mb-10 inline-flex w-fit items-center gap-2 text-[16px] font-black uppercase"
+            className="mb-6 inline-flex w-fit items-center gap-2 text-[16px] font-black uppercase"
             href="/"
           >
             <ArrowLeft className="size-5 stroke-[3]" />
