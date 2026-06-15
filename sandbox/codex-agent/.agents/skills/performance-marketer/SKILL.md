@@ -38,7 +38,11 @@ For explicit sandbox smoke prompts only, if no real image paths exist and the
 prompt says to create smoke input images, create six simple local JPEG files
 under `/vercel/sandbox/agent-workspace/performance-marketer-smoke-input/` and
 record `input.syntheticSmokeImages: true`. Do not use synthetic images in
-normal product runs.
+normal product runs. Do not install npm/Python packages for smoke images. Use a
+built-in tiny JPEG byte fixture or plain Node standard-library code, copy the
+files into `assetDir`, and validate with extension plus JPEG/PNG/WebP magic
+bytes in Node. Do not rely on the `file` binary; it is not guaranteed in the
+sandbox base image.
 
 ## Workflow
 
@@ -50,28 +54,28 @@ normal product runs.
    `assetDir` when needed.
 3. Build a compact ad brief containing idea refs, product names, mock image
    paths, targeting country, budget cap, Page requirement, and safety rules.
-4. Ask `facebook-ad-copywriter` for campaign, ad set, creative, and ad names
-   plus concise Facebook ad copy.
+4. Ask `facebook-ad-copywriter` for JSON only. It must fill the copy schema and
+   do nothing else.
 5. Ask `facebook-ad-operator` to use `$meta-ads-cli` and create the exact v1
-   recipe:
+   recipe. The work order should contain the copywriter JSON, image paths,
+   budget, and country only. Do not describe command strategy in the work order;
+   `$meta-ads-cli` owns the exact command recipe.
    - one paused Facebook traffic campaign
    - three paused ad sets, one per idea
    - six creatives, one per selected image
    - six paused ads, one per creative
    - no activation and no insights readback
-6. Ask `facebook-ad-verifier` to use `$meta-ads-cli` read-only commands and
-   verify all created delivery objects remain configured paused.
-7. Convert raw Meta IDs from operator/verifier responses into sanitized refs
-   before writing the final artifact. Do not persist raw IDs in
-   `performance-marketer-output.json`.
-8. Write `performance-marketer-output.json`, replacing any previous file.
-9. Validate the JSON parses and the output records `facebookOnly: true`,
+6. Convert the operator response into the final artifact. Do not spawn a
+   second Meta agent. Do not ask for a second status pass. Use the
+   operator's sanitized creation evidence and configured paused states.
+7. Write `performance-marketer-output.json`, replacing any previous file.
+8. Validate the JSON parses and the output records `facebookOnly: true`,
    `activationPerformed: false`, and `insightsReadbackPerformed: false`.
-10. Return a short status with the output path and created object counts, not
+9. Return a short status with the output path and created object counts, not
     raw IDs or dashboard URLs.
 
 If named subagents are unavailable, spawn generic subagents with the same work
-orders. Keep CLI execution and verification delegated; the main thread owns the
+orders. Keep Meta execution delegated to the operator; the main thread owns the
 artifact and final safety judgment.
 
 ## Output
@@ -140,7 +144,7 @@ Use this schema:
   ],
   "verification": {
     "verifiedAt": "ISO timestamp",
-    "verifierAgent": "facebook-ad-verifier",
+    "source": "facebook-ad-operator-created-object-evidence",
     "campaignCount": 1,
     "adSetCount": 3,
     "creativeCount": 6,
@@ -151,8 +155,7 @@ Use this schema:
   "strategy": {
     "subagentsUsed": [
       "facebook-ad-copywriter",
-      "facebook-ad-operator",
-      "facebook-ad-verifier"
+      "facebook-ad-operator"
     ],
     "notes": []
   }
@@ -173,9 +176,17 @@ node -e 'JSON.parse(require("node:fs").readFileSync("/vercel/sandbox/agent-works
 - Never print tokens, raw account IDs, raw Page IDs, raw campaign/ad set/ad
   IDs, raw creative IDs, dashboard URLs, or private env values.
 - Remember that command stdout/stderr is streamed into Convex events. Require
-  operator and verifier subagents to wrap Meta CLI calls so raw IDs, Page
-  access tokens, and raw JSON never print to the event stream.
+  the operator to wrap Meta CLI calls so raw IDs, Page access tokens, and raw
+  JSON never print to the event stream.
+- There is no second Meta status agent in this flow. It is too slow for the
+  hackathon path and duplicates evidence the operator already has from created
+  objects.
 - Do not run `meta ads insights` in v1.
 - Do not update any object to active.
+- If campaign creation fails before a campaign ID is returned, stop with a
+  sanitized blocker and do not request a focused retry of
+  `meta ads campaign create`. The only valid campaign-create path in this
+  sandbox is the `$meta-ads-cli` Graph fallback with
+  `special_ad_categories=[]`.
 - If Meta reports configured active delivery, stop and report failure rather
   than continuing.

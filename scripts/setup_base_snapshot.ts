@@ -348,7 +348,6 @@ async function assertSandboxPayload(config: SetupConfig) {
     "codex-agent/.codex/agents/drop-site-deployer.toml",
     "codex-agent/.codex/agents/facebook-ad-copywriter.toml",
     "codex-agent/.codex/agents/facebook-ad-operator.toml",
-    "codex-agent/.codex/agents/facebook-ad-verifier.toml",
     "codex-agent/.codex/skills/.system/imagegen/SKILL.md",
     "codex-agent/.codex/skills/.system/imagegen/scripts/image_gen.py",
     "codex-agent/.codex/skills/.system/imagegen/scripts/remove_chroma_key.py",
@@ -1031,7 +1030,6 @@ async function main() {
     ".codex/agents/drop-site-deployer.toml",
     ".codex/agents/facebook-ad-copywriter.toml",
     ".codex/agents/facebook-ad-operator.toml",
-    ".codex/agents/facebook-ad-verifier.toml",
     ".codex/skills/.system/imagegen/SKILL.md",
     ".codex/skills/.system/imagegen/scripts/image_gen.py",
     ".codex/skills/.system/imagegen/scripts/remove_chroma_key.py",
@@ -1077,8 +1075,7 @@ async function main() {
     !config.includes("drop-site-reviewer") ||
     !config.includes("drop-site-deployer") ||
     !config.includes("facebook-ad-copywriter") ||
-    !config.includes("facebook-ad-operator") ||
-    !config.includes("facebook-ad-verifier")
+    !config.includes("facebook-ad-operator")
   ) {
     throw new Error("Codex config is missing expected defaults.");
   }
@@ -1143,7 +1140,6 @@ async function main() {
     ".codex/agents/drop-site-deployer.toml",
     ".codex/agents/facebook-ad-copywriter.toml",
     ".codex/agents/facebook-ad-operator.toml",
-    ".codex/agents/facebook-ad-verifier.toml",
     ".codex/skills/.system/imagegen/SKILL.md",
     ".codex/skills/.system/imagegen/scripts/image_gen.py",
     ".codex/skills/.system/imagegen/scripts/remove_chroma_key.py",

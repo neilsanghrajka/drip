@@ -9,6 +9,8 @@
  */
 
 import type * as auth from "../auth.js";
+import type * as dropActions from "../dropActions.js";
+import type * as drops from "../drops.js";
 import type * as http from "../http.js";
 import type * as sandboxPrototype from "../sandboxPrototype.js";
 import type * as sandboxRunActions from "../sandboxRunActions.js";
@@ -24,6 +26,8 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
+  dropActions: typeof dropActions;
+  drops: typeof drops;
   http: typeof http;
   sandboxPrototype: typeof sandboxPrototype;
   sandboxRunActions: typeof sandboxRunActions;

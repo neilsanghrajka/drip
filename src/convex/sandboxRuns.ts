@@ -1,4 +1,8 @@
 import { v } from "convex/values";
+import {
+  makeFunctionReference,
+  type FunctionReference,
+} from "convex/server";
 
 import type { Doc, Id } from "./_generated/dataModel";
 import {
@@ -18,6 +22,24 @@ const sandboxRunnerTerminalStatus = v.union(
 
 const terminalStatuses = new Set(["succeeded", "failed", "cancelled", "lost"]);
 const maxEventPageSize = 100;
+
+const dropStage = v.union(
+  v.literal("scout"),
+  v.literal("designer"),
+  v.literal("marketer"),
+  v.literal("builder"),
+);
+
+const collectStageArtifacts = makeFunctionReference<
+  "action",
+  { sandboxRunId: Id<"sandboxRuns"> },
+  null
+>("dropActions:collectStageArtifacts") as unknown as FunctionReference<
+  "action",
+  "internal",
+  { sandboxRunId: Id<"sandboxRuns"> },
+  null
+>;
 
 type SandboxRunError = {
   message: string;
@@ -84,6 +106,11 @@ export const createSandboxRun = mutation({
   args: {
     workspaceId: v.string(),
     task: v.string(),
+    dropId: v.optional(v.id("drops")),
+    dropStageRunId: v.optional(v.id("dropStageRuns")),
+    stage: v.optional(dropStage),
+    sandboxName: v.optional(v.string()),
+    expectedOutputPath: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const timestamp = now();
@@ -91,6 +118,11 @@ export const createSandboxRun = mutation({
       workspaceId: args.workspaceId,
       task: args.task,
       status: "queued",
+      dropId: args.dropId,
+      dropStageRunId: args.dropStageRunId,
+      stage: args.stage,
+      sandboxName: args.sandboxName,
+      expectedOutputPath: args.expectedOutputPath,
       createdAt: timestamp,
       updatedAt: timestamp,
     });
@@ -275,6 +307,20 @@ export const finishSandboxRun = mutation({
       updatedAt: timestamp,
     });
 
+    if (sandboxRun.dropId && sandboxRun.dropStageRunId && sandboxRun.stage) {
+      await markDropStageFinished(
+        ctx,
+        sandboxRun,
+        args.status,
+        args.error,
+      );
+      if (args.status === "succeeded") {
+        await ctx.scheduler.runAfter(0, collectStageArtifacts, {
+          sandboxRunId: args.sandboxRunId,
+        });
+      }
+    }
+
     return { status: args.status };
   },
 });
@@ -304,6 +350,10 @@ export const markSandboxRunProvisioningFromAction = internalMutation({
       ingestTokenHash: args.ingestTokenHash,
       updatedAt: now(),
     });
+
+    if (sandboxRun.dropId && sandboxRun.dropStageRunId && sandboxRun.stage) {
+      await markDropStageStarting(ctx, sandboxRun);
+    }
   },
 });
 
@@ -327,6 +377,13 @@ export const markSandboxRunRunningFromAction = internalMutation({
       updatedAt: now(),
     });
 
+    if (sandboxRun.dropId && sandboxRun.dropStageRunId && sandboxRun.stage) {
+      await markDropStageRunning(ctx, sandboxRun, {
+        sandboxId: args.sandboxId,
+        commandId: args.commandId,
+      });
+    }
+
     return { status: "running" as const };
   },
 });
@@ -340,13 +397,224 @@ export const markSandboxRunFailedFromAction = internalMutation({
     }),
   },
   handler: async (ctx, args) => {
+    const sandboxRun = await getSandboxRunOrThrow(ctx, args.sandboxRunId);
+
     await ctx.db.patch(args.sandboxRunId, {
       status: "failed",
       error: args.error,
       updatedAt: now(),
     });
+
+    if (sandboxRun.dropId && sandboxRun.dropStageRunId && sandboxRun.stage) {
+      await markDropStageFailed(ctx, sandboxRun, args.error);
+    }
   },
 });
+
+async function markDropStageStarting(
+  ctx: MutationCtx,
+  sandboxRun: Doc<"sandboxRuns">,
+) {
+  const timestamp = now();
+  await ctx.db.patch(sandboxRun.dropStageRunId!, {
+    status: "starting",
+    updatedAt: timestamp,
+  });
+  await ctx.db.patch(sandboxRun.dropId!, {
+    status: runningDropStatus(sandboxRun.stage!),
+    currentStage: sandboxRun.stage,
+    updatedAt: timestamp,
+  });
+  await insertDropEvent(ctx, {
+    dropId: sandboxRun.dropId!,
+    dropStageRunId: sandboxRun.dropStageRunId,
+    sandboxRunId: sandboxRun._id,
+    stage: sandboxRun.stage,
+    type: "stage.starting",
+    message: `${stageLabel(sandboxRun.stage!)} is starting.`,
+    visibility: "user",
+    payload: {
+      sandboxName: sandboxRun.sandboxName,
+      expectedOutputPath: sandboxRun.expectedOutputPath,
+    },
+  });
+}
+
+async function markDropStageRunning(
+  ctx: MutationCtx,
+  sandboxRun: Doc<"sandboxRuns">,
+  ids: { sandboxId: string; commandId: string },
+) {
+  const timestamp = now();
+  await ctx.db.patch(sandboxRun.dropStageRunId!, {
+    status: "running",
+    sandboxId: ids.sandboxId,
+    commandId: ids.commandId,
+    startedAt: timestamp,
+    updatedAt: timestamp,
+  });
+  await ctx.db.patch(sandboxRun.dropId!, {
+    currentSandboxId: ids.sandboxId,
+    status: runningDropStatus(sandboxRun.stage!),
+    currentStage: sandboxRun.stage,
+    updatedAt: timestamp,
+  });
+  await insertDropEvent(ctx, {
+    dropId: sandboxRun.dropId!,
+    dropStageRunId: sandboxRun.dropStageRunId,
+    sandboxRunId: sandboxRun._id,
+    stage: sandboxRun.stage,
+    type: "stage.running",
+    message: `${stageLabel(sandboxRun.stage!)} is running in the drop sandbox.`,
+    visibility: "user",
+    payload: {
+      sandboxId: ids.sandboxId,
+      commandId: ids.commandId,
+    },
+  });
+}
+
+async function markDropStageFailed(
+  ctx: MutationCtx,
+  sandboxRun: Doc<"sandboxRuns">,
+  error: SandboxRunError,
+) {
+  const timestamp = now();
+  await ctx.db.patch(sandboxRun.dropStageRunId!, {
+    status: "failed",
+    error,
+    completedAt: timestamp,
+    updatedAt: timestamp,
+  });
+  await ctx.db.patch(sandboxRun.dropId!, {
+    status: "failed",
+    error,
+    updatedAt: timestamp,
+  });
+  await insertDropEvent(ctx, {
+    dropId: sandboxRun.dropId!,
+    dropStageRunId: sandboxRun.dropStageRunId,
+    sandboxRunId: sandboxRun._id,
+    stage: sandboxRun.stage,
+    type: "stage.failed",
+    message: `${stageLabel(sandboxRun.stage!)} failed before the runner started.`,
+    visibility: "user",
+    payload: { error },
+  });
+}
+
+async function markDropStageFinished(
+  ctx: MutationCtx,
+  sandboxRun: Doc<"sandboxRuns">,
+  status: "succeeded" | "failed" | "cancelled",
+  error?: SandboxRunError,
+) {
+  const timestamp = now();
+  const stageStatus =
+    status === "succeeded"
+      ? "collecting"
+      : status === "cancelled"
+        ? "cancelled"
+        : "failed";
+
+  const stagePatch: {
+    status: "collecting" | "failed" | "cancelled";
+    error?: SandboxRunError;
+    completedAt?: number;
+    updatedAt: number;
+  } = {
+    status: stageStatus,
+    error,
+    updatedAt: timestamp,
+  };
+  if (status !== "succeeded") {
+    stagePatch.completedAt = timestamp;
+  }
+
+  await ctx.db.patch(sandboxRun.dropStageRunId!, stagePatch);
+
+  if (status !== "succeeded") {
+    await ctx.db.patch(sandboxRun.dropId!, {
+      status: status === "cancelled" ? "cancelled" : "failed",
+      error,
+      updatedAt: timestamp,
+    });
+  }
+
+  await insertDropEvent(ctx, {
+    dropId: sandboxRun.dropId!,
+    dropStageRunId: sandboxRun.dropStageRunId,
+    sandboxRunId: sandboxRun._id,
+    stage: sandboxRun.stage,
+    type: `stage.${status}`,
+    message:
+      status === "succeeded"
+        ? `${stageLabel(sandboxRun.stage!)} finished. Collecting the artifact.`
+        : `${stageLabel(sandboxRun.stage!)} ${status}.`,
+    visibility: "user",
+    payload: error ? { error } : undefined,
+  });
+}
+
+async function insertDropEvent(
+  ctx: MutationCtx,
+  input: {
+    dropId: Id<"drops">;
+    dropStageRunId?: Id<"dropStageRuns">;
+    sandboxRunId?: Id<"sandboxRuns">;
+    stage?: DropStage;
+    type: string;
+    message?: string;
+    visibility: "user" | "debug";
+    payload?: unknown;
+  },
+) {
+  const latest = await ctx.db
+    .query("dropEvents")
+    .withIndex("by_drop_seq", (q) => q.eq("dropId", input.dropId))
+    .order("desc")
+    .first();
+  await ctx.db.insert("dropEvents", {
+    dropId: input.dropId,
+    dropStageRunId: input.dropStageRunId,
+    sandboxRunId: input.sandboxRunId,
+    seq: (latest?.seq ?? 0) + 1,
+    stage: input.stage,
+    type: input.type,
+    message: input.message,
+    visibility: input.visibility,
+    payload: input.payload,
+    createdAt: now(),
+  });
+}
+
+function runningDropStatus(stage: DropStage) {
+  switch (stage) {
+    case "scout":
+      return "scouting";
+    case "designer":
+      return "designing";
+    case "marketer":
+      return "marketing";
+    case "builder":
+      return "building";
+  }
+}
+
+function stageLabel(stage: DropStage) {
+  switch (stage) {
+    case "scout":
+      return "Scout";
+    case "designer":
+      return "Designer";
+    case "marketer":
+      return "Performance Marketer";
+    case "builder":
+      return "Builder";
+  }
+}
+
+type DropStage = "scout" | "designer" | "marketer" | "builder";
 
 async function sha256Hex(value: string) {
   const bytes = new TextEncoder().encode(value);

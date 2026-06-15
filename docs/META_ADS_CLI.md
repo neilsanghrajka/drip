@@ -175,11 +175,44 @@ Python 3.12 `uv` tool because the package requires Python 3.12+.
 
 ## Paused Campaign Flow
 
-This is the CLI flow that worked for the Facebook-only proof.
+This is the flow that worked for the Facebook-only proof.
+
+For the Performance Marketer live smoke, run this flow from one private wrapper
+script instead of a command-by-command agent loop. After the campaign and Page
+are known, create independent ad sets and creatives with bounded concurrency,
+then create/pause ads concurrently and perform read-only status checks in the
+same wrapper. The wrapper should print one sanitized JSON summary plus phase
+timings; raw Meta IDs and raw CLI/Graph JSON stay in private variables/files.
 
 ### 1. Create The Campaign
 
-Use a paused traffic campaign with campaign-level budget.
+Use a paused traffic campaign with campaign-level budget. Meta requires campaign
+creation to explicitly declare special ad categories. For Drip's normal
+apparel/drop traffic tests, no special category applies, so use
+`special_ad_categories=[]`.
+
+The current official `meta` CLI package verified in the sandbox (`meta-ads`
+1.0.1) does not expose a campaign-create flag for this field. If
+`meta ads campaign create` returns that `special_ad_categories` is required, use
+a tiny Graph API fallback only for campaign creation, then continue with the CLI
+for ad sets, creatives, and ads.
+
+Graph fallback:
+
+```bash
+META_API_VERSION="${META_API_VERSION:-v25.0}"
+
+curl -sS -X POST "https://graph.facebook.com/${META_API_VERSION}/${AD_ACCOUNT_ID}/campaigns" \
+  -F "name=Drop by Codex 100 INR Paused Demo" \
+  -F "objective=OUTCOME_TRAFFIC" \
+  -F "daily_budget=10000" \
+  -F "status=PAUSED" \
+  -F "special_ad_categories=[]" \
+  -F "access_token=${ACCESS_TOKEN}"
+```
+
+CLI campaign creation is acceptable only when the installed CLI can send
+`special_ad_categories`.
 
 ```bash
 meta ads campaign create \
@@ -345,6 +378,7 @@ Date: 2026-06-07.
 | A Page is required for Facebook ad creatives. | Facebook-only is the easiest first demo; Instagram can wait. |
 | Billing/funding and one-time Ads Manager disclosures can block account readiness. | Use UI only for setup; then prove ad operations with the CLI. |
 | Rs 50 daily budget was too low for the India test account. | Use Rs 100 for the hackathon demo cap unless a future account reports a lower minimum. |
+| Campaign creation requires `special_ad_categories=[]` for normal Drip apparel/drop tests. | Use the Graph fallback for campaign creation until the official CLI exposes that field. |
 | Ad set creation required `--bid-amount` for the test account. | Keep bid amount configurable and retry with it when Meta asks for a bid cap. |
 | Creative ownership is scoped to the ad account. | Create creatives under the same ad account used by the ad set. |
 | A newly created ad may show `PENDING_REVIEW` or `IN_PROCESS` while configured paused. | This is expected review processing; verify `configured_status` or explicit `status` before claiming safety. |
@@ -355,7 +389,8 @@ Date: 2026-06-07.
 | Symptom | Likely cause | Fix |
 | --- | --- | --- |
 | `No results` for ad accounts | Token lacks business/ad-account access. | Assign the system user to the ad account and regenerate/refresh token permissions. |
-| Campaign create returns generic API error | Wrong ad account ID, account not ready, missing billing, or first-time policy prompt. | Confirm `meta ads adaccount list`, use `act_...`, clear setup prompts, verify billing. |
+| Campaign create says `special_ad_categories` is required | The installed CLI cannot send Meta's required campaign category field. | Use Graph campaign-create fallback with `special_ad_categories=[]`, then continue with CLI. |
+| Campaign create returns generic API error | Wrong ad account ID, account not ready, missing billing, first-time policy prompt, or missing required API field. | Confirm `meta ads adaccount list`, use `act_...`, clear setup prompts, verify billing, and validate `special_ad_categories=[]`. |
 | Rs 50 budget rejected | Account minimum daily budget is higher. | Use the account's minimum or Rs 100 for India demo. |
 | Ad set asks for bid cap | Account/campaign bid strategy requires `bid_amount`. | Retry ad set create with `--bid-amount`. |
 | Creative cannot attach to ad | Creative belongs to another ad account. | Recreate the creative under the same current `AD_ACCOUNT_ID`. |

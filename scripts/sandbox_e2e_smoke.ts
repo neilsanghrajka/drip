@@ -29,6 +29,7 @@ type ScenarioName =
   | "fashion-designer-product"
   | "scout-cultural"
   | "builder-drop-site"
+  | "drop-workflow-builder"
   | "performance-marketer-facebook-paused";
 
 type CliOptions = {
@@ -48,6 +49,11 @@ type SandboxRun = {
   status: string;
   task: string;
   workspaceId: string;
+  dropId?: string;
+  dropStageRunId?: string;
+  stage?: DropStage;
+  sandboxName?: string;
+  expectedOutputPath?: string;
   createdAt?: number;
   updatedAt?: number;
   lastHeartbeatAt?: number;
@@ -134,6 +140,102 @@ type CreatedRun = {
 type StartSandboxRunResult = {
   commandId: string;
   sandboxId: string;
+  sandboxName?: string;
+};
+
+type DropStage = "scout" | "designer" | "marketer" | "builder";
+
+type CreatedDrop = {
+  dropId: string;
+  sandboxName: string;
+  status: string;
+  workspaceId: string;
+  name: string;
+  dropDate: string;
+};
+
+type StartDropStageResult = StartSandboxRunResult & {
+  dropId: string;
+  stageRunId: string;
+  sandboxRunId: string;
+  stage: DropStage;
+  sandboxName: string;
+  expectedOutputPath: string;
+};
+
+type DropRecord = {
+  _id: string;
+  workspaceId: string;
+  name: string;
+  dropDate: string;
+  startingMode: string;
+  status: string;
+  currentStage?: DropStage;
+  sandboxName: string;
+  currentSandboxId?: string;
+  currentSnapshotId?: string;
+  websiteUrl?: string;
+  createdAt: number;
+  updatedAt: number;
+  error?: {
+    message: string;
+    code?: string;
+  };
+};
+
+type DropStageRun = {
+  _id: string;
+  dropId: string;
+  sandboxRunId?: string;
+  stage: DropStage;
+  attempt: number;
+  status: string;
+  sandboxName: string;
+  sandboxId?: string;
+  commandId?: string;
+  input?: unknown;
+  expectedOutputPath: string;
+  outputArtifactId?: string;
+  error?: {
+    message: string;
+    code?: string;
+  };
+  createdAt: number;
+  updatedAt: number;
+  startedAt?: number;
+  completedAt?: number;
+};
+
+type DropArtifact = {
+  _id: string;
+  dropId: string;
+  dropStageRunId: string;
+  sandboxRunId: string;
+  stage: DropStage;
+  kind: string;
+  schemaVersion: string;
+  generatedAt?: string;
+  sandboxPath: string;
+  data: unknown;
+  summary?: unknown;
+  createdAt: number;
+};
+
+type DropView = {
+  drop: DropRecord;
+  stageRuns: DropStageRun[];
+  artifacts: DropArtifact[];
+  selections: unknown[];
+};
+
+type DropEvent = {
+  seq: number;
+  stage?: DropStage;
+  type: string;
+  message?: string;
+  visibility: "user" | "debug";
+  payload?: unknown;
+  createdAt?: number;
 };
 
 type RunStateEvidence = {
@@ -229,6 +331,10 @@ async function runScenario(
   scenario: Scenario,
   options: CliOptions,
 ): Promise<RunResult> {
+  if (scenario.name === "drop-workflow-builder") {
+    return await runDropWorkflowBuilderScenario(scenario, options);
+  }
+
   const created = await createSandboxRun(scenario);
   const runId = created.sandboxRunId;
   const artifactDir = path.join(options.artifactRoot, scenario.name, runId);
@@ -327,6 +433,150 @@ async function runScenario(
   }
 }
 
+async function runDropWorkflowBuilderScenario(
+  scenario: Scenario,
+  options: CliOptions,
+): Promise<RunResult> {
+  const smokeId = Date.now().toString(36);
+  const artifactDir = path.join(options.artifactRoot, scenario.name, smokeId);
+  await mkdir(artifactDir, { recursive: true });
+
+  let created: CreatedDrop | null = null;
+  let stageStart: StartDropStageResult | null = null;
+  let run: SandboxRun | null = null;
+  let events: SandboxEvent[] = [];
+  let sandbox: Sandbox | undefined;
+  const startedAt = Date.now();
+
+  try {
+    created = await createDropForBuilderScenario(scenario, smokeId);
+    const readyDrop = await getDrop(created.dropId);
+    assertDropReadyForBuilder(created, readyDrop);
+
+    stageStart = await startDropNextStage(created.dropId);
+    assert(stageStart.stage === "builder", "Drop workflow did not start Builder.");
+    assert(
+      stageStart.sandboxName === created.sandboxName,
+      "Drop workflow changed sandboxName before Builder.",
+    );
+
+    const startedRun = await getSandboxRun(stageStart.sandboxRunId);
+    assertDropStartedRun(scenario, created, stageStart, startedRun);
+    run = startedRun;
+
+    const waited = await waitForRun(stageStart.sandboxRunId, options);
+    run = waited.run;
+    events = waited.events;
+
+    assert(run.status === "succeeded", `${scenario.name}: run status ${run.status}`);
+    assert(run.result?.finalResponse, `${scenario.name}: missing final response`);
+
+    const dynamicScenario = {
+      ...scenario,
+      outputPath: stageStart.expectedOutputPath,
+    };
+    validateCommonEvents(scenario.name, events);
+    scenario.validateEvents(run, events);
+    assertTerminalRun(dynamicScenario, stageStart, run, events);
+
+    const dbState = buildDbStateEvidence({
+      events,
+      queuedRun: startedRun!,
+      startResult: stageStart,
+      startedRun: startedRun!,
+      terminalRun: run,
+    });
+
+    const output = options.skipSandboxFiles
+      ? undefined
+      : await readSandboxOutput(run, dynamicScenario, artifactDir);
+    if (output !== undefined) {
+      assertGeneratedAtFresh(scenario.name, output, startedAt, Date.now());
+      scenario.validateOutput(output);
+    }
+
+    const dropView = await waitForDropCompletion(created.dropId, options);
+    const builderArtifact = assertDropBuilderState({
+      created,
+      stageStart,
+      terminalRun: run,
+      dropView,
+      output,
+    });
+    if (output === undefined) {
+      scenario.validateOutput(builderArtifact.data);
+    }
+
+    const assets =
+      output === undefined || !scenario.collectAssets
+        ? []
+        : await collectAssetEvidence(run, output, artifactDir);
+    const samples =
+      output === undefined || !scenario.validateSandboxFiles
+        ? []
+        : await scenario.validateSandboxFiles({
+            run,
+            output,
+            artifactDir,
+          });
+    const dropSamples = buildDropSamples(dropView, builderArtifact);
+    const allSamples = [...samples, ...dropSamples];
+    const dropEvents = await listDropEvents(created.dropId);
+
+    await writeEvidenceFiles({
+      artifactDir,
+      dbState,
+      run,
+      events,
+      output,
+      assets,
+      samples: allSamples,
+      startedAt,
+    });
+    await writeDropEvidenceFiles({
+      artifactDir,
+      dropView,
+      dropEvents,
+      stageStart,
+    });
+
+    if (!options.keepSandbox && run.sandboxId) {
+      sandbox = await getSandbox(run.sandboxId);
+      await deleteSandbox(sandbox);
+    }
+
+    if (options.cleanupArtifacts) {
+      await rm(artifactDir, { recursive: true, force: true });
+    }
+
+    return {
+      run,
+      events,
+      artifactDir,
+      dbState,
+      outputJson: output,
+      assets,
+      samples: allSamples,
+    };
+  } catch (error) {
+    await writeFailureEvidence({ artifactDir, run, events, error }).catch(
+      () => undefined,
+    );
+    if (stageStart?.sandboxRunId) {
+      await cancelSandboxRun(stageStart.sandboxRunId).catch(() => undefined);
+    }
+    const sandboxName =
+      run?.sandboxId ?? stageStart?.sandboxId ?? created?.sandboxName;
+    if (!keepSandboxAfterFailure(options) && sandboxName) {
+      sandbox = await getSandbox(sandboxName).catch(() => undefined);
+      if (sandbox) {
+        await deleteSandbox(sandbox);
+      }
+    }
+    throw error;
+  }
+}
+
 async function writeFailureEvidence({
   artifactDir,
   run,
@@ -360,6 +610,31 @@ async function writeFailureEvidence({
   }
 }
 
+async function writeDropEvidenceFiles({
+  artifactDir,
+  dropView,
+  dropEvents,
+  stageStart,
+}: {
+  artifactDir: string;
+  dropView: DropView;
+  dropEvents: DropEvent[];
+  stageStart: StartDropStageResult;
+}) {
+  await writeFile(
+    path.join(artifactDir, "drop.json"),
+    JSON.stringify(dropView, null, 2),
+  );
+  await writeFile(
+    path.join(artifactDir, "drop-events.json"),
+    JSON.stringify(dropEvents, null, 2),
+  );
+  await writeFile(
+    path.join(artifactDir, "drop-stage-start.json"),
+    JSON.stringify(stageStart, null, 2),
+  );
+}
+
 async function createSandboxRun(scenario: Scenario): Promise<CreatedRun> {
   const suffix = Date.now().toString(36);
   const workspaceId = `${scenario.workspaceId}-${suffix}`;
@@ -375,6 +650,41 @@ async function createSandboxRun(scenario: Scenario): Promise<CreatedRun> {
     task: scenario.task,
     workspaceId,
   };
+}
+
+async function createDropForBuilderScenario(
+  scenario: Scenario,
+  smokeId: string,
+): Promise<CreatedDrop> {
+  const workspaceId = `${scenario.workspaceId}-${smokeId}`;
+  const dropDate = new Date().toISOString().slice(0, 10);
+  const name = `E2E Builder Drop ${smokeId}`;
+  const response = await convexRun<{
+    dropId: string;
+    sandboxName: string;
+    status: string;
+  }>("dropActions:createDrop", {
+    workspaceId,
+    name,
+    dropDate,
+    startingMode: "builder-ready-smoke",
+    topics: ["Mumbai street cricket after monsoon rain"],
+    productCategories: ["caps"],
+    tasteConstraints: ["premium streetwear", "one-viewport drop site"],
+    winningDrop: builderWinningDropInput(),
+  });
+  return {
+    ...response,
+    workspaceId,
+    name,
+    dropDate,
+  };
+}
+
+async function startDropNextStage(dropId: string) {
+  return await convexRun<StartDropStageResult>("dropActions:startNextStage", {
+    dropId,
+  });
 }
 
 async function startSandboxRun(sandboxRunId: string) {
@@ -399,6 +709,44 @@ async function listSandboxRunEvents(sandboxRunId: string, afterSeq?: number) {
 
 async function cancelSandboxRun(sandboxRunId: string) {
   await convexRun("sandboxRuns:cancelSandboxRun", { sandboxRunId });
+}
+
+async function getDrop(dropId: string) {
+  return await convexRun<DropView | null>("drops:getDrop", { dropId });
+}
+
+async function listDropEvents(dropId: string) {
+  return await convexRun<DropEvent[]>("drops:listDropEvents", { dropId });
+}
+
+async function waitForDropCompletion(dropId: string, options: CliOptions) {
+  const started = Date.now();
+
+  while (Date.now() - started < options.timeoutMs) {
+    const dropView = await getDrop(dropId);
+    assert(dropView, `Drop disappeared: ${dropId}`);
+    const builderArtifact = dropView.artifacts.find(
+      (artifact) => artifact.stage === "builder",
+    );
+    const builderRun = dropView.stageRuns.find(
+      (stageRun) => stageRun.stage === "builder",
+    );
+    if (
+      dropView.drop.status === "completed" &&
+      builderRun?.status === "succeeded" &&
+      builderArtifact
+    ) {
+      return dropView;
+    }
+    if (dropView.drop.status === "failed" || dropView.drop.status === "cancelled") {
+      throw new Error(
+        `Drop ended as ${dropView.drop.status}: ${dropView.drop.error?.message ?? "no error"}`,
+      );
+    }
+    await sleep(options.pollMs);
+  }
+
+  throw new Error(`Timed out waiting for Drop completion: ${dropId}.`);
 }
 
 async function waitForRun(sandboxRunId: string, options: CliOptions) {
@@ -566,6 +914,166 @@ function assertStartedRun(
     startedRun.status === "running" || terminalStatuses.has(startedRun.status),
     `${scenario.name}: expected running/terminal status after start, got ${startedRun.status}.`,
   );
+}
+
+function assertDropReadyForBuilder(created: CreatedDrop, dropView: DropView | null) {
+  assert(dropView, "Drop was not readable after creation.");
+  assert(dropView.drop._id === created.dropId, "Created Drop id mismatch.");
+  assert(
+    dropView.drop.workspaceId === created.workspaceId,
+    "Created Drop workspaceId mismatch.",
+  );
+  assert(
+    dropView.drop.sandboxName === created.sandboxName,
+    "Created Drop sandboxName mismatch.",
+  );
+  assert(
+    dropView.drop.status === "ready_to_build",
+    `Created Drop should be ready_to_build, got ${dropView.drop.status}.`,
+  );
+  assert(
+    dropView.drop.currentStage === "builder",
+    "Created Drop should point at Builder for builder-ready smoke.",
+  );
+}
+
+function assertDropStartedRun(
+  scenario: Scenario,
+  created: CreatedDrop,
+  stageStart: StartDropStageResult,
+  startedRun: SandboxRun | null,
+) {
+  assert(startedRun, `${scenario.name}: missing Drop sandbox run.`);
+  assert(stageStart.sandboxRunId === startedRun._id, `${scenario.name}: run id mismatch.`);
+  assert(stageStart.sandboxId, `${scenario.name}: start action returned no sandboxId.`);
+  assert(stageStart.commandId, `${scenario.name}: start action returned no commandId.`);
+  assert(
+    startedRun.sandboxId === stageStart.sandboxId,
+    `${scenario.name}: sandboxId not stored.`,
+  );
+  assert(
+    startedRun.commandId === stageStart.commandId,
+    `${scenario.name}: commandId not stored.`,
+  );
+  assert(startedRun.dropId === created.dropId, `${scenario.name}: dropId not linked.`);
+  assert(
+    startedRun.dropStageRunId === stageStart.stageRunId,
+    `${scenario.name}: stageRunId not linked.`,
+  );
+  assert(startedRun.stage === "builder", `${scenario.name}: run stage is not Builder.`);
+  assert(
+    startedRun.sandboxName === created.sandboxName,
+    `${scenario.name}: run sandboxName mismatch.`,
+  );
+  assert(
+    startedRun.expectedOutputPath === stageStart.expectedOutputPath,
+    `${scenario.name}: expectedOutputPath mismatch.`,
+  );
+  assert(
+    startedRun.status === "running" || terminalStatuses.has(startedRun.status),
+    `${scenario.name}: expected running/terminal status after Drop start, got ${startedRun.status}.`,
+  );
+}
+
+function assertDropBuilderState({
+  created,
+  stageStart,
+  terminalRun,
+  dropView,
+  output,
+}: {
+  created: CreatedDrop;
+  stageStart: StartDropStageResult;
+  terminalRun: SandboxRun;
+  dropView: DropView;
+  output: unknown;
+}) {
+  assert(dropView.drop._id === created.dropId, "Completed Drop id mismatch.");
+  assert(
+    dropView.drop.status === "completed",
+    `Drop should be completed, got ${dropView.drop.status}.`,
+  );
+  assert(dropView.drop.currentStage === "builder", "Completed Drop should end at Builder.");
+  assert(
+    dropView.drop.currentSandboxId === terminalRun.sandboxId,
+    "Drop currentSandboxId should match terminal sandbox run.",
+  );
+
+  const stageRun = dropView.stageRuns.find(
+    (value) => value._id === stageStart.stageRunId,
+  );
+  assert(stageRun, "Drop Builder stage run was not persisted.");
+  assert(stageRun.status === "succeeded", `Builder stage status ${stageRun.status}.`);
+  assert(
+    stageRun.sandboxRunId === stageStart.sandboxRunId,
+    "Builder stage sandboxRunId mismatch.",
+  );
+  assert(
+    stageRun.expectedOutputPath === stageStart.expectedOutputPath,
+    "Builder stage expectedOutputPath mismatch.",
+  );
+  assert(stageRun.outputArtifactId, "Builder stage missing outputArtifactId.");
+
+  const artifact = dropView.artifacts.find(
+    (value) => value._id === stageRun.outputArtifactId,
+  );
+  assert(artifact, "Builder output artifact was not persisted.");
+  assert(artifact.stage === "builder", "Persisted artifact stage is not Builder.");
+  assert(
+    artifact.sandboxPath === stageStart.expectedOutputPath,
+    "Persisted artifact path mismatch.",
+  );
+  assert(
+    artifact.schemaVersion === "builder.drop-site.v1",
+    "Persisted Builder artifact schemaVersion mismatch.",
+  );
+  assert(
+    artifact.sandboxRunId === stageStart.sandboxRunId,
+    "Persisted Builder artifact sandboxRunId mismatch.",
+  );
+
+  const artifactUrl = readBuilderDeploymentUrl(artifact.data);
+  if (artifactUrl) {
+    assert(
+      dropView.drop.websiteUrl === artifactUrl,
+      "Drop websiteUrl should match Builder artifact URL.",
+    );
+  }
+  if (output !== undefined) {
+    const outputUrl = readBuilderDeploymentUrl(output);
+    if (outputUrl) {
+      assert(outputUrl === artifactUrl, "Sandbox output and persisted artifact URL mismatch.");
+    }
+  }
+  return artifact;
+}
+
+function buildDropSamples(dropView: DropView, artifact: DropArtifact): SmokeSample[] {
+  const stageCounts = countBy(dropView.stageRuns.map((stageRun) => stageRun.stage));
+  return [
+    {
+      label: "drop.status",
+      value: dropView.drop.status,
+    },
+    {
+      label: "drop.stageRuns",
+      value: JSON.stringify(stageCounts),
+    },
+    {
+      label: "drop.builderArtifact",
+      value: artifact.schemaVersion,
+      path: artifact.sandboxPath,
+    },
+    ...(dropView.drop.websiteUrl
+      ? [
+          {
+            label: "drop.websiteUrl",
+            value: "persisted",
+            url: dropView.drop.websiteUrl,
+          },
+        ]
+      : []),
+  ];
 }
 
 function assertTerminalRun(
@@ -1392,6 +1900,13 @@ function collectBuilderDeploymentUrlEntries(root: Record<string, unknown>) {
   return entries;
 }
 
+function readBuilderDeploymentUrl(output: unknown) {
+  if (!isRecord(output)) {
+    return undefined;
+  }
+  return collectBuilderDeploymentUrlEntries(output)[0]?.url;
+}
+
 async function listSandboxFiles(
   sandbox: Sandbox,
   root: string,
@@ -1540,6 +2055,17 @@ const scenarios: Scenario[] = [
       "Use $builder to create a live drop page for this winning cap product: ideaRef idea_01; productRef winner_cap_01; product Monsoon Crease Cap, a washed black cotton cricket cap with electric-blue rain-stitch embroidery; winning copy Play starts when the rain stops; price INR 2499; ad result 2.7% CTR among Mumbai street-cricket fans. Make it one no-scroll page with the 24-hour countdown at the top, a large auto-advancing product image carousel, and a dummy Buy Now button.",
   },
   {
+    name: "drop-workflow-builder",
+    workspaceId: "e2e-drop-workflow-builder",
+    outputPath: "/vercel/sandbox/agent-workspace/drop-builder-output-placeholder.json",
+    collectAssets: false,
+    validateEvents: validateBuilderEvents,
+    validateOutput: validateBuilderOutput,
+    validateSandboxFiles: validateBuilderSandboxFiles,
+    task:
+      "Create a Drop with a persistent sandbox, start the Builder stage through dropActions.startNextStage, persist the Builder artifact, and validate the historical Drop state.",
+  },
+  {
     name: "performance-marketer-facebook-paused",
     workspaceId: "e2e-performance-marketer-facebook-paused",
     outputPath: "/vercel/sandbox/agent-workspace/performance-marketer-output.json",
@@ -1550,6 +2076,46 @@ const scenarios: Scenario[] = [
       "Use $performance-marketer to create a paused Facebook-only Meta ad campaign for three Drip ideas and two selected candidate images per idea. This is an explicit sandbox smoke: create smoke input images locally before calling Meta. Ideas: idea_01 Mumbai monsoon street cricket comeback; idea_02 Mumbai late-night vada pav study break; idea_03 Mumbai local train first-rain playlist. Use the hackathon recipe: one paused traffic campaign, three paused ad sets, six creatives, six paused ads, no activation, no insights readback. Budget minor units 10000, targeting country IN. Write performance-marketer-output.json with sanitized refs only.",
   },
 ];
+
+function builderWinningDropInput() {
+  return {
+    ideaRef: "idea_01",
+    productRef: "winner_cap_01",
+    productName: "Monsoon Crease Cap",
+    productType: "cap",
+    description:
+      "A washed black cotton cricket cap with electric-blue rain-stitch embroidery.",
+    winningCopy: "Play starts when the rain stops.",
+    price: {
+      currency: "INR",
+      amountMinor: 249900,
+      display: "INR 2499",
+    },
+    performance: {
+      result: "2.7% CTR among Mumbai street-cricket fans",
+      audience: "Mumbai street-cricket fans",
+      channel: "Facebook",
+    },
+    selectedCreative: {
+      imageDirection:
+        "Premium fashion product imagery on wet concrete, with blue stitch detail visible.",
+      carouselFrames: [
+        "front product detail",
+        "side embroidery detail",
+        "lifestyle rain-break cricket cue",
+      ],
+    },
+    siteRequirements: {
+      countdownHours: 24,
+      countdownPlacement: "top",
+      ctaLabel: "Buy Now",
+      ctaBehavior: "dummy",
+      layout: "one no-scroll page",
+      carousel: "large auto-advancing product image carousel",
+      deploymentTarget: "preview",
+    },
+  };
+}
 
 async function convexRun<T = unknown>(
   functionName: string,
@@ -1583,6 +2149,49 @@ async function convexRun<T = unknown>(
   if (functionName === "sandboxRuns:cancelSandboxRun") {
     return (await client.mutation(api.sandboxRuns.cancelSandboxRun, {
       sandboxRunId: requireSandboxRunId(args.sandboxRunId),
+    })) as T;
+  }
+  if (functionName === "dropActions:createDrop") {
+    return (await client.action(api.dropActions.createDrop, {
+      workspaceId: requireString(args.workspaceId, "workspaceId"),
+      name: requireString(args.name, "name"),
+      dropDate: requireString(args.dropDate, "dropDate"),
+      startingMode: requireString(args.startingMode, "startingMode"),
+      ...(args.topics === undefined
+        ? {}
+        : { topics: requireStringArray(args.topics, "topics") }),
+      ...(args.productCategories === undefined
+        ? {}
+        : {
+            productCategories: requireStringArray(
+              args.productCategories,
+              "productCategories",
+            ),
+          }),
+      ...(args.tasteConstraints === undefined
+        ? {}
+        : {
+            tasteConstraints: requireStringArray(
+              args.tasteConstraints,
+              "tasteConstraints",
+            ),
+          }),
+      ...(args.winningDrop === undefined ? {} : { winningDrop: args.winningDrop }),
+    })) as T;
+  }
+  if (functionName === "dropActions:startNextStage") {
+    return (await client.action(api.dropActions.startNextStage, {
+      dropId: requireDropId(args.dropId),
+    })) as T;
+  }
+  if (functionName === "drops:getDrop") {
+    return (await client.query(api.drops.getDrop, {
+      dropId: requireDropId(args.dropId),
+    })) as T;
+  }
+  if (functionName === "drops:listDropEvents") {
+    return (await client.query(api.drops.listDropEvents, {
+      dropId: requireDropId(args.dropId),
     })) as T;
   }
 
@@ -1733,6 +2342,7 @@ function parseScenario(value: string): CliOptions["scenario"] {
     value === "fashion-designer-product" ||
     value === "scout-cultural" ||
     value === "builder-drop-site" ||
+    value === "drop-workflow-builder" ||
     value === "performance-marketer-facebook-paused"
   ) {
     return value;
@@ -1761,6 +2371,7 @@ function printHelp() {
   pnpm e2e:sandbox -- --scenario fashion-designer-product
   pnpm e2e:sandbox -- --scenario scout-cultural
   pnpm e2e:sandbox -- --scenario builder-drop-site
+  pnpm e2e:sandbox -- --scenario drop-workflow-builder
   pnpm e2e:sandbox -- --scenario performance-marketer-facebook-paused --allow-meta-create
   pnpm e2e:sandbox -- --scenario all
 
@@ -1971,6 +2582,18 @@ function requireString(value: unknown, label: string) {
 
 function requireSandboxRunId(value: unknown) {
   return requireString(value, "sandboxRunId") as Id<"sandboxRuns">;
+}
+
+function requireDropId(value: unknown) {
+  return requireString(value, "dropId") as Id<"drops">;
+}
+
+function requireStringArray(value: unknown, label: string) {
+  assert(Array.isArray(value), `${label} must be an array.`);
+  for (const [index, entry] of value.entries()) {
+    assert(typeof entry === "string", `${label}[${index}] must be a string.`);
+  }
+  return value;
 }
 
 function assertPausedStatus(value: unknown, label: string) {

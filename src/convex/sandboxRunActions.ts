@@ -17,6 +17,14 @@ type VercelSandboxCredentials = {
   projectId: string;
   token?: string;
 };
+type SandboxGetOrCreateParams = NonNullable<
+  Parameters<typeof Sandbox.getOrCreate>[0]
+>;
+type SnapshotSandboxParams = NonNullable<Parameters<typeof Sandbox.create>[0]> & {
+  name: string;
+  resume?: boolean;
+  onCreate?: (sandbox: Sandbox) => Promise<void>;
+};
 
 const getSandboxRunForAction = makeFunctionReference<
   "query",
@@ -86,7 +94,7 @@ export const startSandboxRun = action({
     });
 
     try {
-      const sandbox = await createSandbox();
+      const sandbox = await createSandbox(sandboxRun);
       const command = await sandbox.runCommand({
         cmd: "node",
         args: ["--import", "tsx", sandboxRunnerEntrypoint()],
@@ -107,6 +115,7 @@ export const startSandboxRun = action({
           ...optionalMetaAdsEnv(),
           ...optionalEnv("X_BEARER_TOKEN"),
           ...optionalEnv("TWITTER_BEARER_TOKEN"),
+          ...optionalDropRunEnv(sandboxRun),
           WORKING_DIRECTORY: sandboxAgentWorkdir(),
         },
         timeoutMs: numberEnv("DRIP_SANDBOX_RUNNER_TIMEOUT_MS", 300_000),
@@ -120,6 +129,7 @@ export const startSandboxRun = action({
 
       return {
         sandboxId: sandbox.name,
+        sandboxName: sandboxRun.sandboxName,
         commandId: command.cmdId,
       };
     } catch (error) {
@@ -135,7 +145,7 @@ export const startSandboxRun = action({
   },
 });
 
-async function createSandbox() {
+async function createSandbox(sandboxRun: SandboxRunDoc) {
   const snapshotId = requiredEnv("BASE_SANDBOX_IMAGE");
   const commonParams = {
     ...vercelSandboxCredentials(),
@@ -145,6 +155,30 @@ async function createSandbox() {
     },
   };
 
+  if (sandboxRun.sandboxName) {
+    return await getOrCreateSnapshotSandbox({
+      ...commonParams,
+      name: sandboxRun.sandboxName,
+      persistent: true,
+      source: {
+        type: "snapshot",
+        snapshotId,
+      },
+      snapshotExpiration: numberEnv(
+        "DRIP_DROP_SANDBOX_SNAPSHOT_TTL_MS",
+        7 * 24 * 60 * 60 * 1000,
+      ),
+      keepLastSnapshots: {
+        count: numberEnv("DRIP_DROP_SANDBOX_KEEP_SNAPSHOTS", 3),
+        expiration: numberEnv(
+          "DRIP_DROP_SANDBOX_SNAPSHOT_TTL_MS",
+          7 * 24 * 60 * 60 * 1000,
+        ),
+        deleteEvicted: true,
+      },
+    });
+  }
+
   return await Sandbox.create({
     ...commonParams,
     source: {
@@ -152,6 +186,12 @@ async function createSandbox() {
       snapshotId,
     },
   });
+}
+
+async function getOrCreateSnapshotSandbox(params: SnapshotSandboxParams) {
+  // The runtime supports snapshot sources in getOrCreate; the SDK d.ts models
+  // only git/tarball sources for this method in the installed version.
+  return await Sandbox.getOrCreate(params as unknown as SandboxGetOrCreateParams);
 }
 
 function vercelSandboxCredentials(): VercelSandboxCredentials {
@@ -175,6 +215,19 @@ function vercelSandboxCredentials(): VercelSandboxCredentials {
     teamId,
     projectId,
     token,
+  };
+}
+
+function optionalDropRunEnv(sandboxRun: SandboxRunDoc) {
+  return {
+    ...(sandboxRun.dropId ? { DRIP_DROP_ID: sandboxRun.dropId } : {}),
+    ...(sandboxRun.dropStageRunId
+      ? { DRIP_DROP_STAGE_RUN_ID: sandboxRun.dropStageRunId }
+      : {}),
+    ...(sandboxRun.stage ? { DRIP_DROP_STAGE: sandboxRun.stage } : {}),
+    ...(sandboxRun.expectedOutputPath
+      ? { DRIP_EXPECTED_OUTPUT_PATH: sandboxRun.expectedOutputPath }
+      : {}),
   };
 }
 

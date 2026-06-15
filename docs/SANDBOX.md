@@ -92,7 +92,6 @@ repo/
           drop-site-deployer.toml
           facebook-ad-copywriter.toml
           facebook-ad-operator.toml
-          facebook-ad-verifier.toml
         skills/
           .system/
             imagegen/
@@ -269,16 +268,20 @@ Builder-specific base image additions:
 
 Performance Marketer uses the same generic runner and sandbox workspace as
 Scout, Fashion Designer, and Builder. It creates real Facebook-only Meta ad
-objects through the `meta` CLI, but v1 stops at paused campaign creation.
+objects, but v1 stops before activation or insights readback.
+Campaign creation uses a Graph API fallback when the installed CLI cannot send
+Meta's required `special_ad_categories=[]` field; ad sets, creatives, ads, and
+pause updates continue through the CLI.
 
 The responsibility split is:
 
 - `$meta-ads-cli` is a reusable adapter skill for CLI commands, env mapping,
-  preflight, redaction, and paused-object safety.
+  preflight, redaction, paused-object safety, and the exact Drip creation
+  recipe.
 - `$performance-marketer` owns Drip's campaign recipe and output artifact.
-- `facebook-ad-operator` creates one paused campaign, three paused ad sets, six
-  creatives, and six paused ads.
-- `facebook-ad-verifier` performs read-only status checks.
+- `facebook-ad-copywriter` fills the copy schema only.
+- `facebook-ad-operator` runs the exact `$meta-ads-cli` creation recipe and
+  returns sanitized created-object evidence. It does not spawn other agents.
 
 Performance Marketer writes:
 
@@ -424,6 +427,8 @@ Performance Marketer smoke tests verify that the run wrote
 `performance-marketer.facebook-campaign.v1`, Meta env presence, one campaign,
 three ad sets, six creatives, six paused ads, no activation, no insights
 readback, and no raw Meta-looking IDs in the final response or output JSON.
+The live path has no second Meta agent. Created-object evidence from the
+operator is enough for the hackathon artifact.
 
 By default the harness deletes the Vercel Sandbox after inspection. Use
 `--keep-sandbox` for manual debugging, or set
@@ -460,7 +465,6 @@ successful run.
 | `sandbox/codex-agent/.codex/agents/drop-site-deployer.toml` | Custom subagent definition for Builder Vercel preview deployment and HTTP verification. |
 | `sandbox/codex-agent/.codex/agents/facebook-ad-copywriter.toml` | Custom subagent definition for Performance Marketer ad naming and copy. |
 | `sandbox/codex-agent/.codex/agents/facebook-ad-operator.toml` | Custom subagent definition for Performance Marketer paused Facebook ad object creation. |
-| `sandbox/codex-agent/.codex/agents/facebook-ad-verifier.toml` | Custom subagent definition for Performance Marketer read-only Meta status verification. |
 | `sandbox/codex-agent/.codex/skills/.system/imagegen/SKILL.md` | Official Codex image generation skill copied into the sandbox `CODEX_HOME` layout. |
 | `sandbox/codex-agent/.agents/skills/agent-browser/SKILL.md` | Browser automation skill stub copied into the agent workspace. |
 | `sandbox/codex-agent/.agents/skills/builder/SKILL.md` | Builder orchestration skill and structured output contract. |

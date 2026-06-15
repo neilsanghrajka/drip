@@ -57,7 +57,3 @@ config_file = "agents/facebook-ad-copywriter.toml"
 [agents.facebook-ad-operator]
 description = "Create paused Facebook campaign objects for Performance Marketer using meta-ads-cli."
 config_file = "agents/facebook-ad-operator.toml"
-
-[agents.facebook-ad-verifier]
-description = "Verify paused Facebook campaign objects for Performance Marketer with read-only Meta CLI checks."
-config_file = "agents/facebook-ad-verifier.toml"
