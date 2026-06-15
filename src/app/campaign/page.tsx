@@ -402,6 +402,11 @@ export default function CampaignPage() {
     });
   }
 
+  function goToMarketer() {
+    setManualStage("marketer");
+    setError(null);
+  }
+
   async function retryCurrentStage() {
     if (
       !dropView ||
@@ -547,7 +552,7 @@ export default function CampaignPage() {
               </div>
 
               <div className="grid gap-2">
-                {stages.map((stage, index) => (
+                {stages.map((stage) => (
                   <StageRailCard
                     active={stage.key === active.key}
                     completed={isStageComplete(stage.key, dropView)}
@@ -555,7 +560,7 @@ export default function CampaignPage() {
                     onActivate={() => setManualStage(stage.key)}
                     progress={stageProgress(stage.key, dropView)}
                     stage={stage}
-                    unlocked={index <= activeIndex || isStageComplete(stage.key, dropView)}
+                    unlocked={isStageUnlocked(stage.key, dropView)}
                   />
                 ))}
               </div>
@@ -580,6 +585,7 @@ export default function CampaignPage() {
                 isPending={Boolean(pendingAction)}
                 marketerArtifact={artifacts.marketer}
                 activityItems={activityItems}
+                onGoToMarket={goToMarketer}
                 onApproveIdeas={approveIdeasAndDesign}
                 onApproveProducts={approveProductsAndBuild}
                 onMarketDrop={marketDrop}
@@ -1048,6 +1054,7 @@ function StageWorkspace({
   marketerArtifact,
   onApproveIdeas,
   onApproveProducts,
+  onGoToMarket,
   onMarketDrop,
   onRetryStage,
   onSelectIdea,
@@ -1067,6 +1074,7 @@ function StageWorkspace({
   marketerArtifact?: DropArtifact;
   onApproveIdeas: () => void;
   onApproveProducts: () => void;
+  onGoToMarket: () => void;
   onMarketDrop: () => void;
   onRetryStage: () => void;
   onSelectIdea: (id: string) => void;
@@ -1105,6 +1113,7 @@ function StageWorkspace({
         builderUrl={builderUrl}
         designerMocks={designerMocks}
         dropView={dropView}
+        onGoToMarket={onGoToMarket}
         onOpenImage={setPreviewImage}
         selectedMocks={selectedMocks}
       />
@@ -1580,12 +1589,14 @@ function BuilderFocus({
   builderUrl,
   designerMocks,
   dropView,
+  onGoToMarket,
   onOpenImage,
   selectedMocks,
 }: {
   builderUrl?: string;
   designerMocks: DesignerMock[];
   dropView?: DropView | null;
+  onGoToMarket: () => void;
   onOpenImage: (image: ImagePreview) => void;
   selectedMocks: string[];
 }) {
@@ -1593,6 +1604,8 @@ function BuilderFocus({
   const heroMock = selected.find((mock) => mock.imageUrl) ?? selected[0];
   const building =
     dropView?.drop.status === "building" || dropView?.drop.status === "ready_to_build";
+  const canGoToMarket =
+    isStageUnlocked("marketer", dropView) && !isStageComplete("marketer", dropView);
 
   return (
     <div className="grid h-full min-h-0 gap-4 lg:grid-cols-[300px_minmax(0,1fr)]">
@@ -1634,6 +1647,15 @@ function BuilderFocus({
             Preview pending
           </button>
         )}
+        {canGoToMarket ? (
+          <button
+            className="mt-3 w-full rounded-[12px] border-[4px] border-black bg-[#ff3c38] px-6 py-3.5 text-base font-black text-white shadow-[5px_5px_0_#000] transition hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[3px_3px_0_#000]"
+            onClick={onGoToMarket}
+            type="button"
+          >
+            Go to Marketer
+          </button>
+        ) : null}
       </section>
 
       <section className="overflow-hidden rounded-[18px] border-[4px] border-black bg-black text-white shadow-[7px_7px_0_#f8ca00]">
@@ -1729,17 +1751,23 @@ function MarketerFocus({
   const metaBlocked = Boolean(
     marketerArtifact && (!allCreatedPaused || missingPausedObjects || issue),
   );
+  const dropStatus = dropView?.drop.status;
+  const dropCurrentStage = dropView?.drop.currentStage;
+  const marketerIsCurrent =
+    dropCurrentStage === "marketer" ||
+    dropStatus === "ready_to_market" ||
+    dropStatus === "marketing";
   const canRunMeta =
     !isPending &&
-    dropView?.drop.currentStage === "marketer" &&
-    (dropView.drop.status === "ready_to_market" ||
-      dropView.drop.status === "failed" ||
-      dropView.drop.status === "cancelled" ||
+    marketerIsCurrent &&
+    (dropStatus === "ready_to_market" ||
+      dropStatus === "failed" ||
+      dropStatus === "cancelled" ||
       metaBlocked);
   const actionLabel =
     metaReady
       ? "Paused ad ready"
-      : dropView?.drop.status === "ready_to_market" && !metaBlocked
+      : dropStatus === "ready_to_market" && !metaBlocked
         ? "Create paused ad"
         : "Retry paused ad";
   const previewStatus = metaReady
@@ -2093,6 +2121,24 @@ function isStageComplete(stage: StageKey, dropView: DropView | null | undefined)
     return dropView.drop.status === "completed";
   }
   return dropView.artifacts.some((artifact) => artifact.stage === stage);
+}
+
+function isStageUnlocked(stage: StageKey, dropView: DropView | null | undefined) {
+  const index = stages.findIndex((item) => item.key === stage);
+  if (index <= 0) {
+    return true;
+  }
+  if (!dropView) {
+    return false;
+  }
+  if (isStageComplete(stage, dropView)) {
+    return true;
+  }
+  if (dropView.drop.currentStage === stage || stageForDrop(dropView) === stage) {
+    return true;
+  }
+  const previousStage = stages[index - 1];
+  return previousStage ? isStageComplete(previousStage.key, dropView) : false;
 }
 
 function stageProgress(stage: StageKey, dropView: DropView | null | undefined) {
