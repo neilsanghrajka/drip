@@ -346,6 +346,9 @@ async function assertSandboxPayload(config: SetupConfig) {
     "codex-agent/.codex/agents/drop-site-builder.toml",
     "codex-agent/.codex/agents/drop-site-reviewer.toml",
     "codex-agent/.codex/agents/drop-site-deployer.toml",
+    "codex-agent/.codex/agents/facebook-ad-copywriter.toml",
+    "codex-agent/.codex/agents/facebook-ad-operator.toml",
+    "codex-agent/.codex/agents/facebook-ad-verifier.toml",
     "codex-agent/.codex/skills/.system/imagegen/SKILL.md",
     "codex-agent/.codex/skills/.system/imagegen/scripts/image_gen.py",
     "codex-agent/.codex/skills/.system/imagegen/scripts/remove_chroma_key.py",
@@ -354,6 +357,8 @@ async function assertSandboxPayload(config: SetupConfig) {
     "codex-agent/.agents/skills/frontend-skill/SKILL.md",
     "codex-agent/.agents/skills/scout/SKILL.md",
     "codex-agent/.agents/skills/fashion-designer/SKILL.md",
+    "codex-agent/.agents/skills/meta-ads-cli/SKILL.md",
+    "codex-agent/.agents/skills/performance-marketer/SKILL.md",
     "codex-agent/.agents/skills/x-trends/SKILL.md",
     "codex-agent/.agents/skills/exa-search/SKILL.md",
   ]) {
@@ -953,6 +958,9 @@ function redactionValuesFromEnv(env: EnvMap) {
     env.CODEX_API_KEY,
     env.CONVEX_DEPLOY_KEY,
     env.OPENAI_API_KEY,
+    env.META_ADS_ACCESS_TOKEN,
+    env.META_ADS_AD_ACCOUNT_ID,
+    env.META_ADS_BUSINESS_ID,
     env.VERCEL_OIDC_TOKEN,
     env.VERCEL_PROJECT_ID,
     env.VERCEL_TEAM_ID,
@@ -1021,6 +1029,9 @@ async function main() {
     ".codex/agents/drop-site-builder.toml",
     ".codex/agents/drop-site-reviewer.toml",
     ".codex/agents/drop-site-deployer.toml",
+    ".codex/agents/facebook-ad-copywriter.toml",
+    ".codex/agents/facebook-ad-operator.toml",
+    ".codex/agents/facebook-ad-verifier.toml",
     ".codex/skills/.system/imagegen/SKILL.md",
     ".codex/skills/.system/imagegen/scripts/image_gen.py",
     ".codex/skills/.system/imagegen/scripts/remove_chroma_key.py",
@@ -1029,6 +1040,8 @@ async function main() {
     ".agents/skills/frontend-skill/SKILL.md",
     ".agents/skills/scout/SKILL.md",
     ".agents/skills/fashion-designer/SKILL.md",
+    ".agents/skills/meta-ads-cli/SKILL.md",
+    ".agents/skills/performance-marketer/SKILL.md",
     ".agents/skills/x-trends/SKILL.md",
     ".agents/skills/exa-search/SKILL.md",
   ]) {
@@ -1062,7 +1075,10 @@ async function main() {
     !config.includes("fashion-reviewer") ||
     !config.includes("drop-site-builder") ||
     !config.includes("drop-site-reviewer") ||
-    !config.includes("drop-site-deployer")
+    !config.includes("drop-site-deployer") ||
+    !config.includes("facebook-ad-copywriter") ||
+    !config.includes("facebook-ad-operator") ||
+    !config.includes("facebook-ad-verifier")
   ) {
     throw new Error("Codex config is missing expected defaults.");
   }
@@ -1125,6 +1141,9 @@ async function main() {
     ".codex/agents/drop-site-builder.toml",
     ".codex/agents/drop-site-reviewer.toml",
     ".codex/agents/drop-site-deployer.toml",
+    ".codex/agents/facebook-ad-copywriter.toml",
+    ".codex/agents/facebook-ad-operator.toml",
+    ".codex/agents/facebook-ad-verifier.toml",
     ".codex/skills/.system/imagegen/SKILL.md",
     ".codex/skills/.system/imagegen/scripts/image_gen.py",
     ".codex/skills/.system/imagegen/scripts/remove_chroma_key.py",
@@ -1133,6 +1152,8 @@ async function main() {
     ".agents/skills/frontend-skill/SKILL.md",
     ".agents/skills/scout/SKILL.md",
     ".agents/skills/fashion-designer/SKILL.md",
+    ".agents/skills/meta-ads-cli/SKILL.md",
+    ".agents/skills/performance-marketer/SKILL.md",
     ".agents/skills/x-trends/SKILL.md",
     ".agents/skills/exa-search/SKILL.md",
   ]) {

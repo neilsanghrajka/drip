@@ -28,7 +28,8 @@ let convexClient: ConvexHttpClient | null = null;
 type ScenarioName =
   | "fashion-designer-product"
   | "scout-cultural"
-  | "builder-drop-site";
+  | "builder-drop-site"
+  | "performance-marketer-facebook-paused";
 
 type CliOptions = {
   scenario: ScenarioName | "all";
@@ -39,6 +40,7 @@ type CliOptions = {
   keepSandbox: boolean;
   skipSandboxFiles: boolean;
   cleanupArtifacts: boolean;
+  allowMetaCreate: boolean;
 };
 
 type SandboxRun = {
@@ -161,7 +163,7 @@ main().catch((error) => {
 async function main() {
   await loadPrivateEnv();
   const options = parseArgs(process.argv.slice(2));
-  const scenarios = selectScenarios(options.scenario);
+  const scenarios = selectScenarios(options);
   const results: RunResult[] = [];
 
   for (const scenario of scenarios) {
@@ -718,6 +720,37 @@ function validateBuilderEvents(run: SandboxRun, events: SandboxEvent[]) {
   assert(!/\$builder unavailable/i.test(text), "Builder skill was unavailable.");
 }
 
+function validatePerformanceMarketerEvents(run: SandboxRun, events: SandboxEvent[]) {
+  const text = eventText(events);
+  const runnerStarted = findEventPayload(events, "runner.started");
+  const codexEnvPresence = isRecord(runnerStarted)
+    ? runnerStarted.codexEnvPresence
+    : undefined;
+  if (isRecord(codexEnvPresence)) {
+    assert(
+      codexEnvPresence.META_ADS_ACCESS_TOKEN === true,
+      "Performance Marketer run did not receive Meta access token in Codex env.",
+    );
+    assert(
+      codexEnvPresence.META_ADS_AD_ACCOUNT_ID === true,
+      "Performance Marketer run did not receive Meta ad account ID in Codex env.",
+    );
+  }
+  assert(
+    run.result?.finalResponse?.includes("performance-marketer-output.json"),
+    "Performance Marketer final response did not mention performance-marketer-output.json.",
+  );
+  assert(
+    !/\$performance-marketer unavailable/i.test(text),
+    "Performance Marketer skill was unavailable.",
+  );
+  assertNoMetaAccessTokenLeak(text, "Performance Marketer events");
+  assertNoMetaSecretLeak(
+    String(run.result?.finalResponse ?? ""),
+    "Performance Marketer final response",
+  );
+}
+
 function validateFashionDesignerOutput(output: unknown) {
   const root = asRecord(output, "Fashion Designer output");
   assert(
@@ -972,6 +1005,103 @@ function validateBuilderOutput(output: unknown) {
       assert(deployment.target === "preview", "Builder deployment.target should be preview.");
     }
   }
+}
+
+function validatePerformanceMarketerOutput(output: unknown) {
+  const root = asRecord(output, "Performance Marketer output");
+  assert(
+    root.schemaVersion === "performance-marketer.facebook-campaign.v1",
+    "Performance Marketer schemaVersion mismatch.",
+  );
+  assertNoMetaSecretLeak(
+    JSON.stringify(output),
+    "Performance Marketer output JSON",
+  );
+
+  const safety = asRecord(root.safety, "Performance Marketer safety");
+  assert(safety.facebookOnly === true, "Performance Marketer must be Facebook-only.");
+  assert(safety.allCreatedPaused === true, "Performance Marketer did not verify all objects paused.");
+  assert(
+    safety.activationPerformed === false,
+    "Performance Marketer must not activate ads.",
+  );
+  assert(
+    safety.insightsReadbackPerformed === false,
+    "Performance Marketer must not read insights in v1.",
+  );
+  assert(
+    safety.rawMetaIdsPersisted === false,
+    "Performance Marketer output must not persist raw Meta IDs.",
+  );
+
+  const campaign = asRecord(root.campaign, "Performance Marketer campaign");
+  assert(
+    campaign.objective === "outcome_traffic",
+    "Performance Marketer campaign objective should be outcome_traffic.",
+  );
+  assertPausedStatus(
+    campaign.configuredStatus,
+    "Performance Marketer campaign configuredStatus",
+  );
+  assertNumberAtLeast(
+    campaign.budgetMinorUnits,
+    1,
+    "Performance Marketer campaign budgetMinorUnits",
+  );
+
+  const adSets = asArray(root.adSets, "Performance Marketer adSets");
+  assert(adSets.length === 3, `Performance Marketer expected 3 ad sets, got ${adSets.length}.`);
+  for (const [index, value] of adSets.entries()) {
+    const adSet = asRecord(value, `Performance Marketer adSet ${index}`);
+    assert(typeof adSet.ideaRef === "string", "Performance Marketer ad set missing ideaRef.");
+    assert(typeof adSet.name === "string", "Performance Marketer ad set missing name.");
+    assert(typeof adSet.safeRef === "string", "Performance Marketer ad set missing safeRef.");
+    assertPausedStatus(
+      adSet.configuredStatus,
+      `Performance Marketer adSet ${index} configuredStatus`,
+    );
+  }
+
+  const ads = asArray(root.ads, "Performance Marketer ads");
+  assert(ads.length === 6, `Performance Marketer expected 6 ads, got ${ads.length}.`);
+  const seenIdeaImagePairs = new Set<string>();
+  for (const [index, value] of ads.entries()) {
+    const ad = asRecord(value, `Performance Marketer ad ${index}`);
+    const ideaRef = requireString(ad.ideaRef, `ads[${index}].ideaRef`);
+    const imageRef = requireString(ad.imageRef, `ads[${index}].imageRef`);
+    seenIdeaImagePairs.add(`${ideaRef}:${imageRef}`);
+    assert(typeof ad.imagePath === "string", "Performance Marketer ad missing imagePath.");
+    assert(
+      typeof ad.creativeSafeRef === "string" && typeof ad.adSafeRef === "string",
+      "Performance Marketer ad missing safe refs.",
+    );
+    assert(typeof ad.headline === "string", "Performance Marketer ad missing headline.");
+    assert(typeof ad.body === "string", "Performance Marketer ad missing body.");
+    assertPausedStatus(
+      ad.configuredStatus,
+      `Performance Marketer ad ${index} configuredStatus`,
+    );
+  }
+  assert(
+    seenIdeaImagePairs.size === 6,
+    "Performance Marketer ads should map to six distinct idea/image pairs.",
+  );
+
+  const verification = asRecord(
+    root.verification,
+    "Performance Marketer verification",
+  );
+  assert(verification.campaignCount === 1, "Performance Marketer expected one campaign.");
+  assert(verification.adSetCount === 3, "Performance Marketer expected three ad sets.");
+  assert(verification.creativeCount === 6, "Performance Marketer expected six creatives.");
+  assert(verification.adCount === 6, "Performance Marketer expected six ads.");
+  assertNumberAtLeast(
+    verification.pausedObjectCount,
+    10,
+    "Performance Marketer pausedObjectCount",
+  );
+  const issues = asArray(verification.issues, "Performance Marketer verification.issues");
+  assert(issues.length === 0, "Performance Marketer verification should have no issues.");
 }
 
 async function validateBuilderSandboxFiles({
@@ -1366,11 +1496,24 @@ function trimTrailingSlash(value: string) {
   return value.replace(/\/+$/, "");
 }
 
-function selectScenarios(value: CliOptions["scenario"]) {
-  if (value === "all") {
-    return scenarios;
+function selectScenarios(options: CliOptions) {
+  if (
+    options.scenario === "performance-marketer-facebook-paused" &&
+    !options.allowMetaCreate
+  ) {
+    throw new Error(
+      "performance-marketer-facebook-paused creates real paused Meta ad objects. Re-run with --allow-meta-create.",
+    );
   }
-  return scenarios.filter((scenario) => scenario.name === value);
+
+  if (options.scenario === "all") {
+    return options.allowMetaCreate
+      ? scenarios
+      : scenarios.filter(
+          (scenario) => scenario.name !== "performance-marketer-facebook-paused",
+        );
+  }
+  return scenarios.filter((scenario) => scenario.name === options.scenario);
 }
 
 const scenarios: Scenario[] = [
@@ -1404,6 +1547,16 @@ const scenarios: Scenario[] = [
     validateSandboxFiles: validateBuilderSandboxFiles,
     task:
       "Use $builder to create a live drop page for this winning cap product: ideaRef idea_01; productRef winner_cap_01; product Monsoon Crease Cap, a washed black cotton cricket cap with electric-blue rain-stitch embroidery; winning copy Play starts when the rain stops; price INR 2499; ad result 2.7% CTR among Mumbai street-cricket fans. Make it one no-scroll page with the 24-hour countdown at the top, a large auto-advancing product image carousel, and a dummy Buy Now button.",
+  },
+  {
+    name: "performance-marketer-facebook-paused",
+    workspaceId: "e2e-performance-marketer-facebook-paused",
+    outputPath: "/vercel/sandbox/agent-workspace/performance-marketer-output.json",
+    collectAssets: false,
+    validateEvents: validatePerformanceMarketerEvents,
+    validateOutput: validatePerformanceMarketerOutput,
+    task:
+      "Use $performance-marketer to create a paused Facebook-only Meta ad campaign for three Drip ideas and two selected candidate images per idea. This is an explicit sandbox smoke: create smoke input images locally before calling Meta. Ideas: idea_01 Mumbai monsoon street cricket comeback; idea_02 Mumbai late-night vada pav study break; idea_03 Mumbai local train first-rain playlist. Use the hackathon recipe: one paused traffic campaign, three paused ad sets, six creatives, six paused ads, no activation, no insights readback. Budget minor units 10000, targeting country IN. Write performance-marketer-output.json with sanitized refs only.",
   },
 ];
 
@@ -1547,6 +1700,7 @@ function parseArgs(args: string[]): CliOptions {
     keepSandbox: false,
     skipSandboxFiles: false,
     cleanupArtifacts: false,
+    allowMetaCreate: false,
   };
 
   for (let index = 0; index < args.length; index += 1) {
@@ -1569,6 +1723,8 @@ function parseArgs(args: string[]): CliOptions {
       options.skipSandboxFiles = true;
     } else if (arg === "--cleanup-artifacts") {
       options.cleanupArtifacts = true;
+    } else if (arg === "--allow-meta-create") {
+      options.allowMetaCreate = true;
     } else if (arg === "--help") {
       printHelp();
       process.exit(0);
@@ -1585,7 +1741,8 @@ function parseScenario(value: string): CliOptions["scenario"] {
     value === "all" ||
     value === "fashion-designer-product" ||
     value === "scout-cultural" ||
-    value === "builder-drop-site"
+    value === "builder-drop-site" ||
+    value === "performance-marketer-facebook-paused"
   ) {
     return value;
   }
@@ -1613,6 +1770,7 @@ function printHelp() {
   pnpm e2e:sandbox -- --scenario fashion-designer-product
   pnpm e2e:sandbox -- --scenario scout-cultural
   pnpm e2e:sandbox -- --scenario builder-drop-site
+  pnpm e2e:sandbox -- --scenario performance-marketer-facebook-paused --allow-meta-create
   pnpm e2e:sandbox -- --scenario all
 
 Options:
@@ -1623,6 +1781,7 @@ Options:
   --keep-sandbox             Do not delete the Vercel Sandbox after inspection.
   --skip-sandbox-files       Validate Convex events only; do not read files from Vercel Sandbox.
   --cleanup-artifacts        Remove local evidence directory for each run after success.
+  --allow-meta-create        Allow live Meta create scenarios that create real paused ad objects.
 `);
 }
 
@@ -1821,6 +1980,25 @@ function requireString(value: unknown, label: string) {
 
 function requireSandboxRunId(value: unknown) {
   return requireString(value, "sandboxRunId") as Id<"sandboxRuns">;
+}
+
+function assertPausedStatus(value: unknown, label: string) {
+  assert(typeof value === "string", `${label} must be a string.`);
+  assert(value.toUpperCase() === "PAUSED", `${label} must be PAUSED.`);
+}
+
+function assertNoMetaSecretLeak(text: string, label: string) {
+  assert(!/\bact_\d+\b/i.test(text), `${label} leaked an ad account ID.`);
+  assert(
+    !/\b\d{12,}\b/.test(text),
+    `${label} leaked a long numeric ID that looks like a raw Meta object ID.`,
+  );
+  assertNoMetaAccessTokenLeak(text, label);
+  assert(!/facebook\.com\/adsmanager/i.test(text), `${label} leaked an Ads Manager URL.`);
+}
+
+function assertNoMetaAccessTokenLeak(text: string, label: string) {
+  assert(!/\bEA[A-Za-z0-9]{20,}\b/.test(text), `${label} leaked a Meta access token.`);
 }
 
 function countBy(values: string[]) {

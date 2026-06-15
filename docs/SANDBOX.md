@@ -90,6 +90,9 @@ repo/
           drop-site-builder.toml
           drop-site-reviewer.toml
           drop-site-deployer.toml
+          facebook-ad-copywriter.toml
+          facebook-ad-operator.toml
+          facebook-ad-verifier.toml
         skills/
           .system/
             imagegen/
@@ -99,6 +102,8 @@ repo/
           agent-browser/
             SKILL.md
           builder/
+            SKILL.md
+          performance-marketer/
             SKILL.md
           frontend-skill/
             SKILL.md
@@ -136,10 +141,12 @@ The setup command also preinstalls Node and Python tool dependencies into the
 base image. Node tools include the Vercel CLI for Builder deploys and
 `agent-browser` plus its browser dependency for Builder review. Python tools
 include `openai` and `pillow` for the official `$imagegen` fallback, plus `uv`
-and the official Meta Ads CLI package (`meta-ads`) for ad-account and campaign
+and the verified Meta Ads CLI package (`meta-ads`) for ad-account and campaign
 automation. `meta-ads` requires Python 3.12+, so the setup installs it as a
 uv-managed tool rather than relying on the sandbox system Python. That keeps
-agent runs focused on the task rather than per-run dependency bootstrap.
+agent runs focused on the task rather than per-run dependency bootstrap. If
+Meta's official Ads CLI docs change the package/auth model, update the setup
+script, `$meta-ads-cli` skill, and smoke checks together.
 
 ![Codex agent runtime base image](whiteboard/codex_agent_runtime.png)
 
@@ -201,7 +208,8 @@ network access controlled by `DRIP_CODEX_NETWORK_ACCESS_ENABLED`, and
 `sandboxMode: "danger-full-access"` inside the outer Vercel Sandbox isolation
 boundary. The runner is generic: it streams Codex events and final response, but
 does not interpret skill-specific artifacts such as Scout's `scout-output.json`
-or Fashion Designer's `fashion-designer-output.json`.
+Fashion Designer's `fashion-designer-output.json`, or Performance Marketer's
+`performance-marketer-output.json`.
 
 ## Builder Drop-Site Deployment
 
@@ -256,6 +264,38 @@ Builder-specific base image additions:
 - `frontend-skill` is copied into `sandbox/codex-agent/.agents/skills/`.
 - Builder, site-builder, site-reviewer, and site-deployer skill/subagent files
   live in `sandbox/codex-agent/`.
+
+## Performance Marketer Meta Ads
+
+Performance Marketer uses the same generic runner and sandbox workspace as
+Scout, Fashion Designer, and Builder. It creates real Facebook-only Meta ad
+objects through the `meta` CLI, but v1 stops at paused campaign creation.
+
+The responsibility split is:
+
+- `$meta-ads-cli` is a reusable adapter skill for CLI commands, env mapping,
+  preflight, redaction, and paused-object safety.
+- `$performance-marketer` owns Drip's campaign recipe and output artifact.
+- `facebook-ad-operator` creates one paused campaign, three paused ad sets, six
+  creatives, and six paused ads.
+- `facebook-ad-verifier` performs read-only status checks.
+
+Performance Marketer writes:
+
+```text
+/vercel/sandbox/agent-workspace/performance-marketer-output.json
+```
+
+The guarded live smoke creates real paused Meta objects and is excluded from
+`--scenario all` unless live Meta creation is explicitly allowed:
+
+```bash
+pnpm e2e:sandbox -- --scenario performance-marketer-facebook-paused --allow-meta-create
+```
+
+Never activate campaigns, ad sets, or ads from the v1 Performance Marketer
+workflow, and never print raw Meta IDs, dashboard URLs, or private env values in
+docs, logs, or final responses.
 
 ## Env Contract
 
@@ -323,12 +363,18 @@ of the user-facing contract.
 ```bash
 pnpm e2e:sandbox -- --scenario fashion-designer-product
 pnpm e2e:sandbox -- --scenario scout-cultural
+pnpm e2e:sandbox -- --scenario builder-drop-site
+pnpm e2e:sandbox -- --scenario performance-marketer-facebook-paused --allow-meta-create
 pnpm e2e:sandbox -- --scenario all
 ```
 
 Use `--start-attempts <count>` when Vercel Sandbox creation is temporarily
 throttled. The harness retries only transient platform start failures such as
 429/5xx responses; skill output assertions stay strict.
+
+Performance Marketer's smoke creates real paused Meta ad objects. It is guarded:
+running the scenario directly requires `--allow-meta-create`, and `--scenario
+all` skips it unless that flag is also present.
 
 The harness writes ignored evidence under `.sandbox-e2e/`:
 
@@ -373,6 +419,12 @@ invented cultural moments. The runner emits non-secret env-presence booleans in
 `runner.started` so failures can be attributed to configuration propagation
 without exposing credential values.
 
+Performance Marketer smoke tests verify that the run wrote
+`performance-marketer-output.json` with schema
+`performance-marketer.facebook-campaign.v1`, Meta env presence, one campaign,
+three ad sets, six creatives, six paused ads, no activation, no insights
+readback, and no raw Meta-looking IDs in the final response or output JSON.
+
 By default the harness deletes the Vercel Sandbox after inspection. Use
 `--keep-sandbox` for manual debugging, or set
 `DRIP_E2E_KEEP_SANDBOX_ON_FAILURE=1` to preserve only failing sandboxes. Use
@@ -406,6 +458,9 @@ successful run.
 | `sandbox/codex-agent/.codex/agents/drop-site-builder.toml` | Custom subagent definition for Builder static site creation and product image angle generation. |
 | `sandbox/codex-agent/.codex/agents/drop-site-reviewer.toml` | Custom subagent definition for Builder browser review with `agent-browser`. |
 | `sandbox/codex-agent/.codex/agents/drop-site-deployer.toml` | Custom subagent definition for Builder Vercel preview deployment and HTTP verification. |
+| `sandbox/codex-agent/.codex/agents/facebook-ad-copywriter.toml` | Custom subagent definition for Performance Marketer ad naming and copy. |
+| `sandbox/codex-agent/.codex/agents/facebook-ad-operator.toml` | Custom subagent definition for Performance Marketer paused Facebook ad object creation. |
+| `sandbox/codex-agent/.codex/agents/facebook-ad-verifier.toml` | Custom subagent definition for Performance Marketer read-only Meta status verification. |
 | `sandbox/codex-agent/.codex/skills/.system/imagegen/SKILL.md` | Official Codex image generation skill copied into the sandbox `CODEX_HOME` layout. |
 | `sandbox/codex-agent/.agents/skills/agent-browser/SKILL.md` | Browser automation skill stub copied into the agent workspace. |
 | `sandbox/codex-agent/.agents/skills/builder/SKILL.md` | Builder orchestration skill and structured output contract. |
@@ -413,6 +468,7 @@ successful run.
 | `sandbox/codex-agent/.agents/skills/scout/SKILL.md` | Scout orchestration skill and structured output contract. |
 | `sandbox/codex-agent/.agents/skills/meta-ads-cli/SKILL.md` | Meta Ads CLI usage, runtime env, and safety rules for sandbox agents. |
 | `sandbox/codex-agent/.agents/skills/fashion-designer/SKILL.md` | Fashion Designer orchestration skill and structured output contract. |
+| `sandbox/codex-agent/.agents/skills/performance-marketer/SKILL.md` | Performance Marketer orchestration skill and structured output contract. |
 | `sandbox/codex-agent/.agents/skills/x-trends/SKILL.md` | Instruction-only X public-data research skill. |
 | `sandbox/codex-agent/.agents/skills/exa-search/SKILL.md` | Instruction-only generic Exa Search API skill. |
 | `scripts/setup_base_snapshot.ts` | Base snapshot creation, copy rules, install, smoke, Convex env sync, and previous snapshot cleanup. |
