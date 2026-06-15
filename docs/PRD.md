@@ -384,9 +384,9 @@ the product as an autonomous AI drop studio for internet-moment merch.
 ### 2026-06-03: Four-Teammate Workflow Correction
 
 Updated the PRD to use the four-teammate workflow: Scout, Designer, Performance
-Marketer, and Builder. Made Designer responsible for concepts and mock images,
-made live Meta/Instagram testing the validation step, and kept Builder as the
-final website launch step.
+Marketer, and Builder. Made Designer responsible for concepts and mock images.
+This amendment has been superseded by the Builder-before-Marketer flow below:
+v1 no longer uses Meta/Instagram validation before the website step.
 
 ### 2026-06-08: Builder Before Performance Marketer
 

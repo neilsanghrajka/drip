@@ -56,13 +56,18 @@ type Stage = {
 type DropView = {
   drop: {
     _id: Id<"drops">;
+    workspaceId: string;
     createdAt?: number;
     name: string;
     dropDate: string;
+    startingMode?: string;
     status: DropStatus;
     currentStage?: StageKey;
     currentSandboxId?: string;
     currentSnapshotId?: string;
+    topics?: string[];
+    productCategories?: string[];
+    tasteConstraints?: string[];
     websiteUrl?: string;
     error?: { message: string; code?: string };
     updatedAt?: number;
@@ -386,6 +391,27 @@ export default function CampaignPage() {
     });
   }
 
+  async function cloneActiveDrop() {
+    if (!dropView) {
+      return;
+    }
+    await runAction("clone-drop", async () => {
+      const cloned = await createDrop({
+        workspaceId: dropView.drop.workspaceId,
+        name: `${dropView.drop.name} copy`,
+        dropDate: dropView.drop.dropDate,
+        startingMode: dropView.drop.startingMode ?? "weekly-scout",
+        topics: dropView.drop.topics,
+        productCategories: dropView.drop.productCategories,
+        tasteConstraints: dropView.drop.tasteConstraints,
+      });
+      writeStoredDropId(cloned.dropId);
+      setCampaignName(`${dropView.drop.name} copy`);
+      setManualStage("scout");
+      resetSelections();
+    });
+  }
+
   function toggleIdea(id: string) {
     setSelectedIdeasOverride((current) =>
       (current ?? selectedIdeas).includes(id)
@@ -468,7 +494,15 @@ export default function CampaignPage() {
                     onClick={clearActiveDrop}
                     type="button"
                   >
-                    New drop
+                    Remove
+                  </button>
+                  <button
+                    className="rounded-[10px] border-[3px] border-black bg-white px-3 py-2 text-xs font-black uppercase transition hover:bg-neutral-100 disabled:cursor-wait disabled:opacity-60"
+                    disabled={Boolean(pendingAction)}
+                    onClick={cloneActiveDrop}
+                    type="button"
+                  >
+                    Clone
                   </button>
                   <button
                     className="rounded-[10px] border-[3px] border-black bg-[#f8ca00] px-3 py-2 text-xs font-black uppercase transition hover:brightness-95"
@@ -603,7 +637,7 @@ function SessionSelect({
             {drop.name}
           </option>
         ))}
-        <option value="__new__">New drop</option>
+        <option value="__new__">Clear session</option>
       </select>
     </label>
   );
