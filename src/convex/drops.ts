@@ -565,6 +565,45 @@ export const recordCollectedStageArtifact = internalMutation({
       });
     }
 
+    const drop = await getDropOrThrow(ctx, args.dropId);
+    const artifactIssue = stageArtifactIssue(args.stage, args.data);
+    if (artifactIssue) {
+      const error = {
+        message: artifactIssue,
+        code: `${args.stage}_artifact_incomplete`,
+      };
+      await ctx.db.patch(args.stageRunId, {
+        status: "failed",
+        outputArtifactId: artifactId,
+        error,
+        completedAt: timestamp,
+        updatedAt: timestamp,
+      });
+      await ctx.db.patch(args.dropId, {
+        status: "failed",
+        currentStage: args.stage,
+        error,
+        updatedAt: timestamp,
+      });
+      await insertDropEvent(ctx, {
+        dropId: args.dropId,
+        dropStageRunId: args.stageRunId,
+        sandboxRunId: args.sandboxRunId,
+        stage: args.stage,
+        type: "artifact.blocked",
+        message: `${stageLabel(args.stage)} artifact was saved but needs retry.`,
+        visibility: "user",
+        payload: {
+          artifactId,
+          schemaVersion: args.schemaVersion,
+          assetCount: args.assets.length,
+          summary: args.summary,
+          error,
+        },
+      });
+      return { artifactId };
+    }
+
     await ctx.db.patch(args.stageRunId, {
       status: "succeeded",
       outputArtifactId: artifactId,
@@ -572,7 +611,6 @@ export const recordCollectedStageArtifact = internalMutation({
       updatedAt: timestamp,
     });
 
-    const drop = await getDropOrThrow(ctx, args.dropId);
     const nextStatus = statusAfterSuccessfulCollection(args.stage, drop);
     const dropPatch: Partial<Doc<"drops">> = {
       status: nextStatus,
@@ -941,6 +979,39 @@ function statusAfterSuccessfulCollection(
   }
 }
 
+function stageArtifactIssue(stage: DropStage, data: unknown) {
+  if (stage !== "marketer") {
+    return null;
+  }
+  const root = isRecord(data) ? data : {};
+  const safety = isRecord(root.safety) ? root.safety : {};
+  const verification = isRecord(root.verification) ? root.verification : {};
+  const issues = Array.isArray(verification.issues) ? verification.issues : [];
+  const campaignCount = readNumber(verification.campaignCount, 0);
+  const adSetCount = readNumber(verification.adSetCount, 0);
+  const adCount = readNumber(verification.adCount, 0);
+  const allCreatedPaused = safety.allCreatedPaused === true;
+  const rawMetaIdsPersisted = safety.rawMetaIdsPersisted === true;
+
+  if (rawMetaIdsPersisted) {
+    return "Performance Marketer artifact contains raw Meta identifiers and was not accepted.";
+  }
+  if (!allCreatedPaused) {
+    return "Performance Marketer did not verify every created delivery object as paused.";
+  }
+  if (issues.length > 0) {
+    return "Performance Marketer saved a blocked Meta artifact. Retry is required.";
+  }
+  if (campaignCount < 1 || adSetCount < 1 || adCount < 1) {
+    return "Performance Marketer did not create the required paused campaign, ad set, and ad.";
+  }
+  return null;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
 function currentStageAfterCollection(
   stage: DropStage,
   status: DropStatus,
@@ -987,6 +1058,17 @@ function stageOutputPath(
     builder: "builder-output.json",
   }[stage];
   return `${stageRoot(dropId, stageRunId, stage)}/${fileName}`;
+}
+
+function readNumber(value: unknown, fallback: number) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+  }
+  return fallback;
 }
 
 function stageRoot(
