@@ -52,9 +52,12 @@ image-generation plan.
    - Use `sock-designer` for `socks` work orders.
    - Use `apparel-designer` for `tees`, `hoodies`, `bundles`, product-on-model shots, and product bundle work orders.
    - Use the same subagent type multiple times when several ideas or category lanes need it.
-10. Run up to the available thread capacity in parallel. With current `max_threads = 6`, a good default is `3 approved ideas x 2 product lanes = 6` parallel work orders. If work orders exceed available threads, run them in waves.
-11. Ask each product subagent to use `$imagegen` and return compact JSON with `ideaRef` on every candidate asset.
-12. Spawn `fashion-reviewer` after each generation wave or after the full first generation wave. Give it the candidate pool grouped by idea, requested final count per idea, taste constraints, and image paths.
+10. Run work orders in bounded waves and reserve one thread slot for review. With current `max_threads = 6`, run at most five product-lane subagents at once. If work orders exceed five lanes, run them in waves.
+11. Ask each product subagent to use `$imagegen` and return compact JSON with `ideaRef` on every candidate asset. As soon as a product subagent returns its compact JSON, copy the result into the main candidate pool and close that subagent thread before spawning more product lanes or the reviewer. Do not leave completed product-lane agents open.
+12. Spawn `fashion-reviewer` after each generation wave or after the full first generation wave. Before spawning it, verify all completed product-lane subagents from that wave are closed so the reviewer has a free thread slot. Give it the candidate pool grouped by idea, requested final count per idea, taste constraints, and image paths.
+   - If reviewer spawn fails because of thread capacity, close any remaining completed product-lane agents, then retry the reviewer once.
+   - If reviewer spawn still fails after cleanup, do not hang. Perform the curation in the main Fashion Designer thread, record the fallback in `review.notes`, and write the artifact.
+   - Never stop after a failed reviewer spawn while product candidates already exist; finish curation or fail loudly with a compact reason.
 13. `fashion-reviewer` reviews and culls per idea. It should keep enough candidates for each idea and avoid accidentally keeping all best-looking images from one idea while starving another.
 14. If an idea has fewer than `mocksPerIdea` usable mocks, run at most `maxRegenerationRounds` targeted regeneration pass through the relevant product subagent, then ask `fashion-reviewer` to review only the new replacements for that idea.
 15. Use Fashion Designer judgment to choose the final user-review set from reviewer-approved candidates, preserving grouping by `ideaRef`.
@@ -96,8 +99,8 @@ Keep responsibilities separated:
 ## Speed And Parallelism
 
 - Optimize for wall-clock time. Prefer several narrow product subagent calls over one large sequential call.
-- Start independent work orders in parallel whenever the request allows it.
-- Spawn by work order. For example, run `idea_01 caps`, `idea_01 socks`, `idea_02 caps`, `idea_02 socks`, `idea_03 caps`, and `idea_03 socks` together when six threads are available.
+- Start independent work orders in parallel whenever the request allows it, but keep one thread slot free for review/cleanup.
+- Spawn by work order. For example, run `idea_01 caps`, `idea_01 socks`, `idea_02 caps`, `idea_02 socks`, and `idea_03 caps` together, close completed lane agents after collecting their JSON, then run `idea_03 socks` or the reviewer. Do not keep six completed product-lane agents open and then try to spawn `fashion-reviewer`.
 - For larger batches, run waves. Wave 1 should usually cover the strongest cap/sock lanes across ideas; Wave 2 can cover remaining apparel, bundle, or product-on-model lanes.
 - For a single product category inside one idea, split into 2-3 visual lanes only when it helps reach the work order candidate target: for example, `minimal embroidery`, `graphic patch`, and `lifestyle product shot`.
 - Do not wait for perfect images. Once the reviewer has enough strong candidates for the requested count, stop extra regeneration.

@@ -130,11 +130,13 @@ The fast path is parallel overgeneration by work order:
 
 1. Make one compact design brief per approved idea.
 2. Build work orders for `ideaRef x productCategory`.
-3. Start up to the available thread capacity at once. With `max_threads = 6`,
-   a good default is `3 ideas x 2 product lanes = 6` parallel work orders.
+3. Start bounded waves while reserving one thread slot for review. With
+   `max_threads = 6`, run at most five product-lane work orders at once.
 4. Ask for a surplus pool per work order, typically about 2x the final target.
-5. Send the pool to `fashion-reviewer`, grouped by idea.
-6. Keep enough strong assets per idea and stop. Regenerate only targeted
+5. Copy returned JSON into the main candidate pool and close completed product
+   lane agents before spawning the reviewer or the next wave.
+6. Send the pool to `fashion-reviewer`, grouped by idea.
+7. Keep enough strong assets per idea and stop. Regenerate only targeted
    per-idea failures.
 
 This optimizes wall-clock time while preserving taste. More raw images are
