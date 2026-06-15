@@ -153,9 +153,13 @@ function codexEnv(workingDirectory: string) {
     "ACCESS_TOKEN",
     "AD_ACCOUNT_ID",
     "BUSINESS_ID",
+    "DRIP_DROP_SITES_VERCEL_PROJECT",
+    "DRIP_DROP_SITES_VERCEL_SCOPE",
     "META_ADS_ACCESS_TOKEN",
     "META_ADS_AD_ACCOUNT_ID",
     "META_ADS_BUSINESS_ID",
+    "VERCEL_DEPLOY_TOKEN",
+    "VERCEL_TEAM_ID",
   ]) {
     const value = process.env[name];
     if (value) {
@@ -192,6 +196,11 @@ function envPresence(env: NodeJS.ProcessEnv | Record<string, string>) {
       env.META_ADS_AD_ACCOUNT_ID ?? env.AD_ACCOUNT_ID,
     ),
     META_ADS_BUSINESS_ID: Boolean(env.META_ADS_BUSINESS_ID ?? env.BUSINESS_ID),
+    DRIP_DROP_SITES_VERCEL_PROJECT: Boolean(
+      env.DRIP_DROP_SITES_VERCEL_PROJECT,
+    ),
+    VERCEL_DEPLOY_TOKEN: Boolean(env.VERCEL_DEPLOY_TOKEN),
+    VERCEL_TEAM_ID: Boolean(env.VERCEL_TEAM_ID),
     X_BEARER_TOKEN: Boolean(env.X_BEARER_TOKEN),
     TWITTER_BEARER_TOKEN: Boolean(env.TWITTER_BEARER_TOKEN),
   };

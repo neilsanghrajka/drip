@@ -14,6 +14,7 @@ Use this as a quick index for the images in `docs/whiteboard/`. The images are i
 - `whiteboard/sandbox_loop.jpg` - Alternate close-up of the modal sandbox, Convex, backend, and UI loop.
 - `whiteboard/scout_architecture.svg` - Current Scout skill, subagent, source-skill, and output wiring.
 - `whiteboard/fashion_designer_architecture.svg` - Current Fashion Designer skill, parallel product subagents, reviewer curation, imagegen, and output wiring.
+- `whiteboard/builder_architecture.png` - Current Builder skill, static-site review, and Vercel-only immutable deployment wiring.
 
 ## Product Spec
 

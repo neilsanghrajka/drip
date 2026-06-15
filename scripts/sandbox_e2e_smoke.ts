@@ -20,9 +20,15 @@ const defaultTimeoutMs = 8 * 60 * 1000;
 const defaultPollMs = 5_000;
 const defaultStartAttempts = 3;
 const startRetryDelayMs = 30_000;
+const builderWorkspaceRoot = "/vercel/sandbox/agent-workspace";
+const builderDefaultSiteDir = `${builderWorkspaceRoot}/builder-site`;
+const builderStaticDirRelative = ".vercel/output/static";
 let convexClient: ConvexHttpClient | null = null;
 
-type ScenarioName = "fashion-designer-product" | "scout-cultural";
+type ScenarioName =
+  | "fashion-designer-product"
+  | "scout-cultural"
+  | "builder-drop-site";
 
 type CliOptions = {
   scenario: ScenarioName | "all";
@@ -70,6 +76,7 @@ type RunResult = {
   dbState: DbStateEvidence;
   outputJson?: unknown;
   assets: AssetEvidence[];
+  samples: SmokeSample[];
 };
 
 type AssetEvidence = {
@@ -86,6 +93,21 @@ type AssetEvidence = {
   };
 };
 
+type SmokeSample = {
+  label: string;
+  value: string;
+  path?: string;
+  url?: string;
+  status?: number;
+  bytes?: number;
+};
+
+type SandboxFileInfo = {
+  sandboxPath: string;
+  relativePath: string;
+  bytes: number;
+};
+
 type Scenario = {
   name: ScenarioName;
   workspaceId: string;
@@ -94,6 +116,11 @@ type Scenario = {
   collectAssets: boolean;
   validateEvents: (run: SandboxRun, events: SandboxEvent[]) => void;
   validateOutput: (output: unknown) => void;
+  validateSandboxFiles?: (args: {
+    run: SandboxRun;
+    output: unknown;
+    artifactDir: string;
+  }) => Promise<SmokeSample[]>;
 };
 
 type CreatedRun = {
@@ -160,6 +187,7 @@ async function main() {
               : null,
           artifactDir: result.artifactDir,
           assets: result.assets,
+          samples: result.samples,
         })),
       },
       null,
@@ -247,6 +275,10 @@ async function runScenario(
       output === undefined || !scenario.collectAssets
         ? []
         : await collectAssetEvidence(run, output, artifactDir);
+    const samples =
+      output === undefined || !scenario.validateSandboxFiles
+        ? []
+        : await scenario.validateSandboxFiles({ run, output, artifactDir });
 
     await writeEvidenceFiles({
       artifactDir,
@@ -255,6 +287,7 @@ async function runScenario(
       events,
       output,
       assets,
+      samples,
       startedAt,
     });
 
@@ -274,6 +307,7 @@ async function runScenario(
       dbState,
       outputJson: output,
       assets,
+      samples,
     };
   } catch (error) {
     await writeFailureEvidence({ artifactDir, run, events, error }).catch(
@@ -455,6 +489,7 @@ async function writeEvidenceFiles({
   events,
   output,
   assets,
+  samples,
   startedAt,
 }: {
   artifactDir: string;
@@ -463,6 +498,7 @@ async function writeEvidenceFiles({
   events: SandboxEvent[];
   output: unknown;
   assets: AssetEvidence[];
+  samples: SmokeSample[];
   startedAt: number;
 }) {
   await writeFile(path.join(artifactDir, "run.json"), JSON.stringify(run, null, 2));
@@ -485,12 +521,19 @@ async function writeEvidenceFiles({
         finalResponse: run.result?.finalResponse ?? null,
         outputPresent: output !== undefined,
         assets,
+        samples,
         eventCounts: countBy(events.map((event) => event.type)),
       },
       null,
       2,
     ),
   );
+  if (samples.length > 0) {
+    await writeFile(
+      path.join(artifactDir, "samples.json"),
+      JSON.stringify(samples, null, 2),
+    );
+  }
 }
 
 function assertQueuedRun(
@@ -664,6 +707,15 @@ function validateScoutEvents(run: SandboxRun, events: SandboxEvent[]) {
     "Scout final response did not mention scout-output.json.",
   );
   assert(!/\$scout unavailable/i.test(text), "Scout skill was unavailable.");
+}
+
+function validateBuilderEvents(run: SandboxRun, events: SandboxEvent[]) {
+  const text = eventText(events);
+  assert(
+    run.result?.finalResponse?.includes("builder-output.json"),
+    "Builder final response did not mention builder-output.json.",
+  );
+  assert(!/\$builder unavailable/i.test(text), "Builder skill was unavailable.");
 }
 
 function validateFashionDesignerOutput(output: unknown) {
@@ -861,6 +913,459 @@ function validateScoutOutput(output: unknown) {
   assert(/https?:\/\//i.test(JSON.stringify(candidates)), "Scout candidates lacked source URLs.");
 }
 
+function validateBuilderOutput(output: unknown) {
+  const root = asRecord(output, "Builder output");
+  assert(
+    root.schemaVersion === "builder.drop-site.v1",
+    "Builder schemaVersion mismatch.",
+  );
+
+  const site = asRecord(root.site, "Builder site");
+  const siteDir = trimTrailingSlash(
+    requireOptionalString(site.siteDir, builderDefaultSiteDir, "site.siteDir"),
+  );
+  assertBuilderWorkspacePath(siteDir, "site.siteDir");
+  assert(
+    siteDir.endsWith("/builder-site"),
+    "Builder site.siteDir should point at the builder-site workspace.",
+  );
+  if (site.assetDir !== undefined) {
+    const assetDir = trimTrailingSlash(requireString(site.assetDir, "site.assetDir"));
+    assertBuilderWorkspacePath(assetDir, "site.assetDir");
+    assert(
+      assetDir.startsWith(siteDir),
+      "Builder site.assetDir should live under site.siteDir.",
+    );
+  }
+
+  const page = asRecord(root.page, "Builder page");
+  assert(
+    page.countdownHours === 24,
+    "Builder page.countdownHours should be 24.",
+  );
+  assert(
+    typeof page.ctaLabel === "string" && /buy\s*now/i.test(page.ctaLabel),
+    "Builder page.ctaLabel should be Buy now.",
+  );
+  assert(
+    page.ctaBehavior === "dummy",
+    "Builder page.ctaBehavior should be dummy.",
+  );
+  validateBuilderReviewEvidence(root);
+
+  const urlEntries = collectBuilderDeploymentUrlEntries(root);
+  assert(
+    urlEntries.some(
+      (entry) =>
+        entry.label === "site.deploymentUrl" ||
+        entry.label === "site.canonicalHistoricalUrl",
+    ),
+    "Builder output missing site.deploymentUrl or site.canonicalHistoricalUrl.",
+  );
+
+  const deployment = isRecord(root.deployment) ? root.deployment : null;
+  if (deployment) {
+    if (deployment.provider !== undefined) {
+      assert(deployment.provider === "vercel", "Builder deployment.provider should be vercel.");
+    }
+    if (deployment.target !== undefined) {
+      assert(deployment.target === "preview", "Builder deployment.target should be preview.");
+    }
+  }
+}
+
+async function validateBuilderSandboxFiles({
+  run,
+  output,
+  artifactDir,
+}: {
+  run: SandboxRun;
+  output: unknown;
+  artifactDir: string;
+}): Promise<SmokeSample[]> {
+  assert(run.sandboxId, "Builder: missing sandboxId for static-site inspection.");
+  const sandbox = await getSandbox(run.sandboxId);
+  const root = asRecord(output, "Builder output");
+  const siteDir = getBuilderSiteDir(root);
+  const outputDir = path.posix.join(siteDir, ".vercel/output");
+  const staticDir = path.posix.join(siteDir, builderStaticDirRelative);
+  const configPath = path.posix.join(outputDir, "config.json");
+  const samples: SmokeSample[] = [
+    {
+      label: "schemaVersion",
+      value: "builder.drop-site.v1",
+      path: "/vercel/sandbox/agent-workspace/builder-output.json",
+    },
+  ];
+
+  const configText = await readSandboxUtf8(sandbox, configPath, "Builder Vercel output config");
+  JSON.parse(configText);
+  samples.push({
+    label: "vercelOutput.config",
+    value: "config.json parses",
+    path: configPath,
+    bytes: Buffer.byteLength(configText),
+  });
+
+  const staticFiles = await listSandboxFiles(sandbox, staticDir);
+  assert(staticFiles.length > 0, "Builder static output directory was empty.");
+
+  const htmlFiles = staticFiles.filter((file) => /\.html$/i.test(file.relativePath));
+  assert(
+    htmlFiles.length === 1,
+    `Builder should emit one HTML document, found ${htmlFiles.length}.`,
+  );
+  const htmlFile = htmlFiles.find((file) => file.relativePath === "index.html") ?? htmlFiles[0];
+  const htmlText = await readSandboxUtf8(sandbox, htmlFile.sandboxPath, "Builder index HTML");
+  assert(/<html[\s>]/i.test(htmlText), "Builder HTML did not contain an <html> document.");
+  await writeFile(path.join(artifactDir, "builder-index.html"), htmlText);
+
+  const textFiles = staticFiles.filter(
+    (file) =>
+      /\.(css|js|json|txt)$/i.test(file.relativePath) &&
+      file.sandboxPath !== configPath &&
+      file.bytes <= 500_000,
+  );
+  const textContents = await Promise.all(
+    textFiles.map((file) =>
+      readSandboxUtf8(sandbox, file.sandboxPath, `Builder text asset ${file.relativePath}`),
+    ),
+  );
+  const pageSignalText = [htmlText, ...textContents].join("\n");
+  validateBuilderPageSignals(root, pageSignalText);
+
+  const imageFiles = staticFiles.filter((file) =>
+    /\.(png|jpe?g|webp)$/i.test(file.relativePath),
+  );
+  assert(imageFiles.length > 0, "Builder static output did not include product imagery.");
+  assert(
+    imageFiles.length >= 2,
+    "Builder static output should include at least two product images for the carousel.",
+  );
+  validateBuilderLayoutSignals(htmlText, pageSignalText, imageFiles);
+  assert(
+    hasRasterImageReference(pageSignalText, imageFiles),
+    "Builder page did not reference a raster image asset.",
+  );
+  for (const imageFile of imageFiles.slice(0, 3)) {
+    const buffer = await readSandboxBuffer(
+      sandbox,
+      imageFile.sandboxPath,
+      `Builder image asset ${imageFile.relativePath}`,
+    );
+    const image = parseImageHeader(buffer);
+    assert(image.validSignature, `Builder image had an invalid signature: ${imageFile.sandboxPath}`);
+    assert(
+      image.width > 0 && image.height > 0,
+      `Builder image dimensions were invalid: ${imageFile.sandboxPath}`,
+    );
+    assert(
+      buffer.byteLength >= 1_024,
+      `Builder image asset was unexpectedly small: ${imageFile.sandboxPath}`,
+    );
+  }
+
+  samples.push({
+    label: "static.index",
+    value: htmlFile.relativePath,
+    path: htmlFile.sandboxPath,
+    bytes: Buffer.byteLength(htmlText),
+  });
+  samples.push({
+    label: "static.sampleFiles",
+    value: staticFiles
+      .slice(0, 8)
+      .map((file) => file.relativePath)
+      .join(", "),
+    path: staticDir,
+  });
+  samples.push({
+    label: "page.signals",
+    value: "one-html,top-countdown,buy-now,price,carousel,no-scroll,raster-image",
+    path: htmlFile.sandboxPath,
+  });
+  samples.push({
+    label: "review.browser",
+    value: "agent-browser,desktop-16x10,desktop-16x9,no-overflow,no-right-clipping",
+    path: "/vercel/sandbox/agent-workspace/builder-output.json",
+  });
+
+  const verifiedUrls = new Map<string, { status: number; bytes: number }>();
+  for (const entry of collectBuilderDeploymentUrlEntries(root)) {
+    const cached =
+      verifiedUrls.get(entry.url) ??
+      (await verifyHttp200(entry.url, `Builder ${entry.label}`));
+    verifiedUrls.set(entry.url, cached);
+    samples.push({
+      label: `${entry.label}.http`,
+      value: "HTTP 200",
+      url: entry.url,
+      status: cached.status,
+      bytes: cached.bytes,
+    });
+  }
+
+  return samples;
+}
+
+function getBuilderSiteDir(root: Record<string, unknown>) {
+  const site = asRecord(root.site, "Builder site");
+  const siteDir = trimTrailingSlash(
+    requireOptionalString(site.siteDir, builderDefaultSiteDir, "site.siteDir"),
+  );
+  assertBuilderWorkspacePath(siteDir, "site.siteDir");
+  return siteDir;
+}
+
+function validateBuilderPageSignals(root: Record<string, unknown>, text: string) {
+  const page = asRecord(root.page, "Builder page");
+  const normalized = text.replace(/\s+/g, " ");
+  const hasCountdown =
+    /countdown|time\s*left|ends\s*in|hours?.{0,24}minutes?|minutes?.{0,24}seconds?/i.test(
+      normalized,
+    );
+  const has24HourSignal =
+    page.countdownHours === 24 || /\b24\s*(?:hour|hr|h)\b/i.test(normalized);
+  assert(hasCountdown, "Builder page missing countdown/timer signal.");
+  assert(has24HourSignal, "Builder page missing 24-hour countdown signal.");
+  assert(
+    /buy\s*now/i.test(String(page.ctaLabel ?? "")) || /buy\s*now/i.test(normalized),
+    "Builder page missing Buy Now signal.",
+  );
+  assert(
+    /(?:\u20b9|\$|\u20ac|\u00a3)\s*\d|(?:inr|usd|eur|gbp|rs\.?)\s*\d|\bprice\b.{0,40}\d/i.test(
+      normalized,
+    ),
+    "Builder page missing price signal.",
+  );
+}
+
+function validateBuilderReviewEvidence(root: Record<string, unknown>) {
+  const review = asRecord(root.review, "Builder review");
+  assert(review.passed === true, "Builder review.passed should be true.");
+  assert(
+    review.agentBrowserUsed === true,
+    "Builder review must record agentBrowserUsed: true.",
+  );
+  const browserChecks = asRecord(review.browserChecks, "Builder review.browserChecks");
+  for (const [name, expectedViewport] of [
+    ["desktop16x10", "1440x900"],
+    ["desktop16x9", "1920x1080"],
+  ] as const) {
+    const check = asRecord(browserChecks[name], `Builder review.browserChecks.${name}`);
+    assert(
+      typeof check.viewport === "string" && check.viewport.includes(expectedViewport),
+      `Builder ${name} browser check missing viewport ${expectedViewport}.`,
+    );
+    assert(
+      check.horizontalOverflow === false,
+      `Builder ${name} browser check should report no horizontal overflow.`,
+    );
+    assert(
+      check.rightEdgeClipping === false,
+      `Builder ${name} browser check should report no right-edge clipping.`,
+    );
+    assert(
+      Array.isArray(check.clippedRightEdgeElements) &&
+        check.clippedRightEdgeElements.length === 0,
+      `Builder ${name} browser check should report zero clipped right-edge elements.`,
+    );
+  }
+}
+
+function validateBuilderLayoutSignals(
+  htmlText: string,
+  text: string,
+  imageFiles: SandboxFileInfo[],
+) {
+  const body = extractHtmlBody(htmlText).toLowerCase();
+  const normalized = text.replace(/\s+/g, " ");
+  const normalizedLower = normalized.toLowerCase();
+  const countdownIndex = firstMatchIndex(body, [
+    "countdown",
+    "time-left",
+    "time left",
+    "ends-in",
+    "ends in",
+    "timer",
+  ]);
+  assert(countdownIndex >= 0, "Builder page missing countdown markup.");
+
+  const firstProductIndex = firstPresentIndex(
+    body,
+    ["<img", "buy now", "price", "₹", "inr", "$"],
+  );
+  assert(
+    firstProductIndex === -1 || countdownIndex < firstProductIndex,
+    "Builder countdown should appear before product, price, and CTA content.",
+  );
+
+  assert(
+    /carousel|slider|slides?|data-carousel|aria-roledescription=["']carousel["']/i.test(
+      normalized,
+    ),
+    "Builder page missing carousel/slide signal.",
+  );
+  assert(
+    /setinterval|requestanimationframe|animation\s*:|@keyframes/i.test(normalized),
+    "Builder page missing auto-advance carousel or animation signal.",
+  );
+
+  const referencedImages = imageFiles.filter((file) =>
+    normalizedLower.includes(file.relativePath.toLowerCase()) ||
+    normalizedLower.includes(path.posix.basename(file.relativePath).toLowerCase()),
+  );
+  assert(
+    referencedImages.length >= 2,
+    "Builder page should reference at least two carousel product images.",
+  );
+  assert(
+    /100(?:svh|dvh|vh)|min-height\s*:\s*100|height\s*:\s*100/i.test(normalized),
+    "Builder page missing one-viewport sizing signal.",
+  );
+  assert(
+    /overflow-y\s*:\s*hidden|overflow\s*:\s*hidden/i.test(normalized),
+    "Builder page missing no-scroll overflow control signal.",
+  );
+}
+
+function extractHtmlBody(htmlText: string) {
+  const match = /<body\b[^>]*>([\s\S]*?)<\/body>/i.exec(htmlText);
+  return match?.[1] ?? htmlText;
+}
+
+function firstMatchIndex(text: string, patterns: string[]) {
+  const indexes = patterns
+    .map((pattern) => text.indexOf(pattern))
+    .filter((index) => index >= 0);
+  return indexes.length === 0 ? -1 : Math.min(...indexes);
+}
+
+function firstPresentIndex(text: string, patterns: string[]) {
+  return firstMatchIndex(text, patterns);
+}
+
+function hasRasterImageReference(text: string, imageFiles: SandboxFileInfo[]) {
+  const normalized = text.toLowerCase();
+  if (/<img\b|background-image|url\([^)]*\.(?:png|jpe?g|webp)/i.test(text)) {
+    return true;
+  }
+  return imageFiles.some((file) => normalized.includes(file.relativePath.toLowerCase()));
+}
+
+function collectBuilderDeploymentUrlEntries(root: Record<string, unknown>) {
+  const entries: { label: string; url: string }[] = [];
+  const site = isRecord(root.site) ? root.site : {};
+  const deployment = isRecord(root.deployment) ? root.deployment : {};
+  for (const [label, value] of [
+    ["site.deploymentUrl", site.deploymentUrl],
+    ["site.canonicalHistoricalUrl", site.canonicalHistoricalUrl],
+    ["deployment.url", deployment.url],
+  ] as const) {
+    if (typeof value === "string" && value.trim().length > 0) {
+      const url = value.trim();
+      assertHttpUrl(url, label);
+      entries.push({ label, url });
+    }
+  }
+  return entries;
+}
+
+async function listSandboxFiles(
+  sandbox: Sandbox,
+  root: string,
+  maxDepth = 5,
+): Promise<SandboxFileInfo[]> {
+  const files: SandboxFileInfo[] = [];
+
+  async function visit(directory: string, depth: number) {
+    assert(depth <= maxDepth, `Builder static output exceeded ${maxDepth} directory levels.`);
+    const entries = await sandbox.fs.readdir(directory, { withFileTypes: true });
+    for (const entry of entries) {
+      const sandboxPath = path.posix.join(directory, entry.name);
+      if (entry.isDirectory()) {
+        await visit(sandboxPath, depth + 1);
+        continue;
+      }
+      if (!entry.isFile()) {
+        continue;
+      }
+      const stat = await sandbox.fs.stat(sandboxPath);
+      files.push({
+        sandboxPath,
+        relativePath: path.posix.relative(root, sandboxPath),
+        bytes: stat.size,
+      });
+    }
+  }
+
+  await visit(root, 0);
+  return files.sort((a, b) => a.relativePath.localeCompare(b.relativePath));
+}
+
+async function readSandboxUtf8(sandbox: Sandbox, sandboxPath: string, label: string) {
+  const buffer = await readSandboxBuffer(sandbox, sandboxPath, label);
+  return buffer.toString("utf8");
+}
+
+async function readSandboxBuffer(sandbox: Sandbox, sandboxPath: string, label: string) {
+  const buffer = await sandbox.readFileToBuffer({ path: sandboxPath });
+  assert(buffer, `${label} missing: ${sandboxPath}`);
+  return buffer;
+}
+
+async function verifyHttp200(url: string, label: string) {
+  const response = await fetchWithTimeout(url, 30_000);
+  const text = await response.text();
+  assert(response.status === 200, `${label} expected HTTP 200, got ${response.status}.`);
+  return {
+    status: response.status,
+    bytes: Buffer.byteLength(text),
+  };
+}
+
+async function fetchWithTimeout(url: string, timeoutMs: number) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, {
+      redirect: "follow",
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function requireOptionalString(value: unknown, fallback: string, label: string) {
+  if (value === undefined || value === null) {
+    return fallback;
+  }
+  return requireString(value, label);
+}
+
+function assertBuilderWorkspacePath(value: string, label: string) {
+  assert(value.startsWith(`${builderWorkspaceRoot}/`), `${label} must live in ${builderWorkspaceRoot}.`);
+  assert(!value.includes("/../"), `${label} must not contain parent-directory traversal.`);
+}
+
+function assertHttpUrl(value: string, label: string) {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error(`${label} must be a valid URL.`);
+  }
+  assert(
+    url.protocol === "https:" || url.protocol === "http:",
+    `${label} must be an HTTP URL.`,
+  );
+}
+
+function trimTrailingSlash(value: string) {
+  return value.replace(/\/+$/, "");
+}
+
 function selectScenarios(value: CliOptions["scenario"]) {
   if (value === "all") {
     return scenarios;
@@ -888,6 +1393,17 @@ const scenarios: Scenario[] = [
     validateOutput: validateScoutOutput,
     task:
       "Use $scout to get latest cultural trends for Mumbai, India in the last 24 hours.",
+  },
+  {
+    name: "builder-drop-site",
+    workspaceId: "e2e-builder-drop-site",
+    outputPath: "/vercel/sandbox/agent-workspace/builder-output.json",
+    collectAssets: false,
+    validateEvents: validateBuilderEvents,
+    validateOutput: validateBuilderOutput,
+    validateSandboxFiles: validateBuilderSandboxFiles,
+    task:
+      "Use $builder to create a live drop page for this winning cap product: ideaRef idea_01; productRef winner_cap_01; product Monsoon Crease Cap, a washed black cotton cricket cap with electric-blue rain-stitch embroidery; winning copy Play starts when the rain stops; price INR 2499; ad result 2.7% CTR among Mumbai street-cricket fans. Make it one no-scroll page with the 24-hour countdown at the top, a large auto-advancing product image carousel, and a dummy Buy Now button.",
   },
 ];
 
@@ -1068,7 +1584,8 @@ function parseScenario(value: string): CliOptions["scenario"] {
   if (
     value === "all" ||
     value === "fashion-designer-product" ||
-    value === "scout-cultural"
+    value === "scout-cultural" ||
+    value === "builder-drop-site"
   ) {
     return value;
   }
@@ -1095,6 +1612,7 @@ function printHelp() {
   console.log(`Usage:
   pnpm e2e:sandbox -- --scenario fashion-designer-product
   pnpm e2e:sandbox -- --scenario scout-cultural
+  pnpm e2e:sandbox -- --scenario builder-drop-site
   pnpm e2e:sandbox -- --scenario all
 
 Options:

@@ -37,3 +37,15 @@ config_file = "agents/apparel-designer.toml"
 [agents.fashion-reviewer]
 description = "Review Fashion Designer image candidates, reject weak assets, and request focused regeneration."
 config_file = "agents/fashion-reviewer.toml"
+
+[agents.drop-site-builder]
+description = "Create one-page static Builder drop sites using frontend-skill and imagegen."
+config_file = "agents/drop-site-builder.toml"
+
+[agents.drop-site-reviewer]
+description = "Review Builder drop sites locally with agent-browser on desktop and mobile."
+config_file = "agents/drop-site-reviewer.toml"
+
+[agents.drop-site-deployer]
+description = "Deploy reviewed Builder static output to drip-websites with Vercel CLI."
+config_file = "agents/drop-site-deployer.toml"

@@ -110,6 +110,7 @@ async function main() {
     log("Installing runner dependencies in sandbox.");
     await preparePnpm(baseSandbox, config);
     await installRunnerDependencies(baseSandbox, config);
+    await installSandboxNodeToolDependencies(baseSandbox, config);
 
     log("Installing sandbox Python tool dependencies.");
     await installSandboxPythonToolDependencies(baseSandbox, config);
@@ -264,7 +265,13 @@ function assertRunnerDependencies(packageJson: PackageJson) {
     ...packageJson.dependencies,
     ...packageJson.devDependencies,
   };
-  for (const name of ["@openai/codex-sdk", "convex", "tsx"]) {
+  for (const name of [
+    "@openai/codex-sdk",
+    "agent-browser",
+    "convex",
+    "tsx",
+    "vercel",
+  ]) {
     if (!deps[name]) {
       throw new Error(`sandbox/runner/package.json must include ${name}.`);
     }
@@ -336,10 +343,15 @@ async function assertSandboxPayload(config: SetupConfig) {
     "codex-agent/.codex/agents/sock-designer.toml",
     "codex-agent/.codex/agents/apparel-designer.toml",
     "codex-agent/.codex/agents/fashion-reviewer.toml",
+    "codex-agent/.codex/agents/drop-site-builder.toml",
+    "codex-agent/.codex/agents/drop-site-reviewer.toml",
+    "codex-agent/.codex/agents/drop-site-deployer.toml",
     "codex-agent/.codex/skills/.system/imagegen/SKILL.md",
     "codex-agent/.codex/skills/.system/imagegen/scripts/image_gen.py",
     "codex-agent/.codex/skills/.system/imagegen/scripts/remove_chroma_key.py",
     "codex-agent/.agents/skills/agent-browser/SKILL.md",
+    "codex-agent/.agents/skills/builder/SKILL.md",
+    "codex-agent/.agents/skills/frontend-skill/SKILL.md",
     "codex-agent/.agents/skills/scout/SKILL.md",
     "codex-agent/.agents/skills/fashion-designer/SKILL.md",
     "codex-agent/.agents/skills/x-trends/SKILL.md",
@@ -545,6 +557,47 @@ async function installRunnerDependencies(
     },
     timeoutMs: config.installTimeoutMs,
   });
+}
+
+async function installSandboxNodeToolDependencies(
+  sandbox: VercelSandbox,
+  config: SetupConfig,
+) {
+  await runSandboxCommand(sandbox, "install agent-browser browser dependency", {
+    cmd: "pnpm",
+    args: ["exec", "agent-browser", "install", "--with-deps"],
+    cwd: config.runnerCwd,
+    timeoutMs: 300_000,
+  });
+
+  await verifySandboxNodeToolDependencies(sandbox, config);
+}
+
+async function verifySandboxNodeToolDependencies(
+  sandbox: VercelSandbox,
+  config: SetupConfig,
+) {
+  const cliResult = await runSandboxCommand(sandbox, "verify sandbox node tools", {
+    cmd: "pnpm",
+    args: [
+      "exec",
+      "node",
+      "-e",
+      [
+        "const { execFileSync } = require('node:child_process')",
+        "const vercel = execFileSync('pnpm', ['exec', 'vercel', '--version'], { encoding: 'utf8' })",
+        "const browser = execFileSync('pnpm', ['exec', 'agent-browser', '--version'], { encoding: 'utf8' })",
+        "if (!/(?:Vercel CLI|\\d+\\.\\d+\\.\\d+)/.test(vercel)) throw new Error('vercel cli missing')",
+        "if (!/agent-browser/.test(browser)) throw new Error('agent-browser cli missing')",
+        "console.log('sandbox-node-tools-ok')",
+      ].join("; "),
+    ],
+    cwd: config.runnerCwd,
+    timeoutMs: 60_000,
+  });
+  if (!cliResult.stdout.includes("sandbox-node-tools-ok")) {
+    throw new Error("Sandbox node tool smoke did not report success.");
+  }
 }
 
 async function installSandboxPythonToolDependencies(
@@ -903,6 +956,7 @@ function redactionValuesFromEnv(env: EnvMap) {
     env.VERCEL_OIDC_TOKEN,
     env.VERCEL_PROJECT_ID,
     env.VERCEL_TEAM_ID,
+    env.VERCEL_DEPLOY_TOKEN,
     env.VERCEL_TOKEN,
   ].filter((value): value is string => Boolean(value));
 }
@@ -964,10 +1018,15 @@ async function main() {
     ".codex/agents/sock-designer.toml",
     ".codex/agents/apparel-designer.toml",
     ".codex/agents/fashion-reviewer.toml",
+    ".codex/agents/drop-site-builder.toml",
+    ".codex/agents/drop-site-reviewer.toml",
+    ".codex/agents/drop-site-deployer.toml",
     ".codex/skills/.system/imagegen/SKILL.md",
     ".codex/skills/.system/imagegen/scripts/image_gen.py",
     ".codex/skills/.system/imagegen/scripts/remove_chroma_key.py",
     ".agents/skills/agent-browser/SKILL.md",
+    ".agents/skills/builder/SKILL.md",
+    ".agents/skills/frontend-skill/SKILL.md",
     ".agents/skills/scout/SKILL.md",
     ".agents/skills/fashion-designer/SKILL.md",
     ".agents/skills/x-trends/SKILL.md",
@@ -978,7 +1037,7 @@ async function main() {
 
   const packageJson = JSON.parse(await readFile("package.json", "utf8"));
   const deps = { ...packageJson.dependencies, ...packageJson.devDependencies };
-  for (const name of ["@openai/codex-sdk", "convex", "tsx"]) {
+  for (const name of ["@openai/codex-sdk", "agent-browser", "convex", "tsx", "vercel"]) {
     if (!deps[name]) {
       throw new Error("Runner dependency is missing: " + name);
     }
@@ -1000,7 +1059,10 @@ async function main() {
     !config.includes("cap-designer") ||
     !config.includes("sock-designer") ||
     !config.includes("apparel-designer") ||
-    !config.includes("fashion-reviewer")
+    !config.includes("fashion-reviewer") ||
+    !config.includes("drop-site-builder") ||
+    !config.includes("drop-site-reviewer") ||
+    !config.includes("drop-site-deployer")
   ) {
     throw new Error("Codex config is missing expected defaults.");
   }
@@ -1060,10 +1122,15 @@ async function main() {
     ".codex/agents/sock-designer.toml",
     ".codex/agents/apparel-designer.toml",
     ".codex/agents/fashion-reviewer.toml",
+    ".codex/agents/drop-site-builder.toml",
+    ".codex/agents/drop-site-reviewer.toml",
+    ".codex/agents/drop-site-deployer.toml",
     ".codex/skills/.system/imagegen/SKILL.md",
     ".codex/skills/.system/imagegen/scripts/image_gen.py",
     ".codex/skills/.system/imagegen/scripts/remove_chroma_key.py",
     ".agents/skills/agent-browser/SKILL.md",
+    ".agents/skills/builder/SKILL.md",
+    ".agents/skills/frontend-skill/SKILL.md",
     ".agents/skills/scout/SKILL.md",
     ".agents/skills/fashion-designer/SKILL.md",
     ".agents/skills/x-trends/SKILL.md",

@@ -102,6 +102,7 @@ export const startSandboxRun = action({
             process.env.CODEX_REASONING_EFFORT ?? "low",
           DRIP_CODEX_NETWORK_ACCESS_ENABLED:
             process.env.DRIP_CODEX_NETWORK_ACCESS_ENABLED ?? "false",
+          ...optionalDropSitesEnv(),
           ...optionalEnv("EXA_API_KEY"),
           ...optionalMetaAdsEnv(),
           ...optionalEnv("X_BEARER_TOKEN"),
@@ -199,6 +200,15 @@ function optionalMetaAdsEnv() {
     ...(accessToken ? { META_ADS_ACCESS_TOKEN: accessToken } : {}),
     ...(adAccountId ? { META_ADS_AD_ACCOUNT_ID: adAccountId } : {}),
     ...(businessId ? { META_ADS_BUSINESS_ID: businessId } : {}),
+  };
+}
+
+function optionalDropSitesEnv() {
+  return {
+    ...optionalEnv("DRIP_DROP_SITES_VERCEL_PROJECT"),
+    ...optionalEnv("DRIP_DROP_SITES_VERCEL_SCOPE"),
+    ...optionalEnv("VERCEL_DEPLOY_TOKEN"),
+    ...optionalEnv("VERCEL_TEAM_ID"),
   };
 }
 

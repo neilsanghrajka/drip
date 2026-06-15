@@ -5,7 +5,9 @@
   "packageManager": "pnpm@11.3.0",
   "dependencies": {
     "@openai/codex-sdk": "0.136.0",
+    "agent-browser": "0.27.1",
     "convex": "1.39.1",
-    "tsx": "4.22.4"
+    "tsx": "4.22.4",
+    "vercel": "54.6.1"
   }
 }

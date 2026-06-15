@@ -1,6 +1,6 @@
 # Sandbox
 
-Last updated: 2026-06-04
+Last updated: 2026-06-07
 
 This is the high-level map for Drip's Vercel Sandbox and Codex SDK execution
 layer. The base snapshot is a separate sandbox runtime payload, not a clone of
@@ -87,6 +87,9 @@ repo/
           sock-designer.toml
           apparel-designer.toml
           fashion-reviewer.toml
+          drop-site-builder.toml
+          drop-site-reviewer.toml
+          drop-site-deployer.toml
         skills/
           .system/
             imagegen/
@@ -94,6 +97,10 @@ repo/
       .agents/
         skills/
           agent-browser/
+            SKILL.md
+          builder/
+            SKILL.md
+          frontend-skill/
             SKILL.md
           scout/
             SKILL.md
@@ -125,9 +132,11 @@ The snapshot maps that repo payload to:
 `src/` remains Drip product and Convex control-plane code. It is not copied into
 the base snapshot.
 
-The setup command also preinstalls Python CLI dependencies into the base image:
-`openai` and `pillow` for the official `$imagegen` fallback, plus `uv` and the
-official Meta Ads CLI package (`meta-ads`) for ad-account and campaign
+The setup command also preinstalls Node and Python tool dependencies into the
+base image. Node tools include the Vercel CLI for Builder deploys and
+`agent-browser` plus its browser dependency for Builder review. Python tools
+include `openai` and `pillow` for the official `$imagegen` fallback, plus `uv`
+and the official Meta Ads CLI package (`meta-ads`) for ad-account and campaign
 automation. `meta-ads` requires Python 3.12+, so the setup installs it as a
 uv-managed tool rather than relying on the sandbox system Python. That keeps
 agent runs focused on the task rather than per-run dependency bootstrap.
@@ -194,6 +203,60 @@ boundary. The runner is generic: it streams Codex events and final response, but
 does not interpret skill-specific artifacts such as Scout's `scout-output.json`
 or Fashion Designer's `fashion-designer-output.json`.
 
+## Builder Drop-Site Deployment
+
+Builder uses the same generic runner and sandbox workspace as Scout and Fashion
+Designer. For v1, Builder deploys each generated one-page site as an immutable
+preview deployment in the dedicated Vercel project
+`drip-websites`.
+
+The historical live link is the immutable deployment URL returned by Vercel,
+not the project alias URL. The project alias may point at whichever deployment
+is current, but each generated deployment URL can remain live at the same time
+as previous drops.
+
+The Builder deployer creates a prebuilt static output under:
+
+```text
+/vercel/sandbox/agent-workspace/builder-site/.vercel/output/
+```
+
+Then deploy with Vercel CLI:
+
+```bash
+vercel deploy /vercel/sandbox/agent-workspace/builder-site \
+  --prebuilt \
+  --archive=tgz \
+  --project "$DRIP_DROP_SITES_VERCEL_PROJECT" \
+  --scope "${DRIP_DROP_SITES_VERCEL_SCOPE:-$VERCEL_TEAM_ID}" \
+  --token "$VERCEL_DEPLOY_TOKEN" \
+  --target preview \
+  --yes
+```
+
+Do not pass `--prod` for normal Builder runs, and do not promote the deployment
+unless a later product requirement explicitly asks for a canonical alias. Force
+`--target preview`; a local smoke showed that relying on CLI defaults can
+create a production deployment and alias the project URL.
+
+Do not forward `VERCEL_PROJECT_ID` or `VERCEL_ORG_ID` into the Codex child
+process for Builder deployment. Those values identify the sandbox host project,
+not the generated-sites project, and can make the Vercel CLI reject or
+mis-target the deploy command.
+
+The dedicated `drip-websites` project should have Vercel SSO deployment
+protection disabled so immutable preview URLs can be embedded and shared.
+
+Builder-specific base image additions:
+
+- `vercel` CLI is installed through `sandbox/runner/package.json`, keeping
+  `/vercel/sandbox/runner/node_modules/.bin` on Codex's `PATH`.
+- `agent-browser` CLI and its browser dependency are installed in the base
+  image.
+- `frontend-skill` is copied into `sandbox/codex-agent/.agents/skills/`.
+- Builder, site-builder, site-reviewer, and site-deployer skill/subagent files
+  live in `sandbox/codex-agent/`.
+
 ## Env Contract
 
 Never commit or print real values for these names.
@@ -205,6 +268,9 @@ Never commit or print real values for these names.
 | `VERCEL_OIDC_TOKEN` | Setup command | Optional local setup auth when a fresh Vercel OIDC token is available; not the product Convex action credential. |
 | `VERCEL_TEAM_ID` | Vercel Sandbox SDK | Required alongside sandbox auth. |
 | `VERCEL_PROJECT_ID` | Vercel Sandbox SDK | Required alongside sandbox auth. |
+| `VERCEL_DEPLOY_TOKEN` | Convex action/runtime | Dedicated Vercel deploy token forwarded to Builder for immutable drop-site preview deployments. For hackathon runs it may be populated from the same private token as `VERCEL_TOKEN`, but keep the env name separate. |
+| `DRIP_DROP_SITES_VERCEL_PROJECT` | Convex action/runtime | Vercel project name for Builder drop-site deployments. Default value is `drip-websites`. |
+| `DRIP_DROP_SITES_VERCEL_SCOPE` | Convex action/runtime | Optional Vercel scope for Builder drop-site deployments. If omitted, Builder should use `VERCEL_TEAM_ID`. |
 | `DRIP_SANDBOX_RUNTIME` | Setup command | Base sandbox runtime override; default `node24`. |
 | `DRIP_SANDBOX_VCPUS` | Vercel Sandbox SDK | CPU setting; default 2. |
 | `DRIP_SANDBOX_TIMEOUT_MS` | Vercel Sandbox SDK | Sandbox lifetime timeout. |
@@ -337,8 +403,13 @@ successful run.
 | `sandbox/codex-agent/.codex/agents/sock-designer.toml` | Custom subagent definition for sock concept and mock image generation. |
 | `sandbox/codex-agent/.codex/agents/apparel-designer.toml` | Custom subagent definition for apparel concept and mock image generation. |
 | `sandbox/codex-agent/.codex/agents/fashion-reviewer.toml` | Custom subagent definition for Fashion Designer image curation, rejection, and regeneration requests. |
+| `sandbox/codex-agent/.codex/agents/drop-site-builder.toml` | Custom subagent definition for Builder static site creation and product image angle generation. |
+| `sandbox/codex-agent/.codex/agents/drop-site-reviewer.toml` | Custom subagent definition for Builder browser review with `agent-browser`. |
+| `sandbox/codex-agent/.codex/agents/drop-site-deployer.toml` | Custom subagent definition for Builder Vercel preview deployment and HTTP verification. |
 | `sandbox/codex-agent/.codex/skills/.system/imagegen/SKILL.md` | Official Codex image generation skill copied into the sandbox `CODEX_HOME` layout. |
 | `sandbox/codex-agent/.agents/skills/agent-browser/SKILL.md` | Browser automation skill stub copied into the agent workspace. |
+| `sandbox/codex-agent/.agents/skills/builder/SKILL.md` | Builder orchestration skill and structured output contract. |
+| `sandbox/codex-agent/.agents/skills/frontend-skill/SKILL.md` | Frontend art-direction skill used by Builder site creation. |
 | `sandbox/codex-agent/.agents/skills/scout/SKILL.md` | Scout orchestration skill and structured output contract. |
 | `sandbox/codex-agent/.agents/skills/meta-ads-cli/SKILL.md` | Meta Ads CLI usage, runtime env, and safety rules for sandbox agents. |
 | `sandbox/codex-agent/.agents/skills/fashion-designer/SKILL.md` | Fashion Designer orchestration skill and structured output contract. |
