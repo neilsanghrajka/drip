@@ -1042,10 +1042,12 @@ function StageWorkspace({
     ) : (
       <MarketerFocus
         builderUrl={builderUrl}
+        designerMocks={designerMocks}
         dropView={dropView}
         isPending={isPending}
         marketerArtifact={marketerArtifact}
         onMarketDrop={onMarketDrop}
+        selectedMocks={selectedMocks}
       />
     );
 
@@ -1503,16 +1505,20 @@ function BuilderFocus({
 
 function MarketerFocus({
   builderUrl,
+  designerMocks,
   dropView,
   isPending,
   marketerArtifact,
   onMarketDrop,
+  selectedMocks,
 }: {
   builderUrl?: string;
+  designerMocks: DesignerMock[];
   dropView?: DropView | null;
   isPending: boolean;
   marketerArtifact?: DropArtifact;
   onMarketDrop: () => void;
+  selectedMocks: string[];
 }) {
   const output = asRecord(marketerArtifact?.data);
   const campaign = asRecord(output.campaign);
@@ -1538,6 +1544,51 @@ function MarketerFocus({
         ? "Retry paused ad"
         : "Create paused ad";
   const previewStatus = metaBlocked ? "Paused draft blocked" : "Paused draft · no spend";
+  const previewProducts = designerMocks.filter((mock) => selectedMocks.includes(mock.id));
+  const heroProduct = previewProducts.find((mock) => mock.imageUrl) ?? previewProducts[0];
+  const previewCard = (
+    <div className="mt-3 overflow-hidden rounded-[14px] border-[3px] border-white/30 bg-white text-black">
+      <div className="relative grid aspect-[1/0.74] place-items-center overflow-hidden bg-[#ff3c38]">
+        {heroProduct?.imageUrl ? (
+          <img
+            alt={heroProduct.name}
+            className="h-full w-full object-cover"
+            src={heroProduct.imageUrl}
+          />
+        ) : (
+          <div className="px-5 text-center text-xl font-black">Drop of the week</div>
+        )}
+        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 to-transparent p-3 text-white">
+          <p className="drip-clamp-1 text-lg font-black">
+            {readString(campaign.name, "Website + selected images")}
+          </p>
+          <p className="mt-0.5 text-xs font-bold text-white/80">{previewStatus}</p>
+        </div>
+      </div>
+      {previewProducts.length > 1 ? (
+        <div className="grid grid-cols-3 gap-1.5 border-t-[3px] border-black bg-white p-2">
+          {previewProducts.slice(0, 3).map((mock) => (
+            <div
+              className="aspect-square overflow-hidden rounded-[8px] border-[2px] border-black bg-neutral-100"
+              key={mock.id}
+            >
+              {mock.imageUrl ? (
+                <img
+                  alt={mock.name}
+                  className="h-full w-full object-cover"
+                  src={mock.imageUrl}
+                />
+              ) : (
+                <div className="grid h-full place-items-center text-lg font-black">
+                  {mock.name.slice(0, 1)}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
 
   return (
     <div className="grid h-full min-h-0 gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
@@ -1580,17 +1631,18 @@ function MarketerFocus({
         <p className="text-[12px] font-black uppercase tracking-[0.2em] text-[#ff3c38]">
           Ad preview
         </p>
-        <div className="mt-3 overflow-hidden rounded-[14px] border-[3px] border-white/30 bg-white text-black">
-          <div className="grid aspect-[1/0.74] place-items-center bg-[#ff3c38] px-5 text-center text-xl font-black">
-            Drop of the week
-          </div>
-          <div className="p-3">
-            <p className="text-lg font-black">
-              {readString(campaign.name, "Website + selected images")}
-            </p>
-            <p className="mt-1 text-sm">{previewStatus}</p>
-          </div>
-        </div>
+        {builderUrl ? (
+          <a
+            aria-label="Open drop site from ad preview"
+            href={builderUrl}
+            rel="noreferrer"
+            target="_blank"
+          >
+            {previewCard}
+          </a>
+        ) : (
+          previewCard
+        )}
         {builderUrl ? (
           <a
             className="mt-4 inline-flex items-center gap-2 text-sm font-black uppercase underline decoration-[3px] underline-offset-4"
