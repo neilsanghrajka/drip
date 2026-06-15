@@ -235,4 +235,26 @@
     transform: rotate(35deg);
     width: 18px;
   }
+
+  .drip-update-stream {
+    mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+  }
+
+  .drip-update-track {
+    animation: drip-update-scroll 13s linear infinite;
+  }
+
+  .drip-update-stream:hover .drip-update-track {
+    animation-play-state: paused;
+  }
+}
+
+@keyframes drip-update-scroll {
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(-50%);
+  }
 }

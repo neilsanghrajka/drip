@@ -11,8 +11,10 @@ import {
   Crosshair,
   ExternalLink,
   Loader2,
+  Maximize2,
   PenLine,
   Sparkle,
+  X,
 } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -169,6 +171,14 @@ type DesignerMock = {
   imagePath?: string;
   imageUrl?: string | null;
   raw: unknown;
+};
+
+type ImagePreview = {
+  alt: string;
+  color: string;
+  detail?: string;
+  src: string;
+  title: string;
 };
 
 const dropIdStorageKey = "drip.activeDropId";
@@ -406,26 +416,6 @@ export default function CampaignPage() {
     });
   }
 
-  async function cloneActiveDrop() {
-    if (!dropView) {
-      return;
-    }
-    await runAction("clone-drop", async () => {
-      const cloned = await createDrop({
-        name: `${dropView.drop.name} copy`,
-        dropDate: dropView.drop.dropDate,
-        startingMode: dropView.drop.startingMode ?? "weekly-scout",
-        topics: dropView.drop.topics,
-        productCategories: dropView.drop.productCategories,
-        tasteConstraints: dropView.drop.tasteConstraints,
-      });
-      writeStoredDropId(cloned.dropId);
-      setCampaignName(`${dropView.drop.name} copy`);
-      setManualStage("scout");
-      resetSelections();
-    });
-  }
-
   async function cancelActiveRun() {
     if (!cancellableRun?.sandboxRunId) {
       return;
@@ -535,14 +525,6 @@ export default function CampaignPage() {
                     type="button"
                   >
                     Remove
-                  </button>
-                  <button
-                    className="rounded-[10px] border-[3px] border-black bg-white px-2.5 py-1.5 text-[11px] font-black uppercase transition hover:bg-neutral-100 disabled:cursor-wait disabled:opacity-60"
-                    disabled={Boolean(pendingAction)}
-                    onClick={cloneActiveDrop}
-                    type="button"
-                  >
-                    Clone
                   </button>
                   {cancellableRun?.sandboxRunId ? (
                     <button
@@ -1094,6 +1076,7 @@ function StageWorkspace({
   selectedMocks: string[];
 }) {
   const Icon = active.icon;
+  const [previewImage, setPreviewImage] = useState<ImagePreview | null>(null);
   const canRetry =
     (dropView?.drop.status === "failed" || dropView?.drop.status === "cancelled") &&
     dropView.drop.currentStage === active.key;
@@ -1113,6 +1096,7 @@ function StageWorkspace({
         dropView={dropView}
         isPending={isPending}
         onApproveProducts={onApproveProducts}
+        onOpenImage={setPreviewImage}
         onSelectMock={onSelectMock}
         selectedMocks={selectedMocks}
       />
@@ -1121,6 +1105,7 @@ function StageWorkspace({
         builderUrl={builderUrl}
         designerMocks={designerMocks}
         dropView={dropView}
+        onOpenImage={setPreviewImage}
         selectedMocks={selectedMocks}
       />
     ) : (
@@ -1131,12 +1116,19 @@ function StageWorkspace({
         isPending={isPending}
         marketerArtifact={marketerArtifact}
         onMarketDrop={onMarketDrop}
+        onOpenImage={setPreviewImage}
         selectedMocks={selectedMocks}
       />
     );
 
   return (
     <article className="flex h-full min-h-0 flex-col overflow-hidden rounded-[24px] border-[4px] border-black bg-white shadow-[8px_8px_0_#000]">
+      {previewImage ? (
+        <ImageLightbox
+          image={previewImage}
+          onClose={() => setPreviewImage(null)}
+        />
+      ) : null}
       <div
         className="grid shrink-0 gap-0 border-b-[4px] border-black lg:grid-cols-[286px_minmax(0,1fr)]"
         style={{ backgroundColor: active.color }}
@@ -1150,13 +1142,18 @@ function StageWorkspace({
         </div>
         <div className="flex min-h-[178px] flex-col justify-between p-5 text-white">
           <div className="flex items-center justify-between gap-5">
-            <div>
+            <div className="min-w-0 flex-1">
               <p className="text-[12px] font-black uppercase tracking-[0.22em]">
                 Step {active.step}
               </p>
               <h2 className="mt-1 text-[42px] font-black leading-none tracking-[-0.06em]">
                 {active.shortName}
               </h2>
+              <ActivityStreamBar
+                active={active}
+                activityItems={activityItems}
+                progress={stageProgress(active.key, dropView)}
+              />
             </div>
             <div className="grid size-14 shrink-0 place-items-center rounded-[14px] border-[4px] border-black bg-white text-black">
               <Icon className="size-8" style={{ color: active.color }} />
@@ -1195,8 +1192,6 @@ function StageWorkspace({
         </div>
       ) : null}
 
-      <InlineActivitySummary active={active} activityItems={activityItems} />
-
       <div className="min-h-0 flex-1 overflow-hidden p-3 lg:p-4">{body}</div>
 
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t-[3px] border-black/15 bg-neutral-50 px-5 py-1.5 lg:px-7">
@@ -1221,55 +1216,114 @@ function StageWorkspace({
   );
 }
 
-function InlineActivitySummary({
+function ActivityStreamBar({
   active,
   activityItems,
+  progress,
 }: {
   active: Stage;
   activityItems: ActivityItem[];
+  progress: number;
 }) {
   const items = activityItems.filter((item) => item.stage === active.key);
-  const current =
-    items.find((item) => item.status === "failed") ??
-    items.find((item) => item.status === "running") ??
-    [...items].reverse().find((item) => item.status === "complete") ??
-    items[0];
+  const progressItems = items.filter(
+    (item) => item.status === "running" || item.status === "pending",
+  );
+
+  if (progress <= 0 || progress >= 100 || progressItems.length === 0) {
+    return null;
+  }
 
   return (
-    <div className="grid items-center gap-2 border-b-[3px] border-black/10 bg-white px-5 py-1.5 lg:grid-cols-[minmax(0,1fr)_auto] lg:px-7">
-      <div className="flex min-w-0 items-center gap-2">
-        <span
-          className="size-2.5 shrink-0 rounded-full"
-          style={{ backgroundColor: active.color }}
-        />
-        <p className="truncate text-[13px] font-black">
-          {current?.label ?? `${active.shortName} ready`}
-        </p>
-      </div>
-      <div className="hidden flex-wrap items-center gap-1.5 md:flex">
-        {items.slice(0, 3).map((item) => (
-          <span
-            className={`inline-flex items-center gap-1 rounded-full border-[2px] border-black px-2 py-0.5 text-[9px] font-black uppercase ${
-              item.status === "complete"
-                ? "bg-[#eaffdf]"
-                : item.status === "running"
-                  ? "bg-[#fff7c9]"
-                  : item.status === "failed"
-                    ? "bg-[#ffefee]"
-                    : "bg-white"
-            }`}
-            key={`${item.stage}-${item.label}`}
-          >
-            {item.status === "running" ? (
-              <Loader2 className="size-3 animate-spin" />
-            ) : item.status === "complete" ? (
-              <Check className="size-3 stroke-[4]" />
-            ) : (
-              <Circle className="size-3" />
-            )}
-            <span className="max-w-[150px] truncate">{item.label}</span>
-          </span>
+    <div
+      aria-label={`${active.shortName} progress update`}
+      className="drip-update-stream mt-2 max-w-[620px] overflow-hidden rounded-[9px] border-[2px] border-black bg-white/95 text-black shadow-[3px_3px_0_#000]"
+    >
+      <div className="drip-update-track flex w-max items-center py-1">
+        {[0, 1].map((copy) => (
+          <div className="flex shrink-0 items-center gap-3 pr-4" key={copy}>
+            {progressItems.slice(0, 4).map((item, index) => (
+              <span
+                className="flex shrink-0 items-center gap-2 whitespace-nowrap text-[13px] font-black leading-none"
+                key={`${copy}-${item.stage}-${item.label}-${index}`}
+              >
+                <span
+                  className="size-2.5 rounded-full border-[2px] border-black"
+                  style={{ backgroundColor: active.color }}
+                />
+                {item.label}
+              </span>
+            ))}
+          </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+function ImageLightbox({
+  image,
+  onClose,
+}: {
+  image: ImagePreview;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  return (
+    <div
+      aria-label="Image preview"
+      aria-modal="true"
+      className="fixed inset-0 z-50 grid place-items-center bg-black/75 p-4"
+      onClick={onClose}
+      role="dialog"
+    >
+      <div
+        className="w-full max-w-[1120px] overflow-hidden rounded-[22px] border-[4px] border-black bg-white shadow-[8px_8px_0_#000]"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div
+          className="flex items-center justify-between gap-4 border-b-[4px] border-black px-4 py-3 text-black"
+          style={{ backgroundColor: image.color }}
+        >
+          <div className="min-w-0">
+            <p className="text-[11px] font-black uppercase tracking-[0.2em] text-black/65">
+              Preview
+            </p>
+            <h3 className="drip-clamp-1 text-[24px] font-black leading-none tracking-[-0.04em]">
+              {image.title}
+            </h3>
+          </div>
+          <button
+            aria-label="Close image preview"
+            className="grid size-11 shrink-0 place-items-center rounded-[12px] border-[3px] border-black bg-white transition hover:bg-neutral-100 focus-visible:ring-4 focus-visible:ring-white/70"
+            onClick={onClose}
+            type="button"
+          >
+            <X className="size-6 stroke-[3]" />
+          </button>
+        </div>
+        <div className="grid bg-black p-2">
+          <img
+            alt={image.alt}
+            className="max-h-[calc(100svh-190px)] w-full object-contain"
+            src={image.src}
+          />
+        </div>
+        {image.detail ? (
+          <p className="drip-clamp-2 border-t-[4px] border-black bg-white px-4 py-3 text-sm font-bold leading-tight text-neutral-600">
+            {image.detail}
+          </p>
+        ) : null}
       </div>
     </div>
   );
@@ -1380,6 +1434,7 @@ function DesignerFocus({
   dropView,
   isPending,
   onApproveProducts,
+  onOpenImage,
   onSelectMock,
   selectedMocks,
 }: {
@@ -1387,6 +1442,7 @@ function DesignerFocus({
   dropView?: DropView | null;
   isPending: boolean;
   onApproveProducts: () => void;
+  onOpenImage: (image: ImagePreview) => void;
   onSelectMock: (id: string) => void;
   selectedMocks: string[];
 }) {
@@ -1408,21 +1464,45 @@ function DesignerFocus({
                 designerMocks.map((mock, index) => {
                   const selected = selectedMocks.includes(mock.id);
                   return (
-                    <button
+                    <article
                       className={`overflow-hidden rounded-[16px] border-[3px] border-black text-left transition hover:-translate-y-1 ${
                         selected ? "shadow-[5px_5px_0_#1264ff]" : "shadow-[4px_4px_0_#000]"
                       }`}
                       key={mock.id}
-                      onClick={() => onSelectMock(mock.id)}
-                      type="button"
                     >
-                      <div className="grid aspect-[1/0.58] place-items-center overflow-hidden bg-neutral-100">
+                      <button
+                        aria-label={
+                          mock.imageUrl ? `Preview ${mock.name}` : `Select ${mock.name}`
+                        }
+                        className={`group relative grid aspect-[1/0.58] w-full place-items-center overflow-hidden bg-neutral-100 outline-none focus-visible:ring-4 focus-visible:ring-[#1264ff]/70 ${
+                          mock.imageUrl ? "cursor-zoom-in" : "cursor-pointer"
+                        }`}
+                        onClick={() => {
+                          if (mock.imageUrl) {
+                            onOpenImage({
+                              alt: mock.name,
+                              color: "#1264ff",
+                              detail: mock.idea,
+                              src: mock.imageUrl,
+                              title: mock.name,
+                            });
+                            return;
+                          }
+                          onSelectMock(mock.id);
+                        }}
+                        type="button"
+                      >
                         {mock.imageUrl ? (
-                          <img
-                            alt={mock.name}
-                            className="h-full w-full object-cover"
-                            src={mock.imageUrl}
-                          />
+                          <>
+                            <img
+                              alt={mock.name}
+                              className="h-full w-full object-cover transition duration-200 group-hover:scale-[1.03]"
+                              src={mock.imageUrl}
+                            />
+                            <span className="absolute right-2 top-2 grid size-8 place-items-center rounded-[10px] border-[3px] border-black bg-white opacity-0 shadow-[2px_2px_0_#000] transition group-hover:opacity-100 group-focus-visible:opacity-100">
+                              <Maximize2 className="size-4 stroke-[3]" />
+                            </span>
+                          </>
                         ) : (
                           <div
                             className="grid size-20 place-items-center rounded-[18px] border-[4px] border-black text-[38px] font-black text-white"
@@ -1438,8 +1518,13 @@ function DesignerFocus({
                             {mock.name.slice(0, 1)}
                           </div>
                         )}
-                      </div>
-                      <div className="border-t-[3px] border-black bg-white p-3">
+                      </button>
+                      <button
+                        aria-pressed={selected}
+                        className="w-full border-t-[3px] border-black bg-white p-3 text-left outline-none transition hover:bg-neutral-50 focus-visible:ring-4 focus-visible:ring-[#1264ff]/70"
+                        onClick={() => onSelectMock(mock.id)}
+                        type="button"
+                      >
                         <div className="flex items-center justify-between gap-3">
                           <div>
                             <h4 className="drip-clamp-1 text-lg font-black leading-none">{mock.name}</h4>
@@ -1453,8 +1538,8 @@ function DesignerFocus({
                             {selected ? <Check className="size-4 stroke-[4]" /> : null}
                           </span>
                         </div>
-                      </div>
-                    </button>
+                      </button>
+                    </article>
                   );
                 })
               )}
@@ -1495,14 +1580,17 @@ function BuilderFocus({
   builderUrl,
   designerMocks,
   dropView,
+  onOpenImage,
   selectedMocks,
 }: {
   builderUrl?: string;
   designerMocks: DesignerMock[];
   dropView?: DropView | null;
+  onOpenImage: (image: ImagePreview) => void;
   selectedMocks: string[];
 }) {
   const selected = designerMocks.filter((mock) => selectedMocks.includes(mock.id));
+  const heroMock = selected.find((mock) => mock.imageUrl) ?? selected[0];
   const building =
     dropView?.drop.status === "building" || dropView?.drop.status === "ready_to_build";
 
@@ -1571,12 +1659,30 @@ function BuilderFocus({
             </div>
           </div>
           <div className="grid aspect-square place-items-center overflow-hidden rounded-[24px] bg-neutral-900">
-            {selected[0]?.imageUrl ? (
-              <img
-                alt={selected[0].name}
-                className="h-full w-full object-cover"
-                src={selected[0].imageUrl}
-              />
+            {heroMock?.imageUrl ? (
+              <button
+                aria-label={`Preview ${heroMock.name}`}
+                className="group relative h-full w-full cursor-zoom-in outline-none focus-visible:ring-4 focus-visible:ring-[#f8ca00]/70"
+                onClick={() =>
+                  onOpenImage({
+                    alt: heroMock.name,
+                    color: "#f8ca00",
+                    detail: heroMock.idea,
+                    src: heroMock.imageUrl!,
+                    title: heroMock.name,
+                  })
+                }
+                type="button"
+              >
+                <img
+                  alt={heroMock.name}
+                  className="h-full w-full object-cover transition duration-200 group-hover:scale-[1.03]"
+                  src={heroMock.imageUrl}
+                />
+                <span className="absolute right-3 top-3 grid size-9 place-items-center rounded-[10px] border-[3px] border-black bg-white text-black opacity-0 shadow-[2px_2px_0_#000] transition group-hover:opacity-100 group-focus-visible:opacity-100">
+                  <Maximize2 className="size-4 stroke-[3]" />
+                </span>
+              </button>
             ) : (
               <div className="size-48 rounded-[28px] border-[4px] border-white/25 bg-neutral-800 shadow-[0_0_80px_rgb(248_202_0_/_35%)]" />
             )}
@@ -1594,6 +1700,7 @@ function MarketerFocus({
   isPending,
   marketerArtifact,
   onMarketDrop,
+  onOpenImage,
   selectedMocks,
 }: {
   builderUrl?: string;
@@ -1602,6 +1709,7 @@ function MarketerFocus({
   isPending: boolean;
   marketerArtifact?: DropArtifact;
   onMarketDrop: () => void;
+  onOpenImage: (image: ImagePreview) => void;
   selectedMocks: string[];
 }) {
   const output = asRecord(marketerArtifact?.data);
@@ -1645,15 +1753,33 @@ function MarketerFocus({
     <div className="mt-1.5 overflow-hidden rounded-[14px] border-[3px] border-white/30 bg-white text-black">
       <div className="relative grid h-[76px] place-items-center overflow-hidden bg-[#ff3c38]">
         {heroProduct?.imageUrl ? (
-          <img
-            alt={heroProduct.name}
-            className="h-full w-full object-cover"
-            src={heroProduct.imageUrl}
-          />
+          <button
+            aria-label={`Preview ${heroProduct.name}`}
+            className="group h-full w-full cursor-zoom-in outline-none focus-visible:ring-4 focus-visible:ring-[#ff3c38]/70"
+            onClick={() =>
+              onOpenImage({
+                alt: heroProduct.name,
+                color: "#ff3c38",
+                detail: heroProduct.idea,
+                src: heroProduct.imageUrl!,
+                title: heroProduct.name,
+              })
+            }
+            type="button"
+          >
+            <img
+              alt={heroProduct.name}
+              className="h-full w-full object-cover transition duration-200 group-hover:scale-[1.03]"
+              src={heroProduct.imageUrl}
+            />
+            <span className="absolute right-2 top-2 grid size-7 place-items-center rounded-[8px] border-[2px] border-black bg-white opacity-0 shadow-[2px_2px_0_#000] transition group-hover:opacity-100 group-focus-visible:opacity-100">
+              <Maximize2 className="size-3.5 stroke-[3]" />
+            </span>
+          </button>
         ) : (
           <div className="px-5 text-center text-xl font-black">Drop of the week</div>
         )}
-        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 to-transparent px-2 py-1.5 text-white">
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 to-transparent px-2 py-1.5 text-white">
           <p className="drip-clamp-1 text-sm font-black">
             {readString(campaign.name, "Website + selected images")}
           </p>
@@ -1665,9 +1791,26 @@ function MarketerFocus({
       {previewProducts.length > 1 ? (
         <div className="grid grid-cols-3 gap-1.5 border-t-[3px] border-black bg-white p-1">
           {previewProducts.slice(0, 3).map((mock) => (
-            <div
+            <button
+              aria-label={
+                mock.imageUrl ? `Preview ${mock.name}` : `${mock.name} preview`
+              }
               className="h-8 overflow-hidden rounded-[8px] border-[2px] border-black bg-neutral-100"
+              disabled={!mock.imageUrl}
               key={mock.id}
+              onClick={() => {
+                if (!mock.imageUrl) {
+                  return;
+                }
+                onOpenImage({
+                  alt: mock.name,
+                  color: "#ff3c38",
+                  detail: mock.idea,
+                  src: mock.imageUrl,
+                  title: mock.name,
+                });
+              }}
+              type="button"
             >
               {mock.imageUrl ? (
                 <img
@@ -1680,7 +1823,7 @@ function MarketerFocus({
                   {mock.name.slice(0, 1)}
                 </div>
               )}
-            </div>
+            </button>
           ))}
         </div>
       ) : null}
@@ -1727,21 +1870,23 @@ function MarketerFocus({
       </section>
 
       <aside className="flex h-full min-h-0 flex-col overflow-hidden rounded-[18px] border-[3px] border-black bg-black p-2.5 text-white shadow-[5px_5px_0_#ff3c38]">
-        <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#ff3c38]">
-          Ad preview
-        </p>
-        {builderUrl ? (
-          <a
-            aria-label="Open drop site from ad preview"
-            href={builderUrl}
-            rel="noreferrer"
-            target="_blank"
-          >
-            {previewCard}
-          </a>
-        ) : (
-          previewCard
-        )}
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#ff3c38]">
+            Ad preview
+          </p>
+          {builderUrl ? (
+            <a
+              aria-label="Open drop site from ad preview"
+              className="grid size-7 place-items-center rounded-[8px] border-[2px] border-white/30 text-white transition hover:bg-white hover:text-black"
+              href={builderUrl}
+              rel="noreferrer"
+              target="_blank"
+            >
+              <ExternalLink className="size-3.5 stroke-[3]" />
+            </a>
+          ) : null}
+        </div>
+        {previewCard}
         <div className="mt-1.5 grid grid-cols-3 gap-1.5 text-center">
           {[
             ["Spend", "0"],
