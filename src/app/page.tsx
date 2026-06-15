@@ -15,7 +15,7 @@ import {
   X,
 } from "lucide-react";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import type {
   ComponentType,
   CSSProperties,
@@ -328,16 +328,13 @@ function clearAuthQueryParam() {
 
 export default function Home() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { isAuthenticated, isLoading } = useConvexAuth();
   const me = useQuery(api.users.me, isAuthenticated ? {} : "skip");
   const [activeKey, setActiveKey] = useState<TeamKey>("designer");
-  const [authMode, setAuthMode] = useState<AuthMode | null>(() => {
-    if (typeof window === "undefined") {
-      return null;
-    }
-    const params = new URLSearchParams(window.location.search);
-    return params.get("auth") === "login" ? "signIn" : null;
-  });
+  const [authMode, setAuthMode] = useState<AuthMode | null>(null);
+  const visibleAuthMode =
+    authMode ?? (searchParams.get("auth") === "login" ? "signIn" : null);
   const active = team.find((member) => member.key === activeKey) ?? team[1];
   const ActiveIcon = active.icon;
 
@@ -406,9 +403,9 @@ export default function Home() {
         </nav>
       </header>
 
-      {authMode !== null && !isAuthenticated ? (
+      {visibleAuthMode !== null && !isAuthenticated ? (
         <AuthPanel
-          mode={authMode}
+          mode={visibleAuthMode}
           onClose={() => {
             setAuthMode(null);
             clearAuthQueryParam();
