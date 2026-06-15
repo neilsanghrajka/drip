@@ -867,7 +867,7 @@ function nextStageForStatus(status: DropStatus): DropStage | null {
 }
 
 function nextStageForDrop(drop: Doc<"drops">): DropStage | null {
-  if (drop.status === "failed" && drop.currentStage) {
+  if ((drop.status === "failed" || drop.status === "cancelled") && drop.currentStage) {
     return drop.currentStage;
   }
   return nextStageForStatus(drop.status);

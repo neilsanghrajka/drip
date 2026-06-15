@@ -1308,7 +1308,7 @@ function validateFashionDesignerOutput(output: unknown) {
     "Fashion Designer schemaVersion mismatch.",
   );
   const expectedIdeaRefs = ["idea_01", "idea_02"];
-  const expectedFinalMocksPerIdea = 2;
+  const expectedFinalMocksPerIdea = 1;
   const expectedFinalMocks = expectedIdeaRefs.length * expectedFinalMocksPerIdea;
 
   const ideas = asArray(root.ideas, "Fashion Designer ideas");
@@ -1323,12 +1323,8 @@ function validateFashionDesignerOutput(output: unknown) {
     assert(typeof idea.ideaRef === "string", "Fashion Designer idea missing ideaRef.");
     ideasByRef.set(idea.ideaRef, idea);
     assert(isRecord(idea.brief), `Fashion Designer idea ${idea.ideaRef} missing brief.`);
-    assertNumberAtLeast(idea.candidateCount, 2, `ideas[${idea.ideaRef}].candidateCount`);
+    assertNumberAtLeast(idea.candidateCount, 1, `ideas[${idea.ideaRef}].candidateCount`);
     assertNumberAtLeast(idea.keptCount, 1, `ideas[${idea.ideaRef}].keptCount`);
-    assert(
-      Number(idea.candidateCount) > Number(idea.keptCount),
-      `Fashion Designer did not overgenerate for idea ${idea.ideaRef}.`,
-    );
     assert(isRecord(idea.review), `Fashion Designer idea ${idea.ideaRef} missing review.`);
     assert(Array.isArray(idea.concepts), `Fashion Designer idea ${idea.ideaRef} concepts missing.`);
   }
@@ -1343,25 +1339,23 @@ function validateFashionDesignerOutput(output: unknown) {
     );
     assertNumberAtLeast(
       idea.candidateCount,
-      expectedFinalMocksPerIdea * 2,
+      expectedFinalMocksPerIdea,
       `ideas[${ideaRef}].candidateCount`,
     );
   }
 
   const concepts = asArray(root.concepts, "Fashion Designer concepts");
   assert(
-    concepts.length === expectedFinalMocks,
-    `Fashion Designer expected ${expectedFinalMocks} final concepts, got ${concepts.length}.`,
+    concepts.length >= expectedFinalMocks && concepts.length <= expectedFinalMocks * 2,
+    `Fashion Designer expected ${expectedFinalMocks}-${expectedFinalMocks * 2} final concepts, got ${concepts.length}.`,
   );
 
   const review = asRecord(root.review, "Fashion Designer review");
-  assertNumberAtLeast(review.candidateCount, expectedFinalMocks * 2, "review.candidateCount");
+  assertNumberAtLeast(review.candidateCount, expectedFinalMocks, "review.candidateCount");
   assertNumberAtLeast(review.keptCount, expectedFinalMocks, "review.keptCount");
-  assertNumberAtLeast(review.rejectedCount, 1, "review.rejectedCount");
-  assert(
-    Number(review.candidateCount) > Number(review.keptCount),
-    "Fashion Designer did not overgenerate beyond kept concepts.",
-  );
+  if (review.needsRegeneration !== undefined) {
+    asArray(review.needsRegeneration, "review.needsRegeneration");
+  }
   const reviewByIdea = asArray(review.byIdea, "Fashion Designer review.byIdea");
   for (const ideaRef of expectedIdeaRefs) {
     const entry = reviewByIdea.find(
@@ -1370,7 +1364,9 @@ function validateFashionDesignerOutput(output: unknown) {
     assert(entry, `Fashion Designer review missing byIdea entry for ${ideaRef}.`);
     const byIdea = asRecord(entry, `review.byIdea ${ideaRef}`);
     const kept = asArray(byIdea.kept, `review.byIdea ${ideaRef} kept`);
-    const rejected = asArray(byIdea.rejected, `review.byIdea ${ideaRef} rejected`);
+    if (byIdea.rejected !== undefined) {
+      asArray(byIdea.rejected, `review.byIdea ${ideaRef} rejected`);
+    }
     asArray(
       byIdea.regenerationRequests,
       `review.byIdea ${ideaRef} regenerationRequests`,
@@ -1379,7 +1375,6 @@ function validateFashionDesignerOutput(output: unknown) {
       kept.length >= expectedFinalMocksPerIdea,
       `Fashion Designer kept too few mocks for ${ideaRef}.`,
     );
-    assert(rejected.length >= 1, `Fashion Designer did not reject any surplus for ${ideaRef}.`);
   }
 
   const strategy = asRecord(root.strategy, "Fashion Designer strategy");
@@ -1396,16 +1391,15 @@ function validateFashionDesignerOutput(output: unknown) {
   );
   assertNumberAtLeast(
     candidatePlan.totalCandidateTarget,
-    expectedFinalMocks * 2,
+    expectedFinalMocks,
     "candidatePlan.totalCandidateTarget",
   );
-  assert(
-    Number(candidatePlan.totalCandidateTarget) >
-      Number(candidatePlan.totalRequestedFinalMocks),
-    "Fashion Designer did not record surplus candidate planning.",
-  );
   const workOrders = asArray(candidatePlan.workOrders, "strategy.candidatePlan.workOrders");
-  assertNumberAtLeast(workOrders.length, 4, "workOrders.length");
+  assert(
+    workOrders.length >= expectedIdeaRefs.length &&
+      workOrders.length <= expectedIdeaRefs.length * 2,
+    `Expected thin Fashion Designer work orders, got ${workOrders.length}.`,
+  );
   for (const [workOrderIndex, workOrderValue] of workOrders.entries()) {
     const workOrder = asRecord(
       workOrderValue,
@@ -1417,7 +1411,7 @@ function validateFashionDesignerOutput(output: unknown) {
       "workOrder missing productCategory.",
     );
     assertNumberAtLeast(workOrder.targetFinalMocks, 1, "workOrder.targetFinalMocks");
-    assertNumberAtLeast(workOrder.candidateTarget, 2, "workOrder.candidateTarget");
+    assertNumberAtLeast(workOrder.candidateTarget, 1, "workOrder.candidateTarget");
   }
 
   const assetDir =
@@ -2098,7 +2092,7 @@ const scenarios: Scenario[] = [
     validateEvents: validateFashionDesignerEvents,
     validateOutput: validateFashionDesignerOutput,
     task:
-      "Use $fashion-designer to create beautiful product mockups for these approved Scout ideas: idea_01 Mumbai monsoon street cricket comeback, a light local cultural moment around neighborhood cricket returning after rain breaks in Mumbai, India; idea_02 Mumbai late-night vada pav study break, a playful local student celebration around exam-season snack runs. Product categories: caps and socks. Keep exactly 2 final mockups per idea total. candidateMultiplier 2. Generate surplus candidates, review and cull per idea, and group the output by ideaRef. Make every image a premium fashion product mockup, not a website, ad, or storefront.",
+      "Use $fashion-designer to create beautiful product mockups for these approved Scout ideas: idea_01 Mumbai monsoon street cricket comeback, a light local cultural moment around neighborhood cricket returning after rain breaks in Mumbai, India; idea_02 Mumbai late-night vada pav study break, a playful local student celebration around exam-season snack runs. Product categories are caps and socks. Use one thin product lane per approved idea, targetFinalMocks 1, candidateTarget 1, maxRegenerationRounds 0, reviewerRequired false. Generate only one strong premium fashion product mock per idea by default, group the output by ideaRef, and do not create a website, ad, storefront, placeholder, or text-heavy graphic.",
   },
   {
     name: "scout-cultural",

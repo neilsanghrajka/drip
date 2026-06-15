@@ -1,6 +1,6 @@
 ---
 name: fashion-designer
-description: Use for Drip Fashion Designer work. Fashion Designer turns approved Scout ideas into beautiful product mockups, overgenerates image candidates in parallel, uses reviewer curation, and writes fashion-designer-output.json.
+description: Use for Drip Fashion Designer work. Fashion Designer turns approved Scout ideas into beautiful product mockups through three thin product-lane agents, lightweight curation, and fashion-designer-output.json.
 ---
 
 # Fashion Designer
@@ -32,35 +32,37 @@ image-generation plan.
 1. Parse approved ideas, product categories, taste constraints, output path, and asset directory.
 2. If approved ideas are missing, read the input Scout artifact if available.
 3. Enforce the hard batch cap: process at most three approved ideas. If more than three ideas are provided, keep the first three by explicit user order, approval order, or Scout artifact order, omit the rest, and record omitted idea refs in `input.omittedIdeaIds` and `strategy.notes`.
-4. Treat the capped input as a batch: `approvedIdeas[] -> perIdeaBriefs[] -> workOrders[] -> reviewer -> grouped output`.
+4. Treat the capped input as a batch: `approvedIdeas[] -> perIdeaBriefs[] -> 3 thin workOrders[] -> lightweight curation -> grouped output`.
 5. For each approved idea, create exactly one concise design brief: audience, product angle, category choices, fit, color palette, print placement, typography/style direction, and avoid-list.
-6. Choose product categories per idea. Use requested `productCategories` when provided; otherwise pick categories that fit the idea. `mocksPerIdea` is the final target per idea, not a global target.
-7. Create work orders for the matrix of `ideaRef x productCategory`. Each work order should include:
+6. Choose exactly one product category per approved idea by default. Use requested `productCategories` as an option set, not a matrix to exhaust. Only expand to a second category for an idea if the user explicitly asks for "More variants" or gives a per-category target.
+7. Create exactly one work order per approved idea by default. Each work order should include:
    - `ideaRef`
    - `ideaBrief`
    - `productCategory`
-   - `targetFinalMocks`
-   - `candidateTarget`
+   - `targetFinalMocks: 1`
+   - `candidateTarget: 1` or at most `2`
    - `assetDir`
    - `tasteConstraints`
-8. Distribute `mocksPerIdea` across the selected product categories for each idea unless the user explicitly provides per-category targets. Generate more image candidates than the final count:
-   - Target at least `targetFinalMocks * candidateMultiplier` per work order.
-   - For very small work orders, generate at least two candidates so there is something to discard.
-   - Keep the pool bounded by time and cost; prefer useful variation over exhaustive exploration.
+8. Keep generation thin and fast:
+   - The default stage should create 3 product-lane agents total for 3 approved ideas.
+   - Each lane should produce one strong product mock by default.
+   - Use two candidates in a lane only if the first candidate is likely to be risky or ambiguous.
+   - Set `maxRegenerationRounds: 0` unless the user explicitly asks for regeneration.
+   - The whole Designer stage should normally create 3-6 images total, not 12-30+.
 9. Spawn product subagents by work order, not just by product family:
    - Use `cap-designer` for `caps` work orders.
    - Use `sock-designer` for `socks` work orders.
    - Use `apparel-designer` for `tees`, `hoodies`, `bundles`, product-on-model shots, and product bundle work orders.
-   - Use the same subagent type multiple times when several ideas or category lanes need it.
-10. Run work orders in bounded waves and reserve one thread slot for review. With current `max_threads = 6`, run at most five product-lane subagents at once. If work orders exceed five lanes, run them in waves.
+   - Use the same subagent type multiple times when several ideas choose the same best category.
+10. Run exactly three product-lane agents in parallel when there are three approved ideas: one lane per idea, no second wave by default.
 11. Ask each product subagent to use `$imagegen` and return compact JSON with `ideaRef` on every candidate asset. As soon as a product subagent returns its compact JSON, copy the result into the main candidate pool and close that subagent thread before spawning more product lanes or the reviewer. Do not leave completed product-lane agents open.
-12. Spawn `fashion-reviewer` after each generation wave or after the full first generation wave. Before spawning it, verify all completed product-lane subagents from that wave are closed so the reviewer has a free thread slot. Give it the candidate pool grouped by idea, requested final count per idea, taste constraints, and image paths.
-   - If reviewer spawn fails because of thread capacity, close any remaining completed product-lane agents, then retry the reviewer once.
-   - If reviewer spawn still fails after cleanup, do not hang. Perform the curation in the main Fashion Designer thread, record the fallback in `review.notes`, and write the artifact.
-   - Never stop after a failed reviewer spawn while product candidates already exist; finish curation or fail loudly with a compact reason.
-13. `fashion-reviewer` reviews and culls per idea. It should keep enough candidates for each idea and avoid accidentally keeping all best-looking images from one idea while starving another.
-14. If an idea has fewer than `mocksPerIdea` usable mocks, run at most `maxRegenerationRounds` targeted regeneration pass through the relevant product subagent, then ask `fashion-reviewer` to review only the new replacements for that idea.
-15. Use Fashion Designer judgment to choose the final user-review set from reviewer-approved candidates, preserving grouping by `ideaRef`.
+12. Do lightweight curation in the main Fashion Designer thread. Do not spawn `fashion-reviewer` as a blocking subagent by default.
+   - Spawn `fashion-reviewer` only when image quality is obviously bad, there are extra candidates to cull, or the user explicitly asks for review.
+   - If 2 of 3 lanes finish and the third is slow, wait one short grace period, then finish with available images and mark the missing idea in `review.needsRegeneration`.
+   - Never wait indefinitely for optional lanes. Once at least three usable candidates exist overall, or at least one usable candidate exists for each finished idea, curate/write the artifact.
+13. Preserve idea coverage where possible. If an idea is missing because its lane was slow, record it as needing regeneration rather than blocking the whole stage.
+14. Do not run targeted regeneration by default. Extra rounds need explicit user instruction or a severe blocker that prevents any usable image output.
+15. Use Fashion Designer judgment to choose the final user-review set from usable candidates, preserving grouping by `ideaRef`.
 16. Write the final JSON file, replacing any existing file.
 17. Verify the JSON parses and referenced image files exist, then return a short status with the artifact path.
 
@@ -71,20 +73,20 @@ Example work orders:
   {
     "ideaRef": "idea_01",
     "productCategory": "caps",
-    "targetFinalMocks": 2,
-    "candidateTarget": 4
+    "targetFinalMocks": 1,
+    "candidateTarget": 1
   },
   {
     "ideaRef": "idea_01",
-    "productCategory": "socks",
-    "targetFinalMocks": 2,
-    "candidateTarget": 4
+    "productCategory": "hoodies",
+    "targetFinalMocks": 1,
+    "candidateTarget": 1
   },
   {
     "ideaRef": "idea_03",
     "productCategory": "tees",
-    "targetFinalMocks": 2,
-    "candidateTarget": 4
+    "targetFinalMocks": 1,
+    "candidateTarget": 1
   }
 ]
 ```
@@ -93,19 +95,20 @@ Keep responsibilities separated:
 
 - Product subagents: one work order at a time, image generation, and self-review for one product family only.
 - `$imagegen`: official image-generation workflow and asset handling rules.
-- `fashion-reviewer`: visual QA, rejection, curation, and regeneration briefs.
+- `fashion-reviewer`: optional visual QA for obvious quality problems, extra candidates, or explicit user review requests.
 - Fashion Designer: final product direction, speed/quality tradeoff, category balance, and artifact writing.
 
 ## Speed And Parallelism
 
 - Optimize for wall-clock time. Prefer several narrow product subagent calls over one large sequential call.
-- Start independent work orders in parallel whenever the request allows it, but keep one thread slot free for review/cleanup.
-- Spawn by work order. For example, run `idea_01 caps`, `idea_01 socks`, `idea_02 caps`, `idea_02 socks`, and `idea_03 caps` together, close completed lane agents after collecting their JSON, then run `idea_03 socks` or the reviewer. Do not keep six completed product-lane agents open and then try to spawn `fashion-reviewer`.
-- For larger batches, run waves. Wave 1 should usually cover the strongest cap/sock lanes across ideas; Wave 2 can cover remaining apparel, bundle, or product-on-model lanes.
+- Start independent work orders in parallel whenever the request allows it, while keeping the stage to one thin lane per approved idea by default.
+- Spawn by work order. For example, run `idea_01 caps`, `idea_02 hoodie`, and `idea_03 socks` together, close completed lane agents after collecting their JSON, then either review or run one targeted replacement lane only if an approved idea has no usable candidate. Do not keep six completed product-lane agents open and then try to spawn `fashion-reviewer`.
+- Do not run a second wave by default. Second waves are for explicit "More variants" requests or severe missing-output recovery.
 - For a single product category inside one idea, split into 2-3 visual lanes only when it helps reach the work order candidate target: for example, `minimal embroidery`, `graphic patch`, and `lifestyle product shot`.
-- Do not wait for perfect images. Once the reviewer has enough strong candidates for the requested count, stop extra regeneration.
-- Run only one focused regeneration round by default. Extra rounds need explicit user instruction or a severe blocker.
-- When the official `$imagegen` CLI fallback is used for a surplus pool, prefer `generate-batch` with a small JSONL job file and `--concurrency 3-5` so independent candidate prompts run together.
+- Do not wait for perfect images. Once the main Designer thread has enough usable candidates for the requested count, stop.
+- Prefer finishing with a smaller strong set over launching extra tee/apparel lanes that can stall the demo. The user can always ask for more variants later.
+- Run zero regeneration rounds by default. Extra rounds need explicit user instruction or a severe blocker.
+- When the official `$imagegen` CLI fallback is used for the thin lanes, prefer one compact prompt per lane and modest concurrency so independent product prompts run together.
 - For normal fashion product mock candidates, prefer `gpt-image-2`, `quality=medium`, and `size=1024x1024`. Use higher quality only for dense text, complex details, or explicit user direction.
 - For opaque product photos where transparency is not needed, `jpeg` or `webp` output is acceptable; `jpeg` with about `output_compression=85` is preferred when latency matters.
 - Do not use deterministic code to rank or score images. The speed plan is procedural; quality selection is model judgment.
@@ -138,9 +141,9 @@ Keep responsibilities separated:
 - Create product concepts, not final manufacturing specs.
 - Include caps and socks when feasible; add tees, hoodies, bundles, and product-on-model shots when they fit the idea.
 - Select a varied review set per idea. Do not return five near-duplicates of the same product for one idea, and do not starve an idea because another idea produced prettier mocks.
-- Generate surplus candidates per idea, but write only reviewer-approved final concepts to `concepts`.
-- Preserve a compact review trail in `review`, especially rejected text/image-quality issues and regeneration decisions.
-- Explain why each mock is worth showing to the user before ad testing.
+- Generate one strong candidate per idea by default, or at most two if the lane is visually risky. Write usable final concepts to `concepts`.
+- Preserve a compact review trail in `review`, especially image-quality issues and missing/slow lane decisions.
+- Explain why each mock is worth showing to the user before it goes into the limited-drop website.
 - If fewer than the requested mocks are usable for an idea, return fewer for that idea and explain why in both `ideas[].review.notes` and `strategy.notes`.
 
 Do not use deterministic code to rank, score, or select final concepts. Visual
@@ -168,44 +171,45 @@ Use this schema:
     "maxApprovedIdeas": 3,
     "omittedIdeaIds": [],
     "productCategories": ["caps", "socks", "tees", "hoodies", "bundles"],
-    "mocksPerIdea": 5,
-    "candidateMultiplier": 2,
-    "maxRegenerationRounds": 1,
+    "mocksPerIdea": 1,
+    "candidateMultiplier": 1,
+    "maxRegenerationRounds": 0,
     "tasteConstraints": []
   },
   "strategy": {
     "assetDir": "/vercel/sandbox/agent-workspace/fashion-designer-assets",
-    "subagentsUsed": ["cap-designer", "sock-designer", "apparel-designer", "fashion-reviewer"],
+    "subagentsUsed": ["cap-designer", "sock-designer", "apparel-designer"],
     "candidatePlan": {
-      "requestedFinalMocksPerIdea": 5,
-      "totalRequestedFinalMocks": 15,
-      "totalCandidateTarget": 30,
+      "requestedFinalMocksPerIdea": 1,
+      "totalRequestedFinalMocks": 3,
+      "totalCandidateTarget": 3,
       "workOrders": [
         {
           "ideaRef": "idea_01",
           "productCategory": "caps",
-          "targetFinalMocks": 2,
-          "candidateTarget": 4,
+          "targetFinalMocks": 1,
+          "candidateTarget": 1,
           "subagent": "cap-designer"
         }
       ],
       "waves": [
-        ["idea_01 caps", "idea_01 socks", "idea_02 caps", "idea_02 socks", "idea_03 caps", "idea_03 socks"]
+        ["idea_01 caps", "idea_02 hoodie", "idea_03 socks"]
       ],
       "regenerationRoundsUsed": 0
     },
     "notes": []
   },
   "review": {
-    "reviewerAgent": "fashion-reviewer",
-    "candidateCount": 30,
-    "keptCount": 15,
-    "rejectedCount": 15,
+    "reviewerAgent": null,
+    "candidateCount": 3,
+    "keptCount": 3,
+    "rejectedCount": 0,
+    "needsRegeneration": [],
     "byIdea": [
       {
         "ideaRef": "idea_01",
         "kept": ["idea_01-cap-01"],
-        "rejected": ["idea_01-cap-02"],
+        "rejected": [],
         "regenerationRequests": [],
         "notes": []
       }

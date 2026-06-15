@@ -373,7 +373,10 @@ export default function CampaignPage() {
   }
 
   async function retryCurrentStage() {
-    if (!dropView || dropView.drop.status !== "failed") {
+    if (
+      !dropView ||
+      (dropView.drop.status !== "failed" && dropView.drop.status !== "cancelled")
+    ) {
       return;
     }
     await runAction("retry-stage", async () => {
@@ -1008,7 +1011,8 @@ function StageWorkspace({
 }) {
   const Icon = active.icon;
   const canRetry =
-    dropView?.drop.status === "failed" && dropView.drop.currentStage === active.key;
+    (dropView?.drop.status === "failed" || dropView?.drop.status === "cancelled") &&
+    dropView.drop.currentStage === active.key;
   const body =
     active.key === "scout" ? (
       <ScoutFocus
@@ -1308,31 +1312,7 @@ function DesignerFocus({
   return (
     <div className="grid h-full min-h-0 gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
       <section className="flex min-h-0 flex-col">
-        <div className="grid gap-3 md:grid-cols-3">
-          {["Briefing product lanes", "Generating image pool", "Reviewer curating"].map(
-            (item, index) => (
-              <div
-                className="rounded-[14px] border-[3px] border-black bg-white p-3 shadow-[4px_4px_0_#000]"
-                key={item}
-              >
-                <p className="text-[12px] font-black uppercase text-neutral-500">
-                  Lane {index + 1}
-                </p>
-                <p className="mt-1 text-[18px] font-black leading-none tracking-[-0.03em]">
-                  {item}
-                </p>
-                <div className="mt-3 h-3 overflow-hidden rounded-full border-[2px] border-black">
-                  <div
-                    className="h-full bg-[#1264ff]"
-                    style={{ width: `${waiting ? 42 + index * 14 : 100}%` }}
-                  />
-                </div>
-              </div>
-            ),
-          )}
-        </div>
-
-        <div className="mt-3 flex min-h-0 flex-1 flex-col">
+        <div className="flex min-h-0 flex-1 flex-col">
           <p className="mb-3 text-[12px] font-black uppercase tracking-[0.18em] text-neutral-500">
             Generated products
           </p>
@@ -1700,6 +1680,9 @@ function stageForDrop(dropView: DropView | null | undefined): StageKey {
     return dropView.drop.currentStage;
   }
   if (status === "failed" && dropView?.drop.currentStage) {
+    return dropView.drop.currentStage;
+  }
+  if (status === "cancelled" && dropView?.drop.currentStage) {
     return dropView.drop.currentStage;
   }
   if (status === "ready_to_market" || status === "marketing" || status === "completed") {

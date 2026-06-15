@@ -2,7 +2,7 @@
 
 Fashion Designer is Drip's second AI teammate. Its job is to take approved
 Scout ideas and turn them into clothing concepts plus mock images that a user
-can compare, revise, and select for ad testing.
+can compare, revise, and select for the limited-drop website.
 
 Fashion Designer starts after Scout. It does not discover trends, run ads, post
 to Convex, or build storefronts.
@@ -22,8 +22,8 @@ flowchart LR
   Cap["cap-designer lanes<br/>use $imagegen"]
   Socks["sock-designer lanes<br/>use $imagegen"]
   Apparel["apparel-designer lanes<br/>use $imagegen"]
-  Pool["Surplus candidate pool<br/>more images than needed"]
-  Reviewer["fashion-reviewer<br/>visual QA + curation"]
+  Pool["Thin candidate pool<br/>3-6 images total"]
+  Curate["Main-thread curation<br/>fast quality check"]
   Assets["Kept product mockups<br/>workspace assets"]
   Output["fashion-designer-output.json"]
 
@@ -34,9 +34,8 @@ flowchart LR
   Cap --> Pool
   Socks --> Pool
   Apparel --> Pool
-  Pool --> Reviewer
-  Reviewer --> Assets
-  Reviewer -. targeted regeneration .-> Designer
+  Pool --> Curate
+  Curate --> Assets
   Assets --> Designer
   Designer --> Output
 ```
@@ -50,8 +49,8 @@ Use $fashion-designer to create concepts and mock images for these approved Scou
 ```
 
 The `$fashion-designer` skill owns the rest: per-idea product direction,
-parallel work-order fanout, surplus image generation, per-idea reviewer
-curation, artifact writing, and JSON validation.
+three thin product-lane agents, lightweight main-thread curation, artifact
+writing, and JSON validation.
 
 ## How It Runs
 
@@ -61,22 +60,20 @@ curation, artifact writing, and JSON validation.
 4. Codex uses `$fashion-designer`.
 5. `$fashion-designer` reads approved Scout ideas or a provided Scout artifact.
 6. `$fashion-designer` treats the input as a batch:
-   `approvedIdeas[] -> perIdeaBriefs[] -> workOrders[] -> reviewer -> grouped output`.
+   `approvedIdeas[] -> perIdeaBriefs[] -> 3 thin workOrders[] -> grouped output`.
 7. For each approved idea, `$fashion-designer` creates one design brief and
-   chooses product categories.
-8. `$fashion-designer` creates work orders for the `ideaRef x productCategory`
-   matrix, with final and surplus candidate targets.
+   chooses one best product category from the requested options.
+8. `$fashion-designer` creates one work order per approved idea with
+   `targetFinalMocks: 1` and `candidateTarget: 1` by default.
 9. `$fashion-designer` spawns focused product subagents by work order, not just
    by product family. It may use `cap-designer`, `sock-designer`, or
    `apparel-designer` multiple times.
 10. Product subagents use `$imagegen` to generate beautiful product mockups and
     return compact candidate summaries with `ideaRef` on every asset.
-11. `$fashion-designer` sends candidate pools to `fashion-reviewer`, grouped by
-    idea.
-12. `fashion-reviewer` keeps the best assets per idea, rejects low-quality or
-    off-brief images, and requests only focused regenerations.
-13. `$fashion-designer` runs at most one targeted regeneration round by default.
-14. `$fashion-designer` writes `fashion-designer-output.json` and stores kept
+11. `$fashion-designer` does lightweight curation itself. It only spawns
+    `fashion-reviewer` when quality is obviously bad, there are extra
+    candidates, or the user explicitly asks for review.
+12. `$fashion-designer` writes `fashion-designer-output.json` and stores kept
     images in `fashion-designer-assets/`.
 
 ## Responsibility Map
@@ -126,23 +123,27 @@ curation, artifact writing, and JSON validation.
 
 ## Speed Strategy
 
-The fast path is parallel overgeneration by work order:
+The fast path is three thin product lanes:
 
 1. Make one compact design brief per approved idea.
-2. Build work orders for `ideaRef x productCategory`.
-3. Start bounded waves while reserving one thread slot for review. With
-   `max_threads = 6`, run at most five product-lane work orders at once.
-4. Ask for a surplus pool per work order, typically about 2x the final target.
+2. Pick exactly one best product category per idea from the requested category
+   options.
+3. Start exactly three product-lane work orders for three approved ideas, with
+   no second wave by default.
+4. Ask each lane for `targetFinalMocks: 1` and `candidateTarget: 1`, or at most
+   two candidates if the lane is visually risky.
 5. Copy returned JSON into the main candidate pool and close completed product
-   lane agents before spawning the reviewer or the next wave.
-6. Send the pool to `fashion-reviewer`, grouped by idea.
-7. Keep enough strong assets per idea and stop. Regenerate only targeted
-   per-idea failures.
+   lane agents immediately.
+6. Do lightweight curation in the main Fashion Designer thread. Do not spawn
+   `fashion-reviewer` unless quality is obviously bad, there are extra
+   candidates to cull, or the user explicitly asks for review.
+7. If two lanes finish and the third is slow, wait a short grace period, then
+   finish with available images and mark the missing idea as needing
+   regeneration.
 
-This optimizes wall-clock time while preserving taste. More raw images are
-generated, but the user waits for parallel waves instead of a long serial
-perfecting loop. Larger batches run in waves: first caps/socks across ideas,
-then remaining apparel, bundle, or product-on-model lanes if needed.
+This optimizes wall-clock time by improving prompt discipline instead of image
+quantity. The default run should create 3-6 images total. More variants are a
+separate user action, not part of the first Designer pass.
 
 For the official `$imagegen` CLI fallback, product subagents should batch
 distinct candidate prompts with `generate-batch` and modest concurrency
@@ -202,8 +203,8 @@ The output keeps a flat `concepts[]` for simple downstream consumers and adds
 The runner is intentionally generic and does not enforce this Designer-specific
 artifact contract. E2E tests and any future Designer-specific orchestration
 layer should verify the JSON exists, parses, references existing image files,
-records reviewer curation, matches the expected schema, and can render a
-contact sheet of copied sandbox assets for visual review.
+records the lightweight review trail, matches the expected schema, and can
+render a contact sheet of copied sandbox assets for visual review.
 
 The Convex-side black-box smoke harness is:
 
@@ -216,11 +217,9 @@ starts the Convex action, waits for the run to finish, reads
 `fashion-designer-output.json` back from the Vercel Sandbox, copies
 PNG/JPEG/WebP assets into `.sandbox-e2e/`, validates image signatures,
 dimensions, freshness, and schema, and writes a local `contact-sheet.html`.
-The Fashion Designer smoke uses two approved ideas, caps and socks,
-`mocksPerIdea = 2`, and `candidateMultiplier = 2`. Expected proof:
-four final kept mocks grouped by idea, a surplus candidate pool around eight
-images, referenced assets that exist, and reviewer keep/reject records per
-idea.
+The Fashion Designer smoke uses two approved ideas with caps and socks as
+category options. Expected proof: one thin lane per idea by default, 2-4 final
+usable images total, referenced assets that exist, and a compact review trail.
 The smoke should not force exact subagent names, model wording, or internal
 command lines; it should prove the employee produced the expected artifact and
 images through the real sandbox path.
