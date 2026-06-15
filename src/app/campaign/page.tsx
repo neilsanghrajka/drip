@@ -99,36 +99,36 @@ const scoutIdeas = [
   {
     id: "speed",
     title: "Midnight Racing Club",
-    signal: "F1 night-drive edits",
-    angle: "Oversized tee + cap",
+    signal: "F1 edits, night drives, black/yellow utility",
+    angle: "Oversized tee + cap for street-race watch parties",
     urgency: "3 day window",
   },
   {
     id: "monsoon",
     title: "Rainproof City Uniform",
-    signal: "Commuter rain memes",
-    angle: "Reflective washed hoodie",
+    signal: "Late monsoon complaints and commuter memes",
+    angle: "Washed hoodie with reflective pocket graphics",
     urgency: "This week",
   },
   {
     id: "album",
     title: "Tour Bootleg Revival",
-    signal: "Fan poster accounts spike",
-    angle: "City-date back print tee",
+    signal: "Fan-made poster accounts are spiking",
+    angle: "Bootleg-style tee with city-date back print",
     urgency: "48 hours",
   },
   {
     id: "cricket",
     title: "Finals Afterparty",
-    signal: "Finals chant posts",
-    angle: "Cap + socks bundle",
+    signal: "Cricket celebration posts and neighborhood chants",
+    angle: "Cap + socks bundle for finals week",
     urgency: "Sunday",
   },
   {
     id: "metro",
     title: "Metro Line Drop",
-    signal: "Route screenshots spread",
-    angle: "Transit-map long sleeve",
+    signal: "New commute route screenshots and jokes",
+    angle: "Transit-map inspired long sleeve",
     urgency: "5 day window",
   },
 ];
@@ -665,63 +665,63 @@ function ScoutFocus({
         <div className="flex flex-wrap items-center gap-2">
           {["X trend scan", "Exa sources", "Creator notes"].map((item, index) => (
             <div
-              className="inline-flex items-center gap-1.5 rounded-full border-[3px] border-black bg-white px-2.5 py-1 text-[11px] font-black"
+              className="inline-flex items-center gap-2 rounded-full border-[3px] border-black bg-white px-3 py-1.5 text-xs font-black"
               key={item}
             >
               {index === 0 ? (
-                <Loader2 className="size-3.5 animate-spin" />
+                <Loader2 className="size-4 animate-spin" />
               ) : (
-                <Check className="size-3.5 stroke-[4]" />
+                <Check className="size-4 stroke-[4]" />
               )}
               {item}
             </div>
           ))}
         </div>
 
-        <div className="mt-2 flex min-h-10 items-center gap-2 rounded-[14px] border-[3px] border-black bg-white px-3 shadow-[4px_4px_0_#000]">
-          <Search className="size-4 shrink-0" />
+        <div className="mt-3 flex min-h-12 items-center gap-3 rounded-[14px] border-[3px] border-black bg-white px-4 shadow-[4px_4px_0_#000]">
+          <Search className="size-5 shrink-0" />
           <input
-            className="h-9 min-w-0 flex-1 bg-transparent text-sm font-bold outline-none placeholder:text-neutral-400"
+            className="h-10 min-w-0 flex-1 bg-transparent text-base font-bold outline-none placeholder:text-neutral-400"
             defaultValue="Search: Mumbai streetwear, cricket finals, late monsoon utility"
           />
-          <button className="rounded-[10px] bg-black px-3 py-1.5 text-xs font-black text-white" type="button">
+          <button className="rounded-[10px] bg-black px-4 py-2 text-sm font-black text-white" type="button">
             Ask Scout
           </button>
         </div>
 
-        <div className="mt-3 grid min-h-0 flex-1 gap-2 overflow-hidden md:grid-cols-2 xl:grid-cols-3">
+        <div className="mt-4 grid min-h-0 flex-1 gap-2 overflow-hidden md:grid-cols-2 xl:grid-cols-3">
           {scoutIdeas.map((idea) => {
             const selected = selectedIdeas.includes(idea.id);
             return (
               <button
-                className={`rounded-[16px] border-[3px] border-black p-2 text-left transition hover:-translate-y-1 ${
+                className={`rounded-[16px] border-[3px] border-black p-2.5 text-left transition hover:-translate-y-1 ${
                   selected ? "bg-[#eaffdf] shadow-[5px_5px_0_#55d12c]" : "bg-white shadow-[4px_4px_0_#000]"
                 }`}
                 key={idea.id}
                 onClick={() => onSelectIdea(idea.id)}
                 type="button"
               >
-                <div className="flex items-start justify-between gap-2">
-                  <h4 className="text-[15px] font-black leading-[0.95] tracking-[-0.04em]">
+                <div className="flex items-start justify-between gap-3">
+                  <h4 className="text-[16px] font-black leading-[0.95] tracking-[-0.04em]">
                     {idea.title}
                   </h4>
                   <span
-                    className={`grid size-5 shrink-0 place-items-center rounded-full border-[2px] border-black ${
+                    className={`grid size-6 shrink-0 place-items-center rounded-full border-[3px] border-black ${
                       selected ? "bg-[#55d12c]" : "bg-white"
                     }`}
                   >
-                    {selected ? <Check className="size-3 stroke-[4]" /> : null}
+                    {selected ? <Check className="size-3.5 stroke-[4]" /> : null}
                   </span>
                 </div>
-                <p className="mt-1 text-[8px] font-black uppercase text-neutral-500">
+                <p className="mt-1.5 text-[9px] font-black uppercase text-neutral-500">
                   Signal
                 </p>
-                <p className="mt-0.5 text-[10px] font-bold leading-tight">{idea.signal}</p>
-                <p className="mt-1 text-[8px] font-black uppercase text-neutral-500">
+                <p className="mt-0.5 text-[11px] font-bold leading-tight">{idea.signal}</p>
+                <p className="mt-1.5 text-[9px] font-black uppercase text-neutral-500">
                   Merch angle
                 </p>
-                <p className="mt-0.5 text-[10px] leading-tight">{idea.angle}</p>
-                <p className="mt-1 inline-flex rounded-full bg-black px-2 py-0.5 text-[9px] font-black uppercase text-white">
+                <p className="mt-0.5 text-[11px] leading-tight">{idea.angle}</p>
+                <p className="mt-1.5 inline-flex rounded-full bg-black px-2.5 py-0.5 text-[10px] font-black uppercase text-white">
                   {idea.urgency}
                 </p>
               </button>
