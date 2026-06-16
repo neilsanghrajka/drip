@@ -137,6 +137,7 @@ export default defineSchema({
     workspaceId: v.string(),
     name: v.string(),
     dropDate: v.string(),
+    city: v.optional(v.string()),
     startingMode: v.string(),
     status: dropStatus,
     currentStage: v.optional(dropStage),

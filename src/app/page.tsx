@@ -61,6 +61,7 @@ type DropSummary = {
   _id: Id<"drops">;
   name: string;
   dropDate: string;
+  city?: string;
   status: string;
   currentStage?: TeamKey;
   createdAt: number;
@@ -458,18 +459,22 @@ function AuthPanel({
 }
 
 function StartDropModal({
+  campaignCity,
   campaignName,
   error,
   isSubmitting,
+  onCampaignCityChange,
   onCampaignNameChange,
   onClose,
   onCreate,
   onResume,
   recentDrops,
 }: {
+  campaignCity: string;
   campaignName: string;
   error: string | null;
   isSubmitting: boolean;
+  onCampaignCityChange: (value: string) => void;
   onCampaignNameChange: (value: string) => void;
   onClose: () => void;
   onCreate: () => void;
@@ -569,6 +574,14 @@ function StartDropModal({
                   className="h-14 rounded-[10px] border-[3px] border-black bg-white px-4 text-xl font-black outline-none transition focus:bg-neutral-100"
                   onChange={(event) => onCampaignNameChange(event.target.value)}
                   value={campaignName}
+                />
+              </label>
+              <label className="grid gap-2 text-[12px] font-black uppercase tracking-[0.18em]">
+                City
+                <input
+                  className="h-14 rounded-[10px] border-[3px] border-black bg-white px-4 text-xl font-black outline-none transition focus:bg-neutral-100"
+                  onChange={(event) => onCampaignCityChange(event.target.value)}
+                  value={campaignCity}
                 />
               </label>
             </div>
@@ -687,6 +700,7 @@ export default function Home() {
   const [startAfterLogin, setStartAfterLogin] = useState(false);
   const [setupOpen, setSetupOpen] = useState(false);
   const [campaignName, setCampaignName] = useState("Week 52 Drop");
+  const [campaignCity, setCampaignCity] = useState("Mumbai");
   const [setupError, setSetupError] = useState<string | null>(null);
   const [setupSubmitting, setSetupSubmitting] = useState(false);
   const visibleAuthMode =
@@ -719,10 +733,16 @@ export default function Home() {
       const created = await createDrop({
         name: campaignName.trim(),
         dropDate: "This Week Sunday",
+        city: campaignCity.trim() || "Mumbai",
         startingMode: "weekly-scout",
-        topics: ["Mumbai streetwear", "cricket finals", "late monsoon utility"],
         productCategories: ["caps", "socks", "tees", "hoodies"],
-        tasteConstraints: ["premium streetwear", "collectible weekly drop"],
+        tasteConstraints: [
+          "premium streetwear",
+          "collectible weekly drop",
+          "clear readable original text",
+          "original emblem or badge system",
+          "3D, puff, embroidered, or dimensional print treatment",
+        ],
       });
       writeStoredDropId(created.dropId);
       await startNextStage({ dropId: created.dropId });
@@ -779,8 +799,10 @@ export default function Home() {
       {setupOpen && isAuthenticated ? (
         <StartDropModal
           campaignName={campaignName}
+          campaignCity={campaignCity}
           error={setupError}
           isSubmitting={setupSubmitting}
+          onCampaignCityChange={setCampaignCity}
           onCampaignNameChange={setCampaignName}
           onClose={() => {
             setSetupOpen(false);

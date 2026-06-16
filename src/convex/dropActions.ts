@@ -55,6 +55,7 @@ const createDropFromAction = makeFunctionReference<
     workspaceId: string;
     name: string;
     dropDate: string;
+    city?: string;
     startingMode: string;
     topics?: string[];
     productCategories?: string[];
@@ -69,6 +70,7 @@ const createDropFromAction = makeFunctionReference<
     workspaceId: string;
     name: string;
     dropDate: string;
+    city?: string;
     startingMode: string;
     topics?: string[];
     productCategories?: string[];
@@ -224,6 +226,7 @@ export const createDrop = action({
   args: {
     name: v.string(),
     dropDate: v.string(),
+    city: v.optional(v.string()),
     startingMode: v.string(),
     topics: v.optional(v.array(v.string())),
     productCategories: v.optional(v.array(v.string())),

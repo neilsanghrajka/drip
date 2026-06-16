@@ -30,14 +30,18 @@ flowchart LR
 
 ## TL;DR
 
-The product prompt should stay lean:
+The product prompt should stay lean. The app should pass a city, defaulting to
+Mumbai when the user does not change it:
 
 ```text
-Use $scout to get latest cultural trends for Mumbai, India in the last 24 hours.
+Use $scout for Drip.
+Input JSON: { "city": "Mumbai" }
 ```
 
-The `$scout` skill owns the rest: source selection, subagent fanout, final
-judgment, JSON writing, and JSON validation.
+The `$scout` skill owns the rest: city/country inference, source selection,
+subagent fanout, final judgment, JSON writing, and JSON validation. Product
+style such as streetwear belongs to Fashion Designer after Scout has selected
+the cultural moments.
 
 ## How It Runs
 
@@ -72,6 +76,9 @@ judgment, JSON writing, and JSON validation.
   taste criteria.
 - Source subagents do not synthesize final candidates. They return compact
   evidence for Scout.
+- Scout discovery input should be city-first. Do not pass hard-coded demo topics,
+  product categories, or downstream clothing style as discovery input unless the
+  user explicitly provided those topics.
 - With `max_depth = 1`, Scout spawns the Codex subagents. X/Exa skills may
   recommend API-level parallel calls, but they should not spawn nested Codex
   subagents.

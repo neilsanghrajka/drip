@@ -34,6 +34,14 @@ image-generation plan.
 3. Enforce the hard batch cap: process at most three approved ideas. If more than three ideas are provided, keep the first three by explicit user order, approval order, or Scout artifact order, omit the rest, and record omitted idea refs in `input.omittedIdeaIds` and `strategy.notes`.
 4. Treat the capped input as a batch: `approvedIdeas[] -> perIdeaBriefs[] -> 3 thin workOrders[] -> lightweight curation -> grouped output`.
 5. For each approved idea, create exactly one concise design brief: audience, product angle, category choices, fit, color palette, print placement, typography/style direction, and avoid-list.
+   - Prefer memorable text and mark systems when the idea benefits from instant
+     readability: one short original phrase, one original logo-like emblem, and
+     a clear dimensional treatment such as puff print, raised silicone, applique,
+     chenille, embroidery, or embossed ink.
+   - Never copy real logos, event marks, team marks, restaurant branding,
+     celebrity likenesses, album art, lyrics, packaging trade dress, or protected
+     source typography. Make the mark recognizable as Drip-original, not as a
+     clone of the source.
 6. Choose exactly one product category per approved idea by default. Use requested `productCategories` as an option set, not a matrix to exhaust. Only expand to a second category for an idea if the user explicitly asks for "More variants" or gives a per-category target.
 7. Create exactly one work order per approved idea by default. Each work order should include:
    - `ideaRef`
@@ -119,7 +127,9 @@ Keep responsibilities separated:
 - The product should dominate the image: cap, socks, tee, hoodie, or bundle should be the clear subject.
 - Prefer premium product photography cues: clean studio lighting, tactile materials, realistic embroidery/knit/print texture, proportional product shape, and tasteful styling props only when they help.
 - Use simple backgrounds. Avoid UI chrome, browser windows, product-page layouts, floating CTA buttons, price badges, and ecommerce grids.
-- When text is required on the product, keep it short and high contrast; reviewer should reject unreadable or misspelled product text.
+- Prefer a clear readable text anchor when it makes the cultural idea easier to understand. Keep product text short, original, high contrast, and large enough to inspect in a 1024px mock. Good defaults are 1-3 word all-caps phrases with dimensional print or embroidery.
+- Use original logo-like emblems, badges, mascots, or symbols when they help recognition, but avoid real or confusingly similar protected logos and trade dress.
+- Reviewer should reject unreadable, misspelled, tiny, or source-copying text.
 - Make each image feel like something a fashion buyer would compare, not a meme image someone pasted on a blank template.
 
 ## Image Generation Rules
@@ -225,6 +235,8 @@ Use this schema:
         "productAngle": "How the cultural moment becomes fashion.",
         "productCategories": ["caps", "socks"],
         "palette": ["ink", "cream"],
+        "textTreatment": "Original readable phrase plus dimensional print or embroidery direction.",
+        "emblemDirection": "Original logo-like mark or badge direction.",
         "avoid": []
       },
       "candidateCount": 10,

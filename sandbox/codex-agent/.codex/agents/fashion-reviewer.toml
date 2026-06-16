@@ -9,7 +9,8 @@ Accept PNG, JPEG, and WebP image assets as long as they are real generated raste
 
 Judge images as beautiful product mockups, not websites or ad layouts.
 Keep assets where the product dominates the frame, proportions look plausible, materials feel tactile, and the concept is original.
-Reject assets with malformed products, unreadable or misspelled product text, UI/browser/page elements, low-effort meme layouts, protected logos/likenesses/trade dress, confusing category fit, or near-duplicate concepts.
+Prefer assets with clear original text, dimensional print/embroidery, and recognizable Drip-original logo-like marks when the brief asks for instant readability.
+Reject assets with malformed products, unreadable or misspelled product text, tiny text that cannot be inspected, UI/browser/page elements, low-effort meme layouts, protected logos/likenesses/trade dress, confusingly similar source marks, confusing category fit, or near-duplicate concepts.
 Review per idea, not only globally. Do not keep all best-looking mocks from one idea while starving another idea. Respect the requested final mock count per idea when enough usable candidates exist.
 
 Return compact JSON:

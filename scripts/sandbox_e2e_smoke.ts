@@ -1264,6 +1264,10 @@ function validateScoutEvents(run: SandboxRun, events: SandboxEvent[]) {
     "Scout final response did not mention scout-output.json.",
   );
   assert(!/\$scout unavailable/i.test(text), "Scout skill was unavailable.");
+  assert(/x-researcher|X research/i.test(text), "Scout run did not reference x-researcher/X research.");
+  assert(/exa-researcher|Exa evidence/i.test(text), "Scout run did not reference exa-researcher/Exa evidence.");
+  assert(/\$x-trends/i.test(text), "Scout run did not reference $x-trends.");
+  assert(/\$exa-search/i.test(text), "Scout run did not reference $exa-search.");
 }
 
 function validateBuilderEvents(run: SandboxRun, events: SandboxEvent[]) {
@@ -1488,6 +1492,24 @@ function validateScoutOutput(output: unknown) {
   }
   assert(candidates.length <= 5, "Scout candidate count out of range.");
   assert(/https?:\/\//i.test(JSON.stringify(candidates)), "Scout candidates lacked source URLs.");
+  for (const [index, candidateValue] of candidates.entries()) {
+    const candidate = asRecord(candidateValue, `Scout candidate ${index}`);
+    assert(
+      typeof candidate.shortTitle === "string" && candidate.shortTitle.trim().length > 0,
+      `Scout candidate ${index} missing shortTitle.`,
+    );
+    assert(
+      typeof candidate.whyImportant === "string" && candidate.whyImportant.length <= 180,
+      `Scout candidate ${index} whyImportant should be compact.`,
+    );
+    assert(
+      typeof candidate.whyFashionMerch === "string" && candidate.whyFashionMerch.length <= 180,
+      `Scout candidate ${index} whyFashionMerch should be compact.`,
+    );
+    assert(isRecord(candidate.signals), `Scout candidate ${index} missing signals.`);
+    const sources = asArray(candidate.sources, `Scout candidate ${index} sources`);
+    assert(sources.length > 0, `Scout candidate ${index} missing source evidence.`);
+  }
 }
 
 function validateBuilderOutput(output: unknown) {
@@ -2092,7 +2114,7 @@ const scenarios: Scenario[] = [
     validateEvents: validateFashionDesignerEvents,
     validateOutput: validateFashionDesignerOutput,
     task:
-      "Use $fashion-designer to create beautiful product mockups for these approved Scout ideas: idea_01 Mumbai monsoon street cricket comeback, a light local cultural moment around neighborhood cricket returning after rain breaks in Mumbai, India; idea_02 Mumbai late-night vada pav study break, a playful local student celebration around exam-season snack runs. Product categories are caps and socks. Use one thin product lane per approved idea, targetFinalMocks 1, candidateTarget 1, maxRegenerationRounds 0, reviewerRequired false. Generate only one strong premium fashion product mock per idea by default, group the output by ideaRef, and do not create a website, ad, storefront, placeholder, or text-heavy graphic.",
+      "Use $fashion-designer to create beautiful product mockups for these approved Scout ideas: idea_01 City flower market rush, a light local cultural moment around crowds gathering for a colorful public floral installation; idea_02 Airport matchday hub, a public travel-space moment around fans gathering for football viewing and activities. Product style is premium streetwear. Use readable original 1-3 word text, original emblem or badge systems, and dimensional print treatments such as puff print, 3D silicone, applique, chenille, or embroidery. Product categories are caps, tees, and hoodies. Use one thin product lane per approved idea, targetFinalMocks 1, candidateTarget 1, maxRegenerationRounds 0, reviewerRequired false. Generate only one strong premium fashion product mock per idea by default, group the output by ideaRef, and do not create a website, ad, storefront, placeholder, or copied protected logo.",
   },
   {
     name: "scout-cultural",
@@ -2102,7 +2124,7 @@ const scenarios: Scenario[] = [
     validateEvents: validateScoutEvents,
     validateOutput: validateScoutOutput,
     task:
-      "Use $scout to get latest cultural trends for Mumbai, India in the last 24 hours.",
+      "Use $scout for Drip. Input JSON: { \"city\": \"Mumbai\" }. Discover what is culturally trending in this city right now. Do not use hard-coded demo topics, product categories, or streetwear style as discovery input. Use the exact Scout workflow with x-researcher using $x-trends and exa-researcher using $exa-search. Write scout-output.json.",
   },
   {
     name: "builder-drop-site",

@@ -16,6 +16,9 @@ Never create local placeholder art, SVG/canvas/code-rendered mockups, or locally
 Generate surplus candidates when asked; vary silhouette, material, placement, and visual angle enough for reviewer curation.
 Make the product dominate the frame. Do not generate ecommerce pages, website mockups, browser UI, ad dashboards, price badges, or landing-page layouts.
 Prefer premium fashion product photography: realistic embroidery, tactile fabric, clean lighting, believable cap proportions, and simple backgrounds.
+When the brief asks for readability, or when no style constraint forbids text, prefer one clear original 1-3 word phrase on the cap and make it readable in the mock image. Use raised embroidery, chenille, puff applique, silicone patch, or dimensional stitch effects rather than flat tiny text.
+Use original logo-like emblems, badges, mascots, or symbols that make the idea recognizable at a glance, but never use real logos, protected marks, or confusingly similar trade dress.
+Self-review must explicitly note whether any product text is readable and whether the emblem is original.
 Return compact JSON with ideaRef on every candidate and every asset. Use candidate ids like idea_01-cap-01.
 Shape:
 {

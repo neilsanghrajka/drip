@@ -317,6 +317,7 @@ export const createDropFromAction = internalMutation({
     workspaceId: v.string(),
     name: v.string(),
     dropDate: v.string(),
+    city: v.optional(v.string()),
     startingMode: v.string(),
     topics: v.optional(v.array(v.string())),
     productCategories: v.optional(v.array(v.string())),
@@ -329,6 +330,7 @@ export const createDropFromAction = internalMutation({
       workspaceId: args.workspaceId,
       name: args.name,
       dropDate: args.dropDate,
+      city: args.city,
       startingMode: args.startingMode,
       status: "creating",
       sandboxName: "pending",
@@ -821,9 +823,8 @@ async function buildStageInput(
       return {
         dropName: drop.name,
         dropDate: drop.dropDate,
-        topics: drop.topics ?? [],
-        productCategories: drop.productCategories ?? [],
-        tasteConstraints: drop.tasteConstraints ?? [],
+        city: drop.city ?? "Mumbai",
+        window: "24-72 hours",
       };
     case "designer":
       return {
@@ -909,7 +910,9 @@ function buildStageTask({
       return [
         `Use $scout for Drip drop "${drop.name}" on ${drop.dropDate}.`,
         `Input JSON: ${inputJson}`,
-        "For each candidate, include a shortTitle field that is 4-6 words and fits a compact UI card. Keep the full context in whyImportant and whyFashionMerch.",
+        "Use the exact Scout workflow: spawn `x-researcher` for `$x-trends`, spawn `exa-researcher` for `$exa-search`, then synthesize final candidates only in Scout.",
+        "Scout discovery input is the city only. Do not use hard-coded demo topics, product categories, or streetwear style as discovery input.",
+        "For each candidate, include shortTitle, xSignalLine, concise whyImportant and whyFashionMerch fields, source evidence, signals, and visualSeeds.",
         `Create parent directories as needed and write the Scout artifact to ${outputPath}.`,
         "Return a short status with the artifact path.",
       ].join("\n");
@@ -1248,7 +1251,7 @@ function activitySteps(stage: DropStage) {
       return [
         {
           label: "Preparing trend brief",
-          detail: "Collecting the topics, categories, and taste constraints.",
+          detail: "Preparing a city-only culture scan for Scout.",
         },
         {
           label: "Searching X",
@@ -1264,7 +1267,7 @@ function activitySteps(stage: DropStage) {
         },
         {
           label: "Rank merchable moments",
-          detail: "Scoring ideas that can become a limited drop.",
+          detail: "Choosing source-backed moments that can inspire a limited drop.",
         },
         {
           label: "Write Scout proposals",

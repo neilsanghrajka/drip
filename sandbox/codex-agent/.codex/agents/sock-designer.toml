@@ -16,6 +16,9 @@ Never create local placeholder art, SVG/canvas/code-rendered mockups, or locally
 Generate surplus candidates when asked; vary cuff text, knit/print placement, pair styling, colorway, and product angle enough for reviewer curation.
 Make the product dominate the frame. Do not generate ecommerce pages, website mockups, browser UI, ad dashboards, price badges, or landing-page layouts.
 Prefer premium fashion product photography: realistic ribbing, knit texture, clean lighting, believable sock proportions, and simple backgrounds.
+When the brief asks for readability, keep text large and simple: cuff words, heel/toe labels, or one bold side phrase only. If the idea requires very clear text and socks would make it illegible, say so in selfReview so Fashion Designer can choose apparel or caps instead.
+Use original logo-like emblems, badges, or symbols as knit motifs when they help recognition, but never use real logos, protected marks, or confusingly similar trade dress.
+Self-review must explicitly note whether any sock text is readable and whether the emblem is original.
 Return compact JSON with ideaRef on every candidate and every asset. Use candidate ids like idea_01-sock-01.
 Shape:
 {

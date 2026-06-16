@@ -65,6 +65,7 @@ type DropView = {
     createdAt?: number;
     name: string;
     dropDate: string;
+    city?: string;
     startingMode?: string;
     status: DropStatus;
     currentStage?: StageKey;
@@ -158,6 +159,7 @@ type ActivityItem = {
 type ScoutIdea = {
   id: string;
   title: string;
+  xSignal: string;
   signal: string;
   angle: string;
   urgency: string;
@@ -252,6 +254,7 @@ export default function CampaignPage() {
   const cancelSandboxRun = useMutation(api.sandboxRuns.cancelSandboxRun);
 
   const [campaignName, setCampaignName] = useState("Week 52 Drop");
+  const [campaignCity, setCampaignCity] = useState("Mumbai");
   const campaignDate = "This Week Sunday";
   const dropId = useSyncExternalStore(
     subscribeActiveDropId,
@@ -352,10 +355,16 @@ export default function CampaignPage() {
       const created = await createDrop({
         name: campaignName,
         dropDate: campaignDate,
+        city: campaignCity.trim() || "Mumbai",
         startingMode: "weekly-scout",
-        topics: ["Mumbai streetwear", "cricket finals", "late monsoon utility"],
         productCategories: ["caps", "socks", "tees", "hoodies"],
-        tasteConstraints: ["premium streetwear", "collectible weekly drop"],
+        tasteConstraints: [
+          "premium streetwear",
+          "collectible weekly drop",
+          "clear readable original text",
+          "original emblem or badge system",
+          "3D, puff, embroidered, or dimensional print treatment",
+        ],
       });
       writeStoredDropId(created.dropId);
       setSelectedIdeasOverride(null);
@@ -505,8 +514,10 @@ export default function CampaignPage() {
       {!started ? (
         <StartCampaignScreen
           campaignName={campaignName}
+          campaignCity={campaignCity}
           error={error}
           isStarting={pendingAction === "begin-scouting"}
+          onCampaignCityChange={setCampaignCity}
           onCampaignNameChange={setCampaignName}
           onStart={beginScouting}
         />
@@ -709,15 +720,19 @@ function SessionSelect({
 }
 
 function StartCampaignScreen({
+  campaignCity,
   campaignName,
   error,
   isStarting,
+  onCampaignCityChange,
   onCampaignNameChange,
   onStart,
 }: {
+  campaignCity: string;
   campaignName: string;
   error: string | null;
   isStarting: boolean;
+  onCampaignCityChange: (value: string) => void;
   onCampaignNameChange: (value: string) => void;
   onStart: () => void;
 }) {
@@ -747,6 +762,14 @@ function StartCampaignScreen({
                 className="h-16 rounded-[10px] border-[3px] border-black bg-white px-4 text-2xl font-black outline-none transition focus:bg-neutral-100 focus:text-neutral-500"
                 onChange={(event) => onCampaignNameChange(event.target.value)}
                 value={campaignName}
+              />
+            </label>
+            <label className="grid gap-2 text-[12px] font-black uppercase tracking-[0.18em]">
+              City
+              <input
+                className="h-16 rounded-[10px] border-[3px] border-black bg-white px-4 text-2xl font-black outline-none transition focus:bg-neutral-100 focus:text-neutral-500"
+                onChange={(event) => onCampaignCityChange(event.target.value)}
+                value={campaignCity}
               />
             </label>
             {error ? (
@@ -1418,7 +1441,10 @@ function ScoutFocus({
                       {selected ? <Check className="size-3.5 stroke-[4]" /> : null}
                     </span>
                   </div>
-                  <p className="mt-2 text-[11px] font-bold leading-tight">
+                  <p className="mt-2 text-[10px] font-black uppercase leading-tight text-neutral-500">
+                    {idea.xSignal}
+                  </p>
+                  <p className="mt-1.5 text-[11px] font-bold leading-tight">
                     {idea.signal}
                   </p>
                   <p className="mt-2 text-[10px] leading-tight text-neutral-600">
@@ -2299,11 +2325,24 @@ function readScoutIdeas(data: unknown): ScoutIdea[] {
         item.whyImportant,
         `${readString(signals.xTrendNames, "Live signal")} · ${sources.length} sources`,
       ),
+      xSignal: readString(item.xSignalLine, fallbackXSignal(signals, sources.length)),
       angle: readString(item.whyFashionMerch, readString(item.merchAngle, "Fashionable limited drop")),
       urgency: readString(item.urgency, "This week"),
       raw: candidate,
     };
   });
+}
+
+function fallbackXSignal(signals: Record<string, unknown>, sourceCount: number) {
+  const names = Array.isArray(signals.xTrendNames)
+    ? signals.xTrendNames.filter((name) => typeof name === "string")
+    : [];
+  const count = signals.xTweetCountMax;
+  const countLabel = typeof count === "number" ? ` · ${count.toLocaleString()} posts` : "";
+  if (names.length > 0) {
+    return `X: ${names.slice(0, 2).join(", ")}${countLabel}`;
+  }
+  return `Sources: ${sourceCount}`;
 }
 
 function readDesignerMocks(data: unknown, assets: DropAsset[]): DesignerMock[] {
