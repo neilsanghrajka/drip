@@ -16,6 +16,10 @@ Use this file as your operating rules and `docs/` as the directory map — the D
 - `references/` — read-only reference checkouts and prototypes.
 - `sandbox/codex-agent/` — the agent skills and subagents that run inside the sandbox.
 
+## Plugins And Skills
+- Use the installed plugins instead of raw CLI guesswork: the Codex plugin for agent/SDK questions, the Convex plugin for backend work, and the Vercel plugin for deploys and platform questions.
+- Use the `frontend-skill` for UI generation and the `agent-browser` skill to drive a real browser.
+
 ## Development
 - Use `pnpm` as the package manager always.
 - Keep app source in `src/`; Convex functions live in `src/convex/`.
@@ -32,8 +36,14 @@ Use this file as your operating rules and `docs/` as the directory map — the D
 - Never copy real env values, deploy keys, dashboard URLs, deployment IDs, or project IDs into commits, docs, screenshots, logs, or final responses. Exception: public-facing URLs — the live app URL and generated drop-site URLs (customer-facing `*.vercel.app` pages) — are fine in docs and README now that the repo is public.
 
 ## Verifying Your Work
+- Always verify your work in a running app, not just with static checks: open it with the `agent-browser` skill and confirm the change behaves as intended.
 - Locally: run `pnpm lint`, `pnpm typecheck`, and `pnpm build` when code changes.
+- After a production deploy, verify on the prod URL in the browser, not just locally.
+- Run the e2e test (`pnpm e2e:sandbox`) for sandbox-affecting changes, and use the Vercel and Convex plugins to map the data flow end to end when verifying.
 - Convex and production verification workflows live in `docs/CONVEX.md` and `docs/DEPLOYMENT.md`.
+
+## Git
+- Multiple agent threads edit files in this same git checkout concurrently. Do not overwrite files you did not change, re-read a file before editing it, and never stage blindly (`git add .`) — stage only the files you touched, because someone else may be mid-edit.
 
 ## Convex
 - Use Convex for backend functions and database work.
