@@ -2,7 +2,7 @@
   <img src="docs/media/team-banner.png" alt="Drip's four AI teammates: Scout, Fashion Designer, Builder, Performance Marketer" width="100%" />
 </p>
 
-<h1 align="center">Drip — meet your AI fashion team</h1>
+<h1 align="center">Drip — meet your AI e-commerce team</h1>
 
 <p align="center">
   <a href="docs/specs/01_SCOUT.md"><b>Scout</b></a>

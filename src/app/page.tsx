@@ -824,11 +824,11 @@ export default function Home() {
             <h1 className="drip-heading max-w-[640px] text-[68px] leading-[0.96] tracking-[-0.035em] sm:text-[82px] md:text-[72px] lg:text-[84px] xl:text-[104px] 2xl:text-[112px]">
               Meet your
               <br />
-              <span>AI fashion team</span>
+              <span>AI e-commerce team</span>
             </h1>
 
             <p className="mt-8 text-[28px] font-medium tracking-[-0.02em]">
-              Find the next drop before it peaks
+              Run an entire fashion brand by yourself
             </p>
 
             <div className="mt-8 flex flex-wrap items-center gap-8">
