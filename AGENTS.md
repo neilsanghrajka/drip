@@ -17,8 +17,9 @@ Use this file as your operating rules and `docs/` as the directory map — the D
 - `sandbox/codex-agent/` — the agent skills and subagents that run inside the sandbox.
 
 ## Plugins And Skills
-- Use the installed plugins instead of raw CLI guesswork: the Codex plugin for agent/SDK questions, the Convex plugin for backend work, and the Vercel plugin for deploys and platform questions.
-- Use the `frontend-skill` for UI generation and the `agent-browser` skill to drive a real browser.
+- Use the installed plugins instead of raw CLI guesswork: the Convex plugin for backend work and the Vercel plugin for deploys and platform questions.
+- For frontend work use the `shadcn` skill and the `frontend-skill`.
+- Use the `agent-browser` skill to drive a real browser.
 
 ## Development
 - Use `pnpm` as the package manager always.
@@ -36,10 +37,10 @@ Use this file as your operating rules and `docs/` as the directory map — the D
 - Never copy real env values, deploy keys, dashboard URLs, deployment IDs, or project IDs into commits, docs, screenshots, logs, or final responses. Exception: public-facing URLs — the live app URL and generated drop-site URLs (customer-facing `*.vercel.app` pages) — are fine in docs and README now that the repo is public.
 
 ## Verifying Your Work
-- Always verify your work in a running app, not just with static checks: open it with the `agent-browser` skill and confirm the change behaves as intended.
+- Always self-verify in a running app, not just with static checks. In a cloud VM, use the `agent-browser` skill instead of `@browser`.
 - Locally: run `pnpm lint`, `pnpm typecheck`, and `pnpm build` when code changes.
-- After a production deploy, verify on the prod URL in the browser, not just locally.
-- Run the e2e test (`pnpm e2e:sandbox`) for sandbox-affecting changes, and use the Vercel and Convex plugins to map the data flow end to end when verifying.
+- Always run an e2e smoke test before calling work done: 1) the app loads and login works in the browser, 2) a drop stage run completes (`pnpm e2e:sandbox` covers the sandbox path), 3) artifacts and events land in Convex. Use the Vercel and Convex plugins to map the data flow end to end.
+- After a production deploy, repeat the smoke test on the prod URL, not just locally.
 - Convex and production verification workflows live in `docs/CONVEX.md` and `docs/DEPLOYMENT.md`.
 
 ## Git
@@ -60,4 +61,5 @@ Use this file as your operating rules and `docs/` as the directory map — the D
 ## References
 - `references/codex-sdk/sdk/typescript/` is a read-only reference checkout of the official OpenAI Codex TypeScript SDK.
 - Use it only to inspect SDK APIs, samples, tests, event shapes, and package metadata.
+- `references/sandbox-prototypes/` is the early standalone prototype that proved the Vercel Sandbox + Codex SDK execution substrate; read it to understand the substrate in isolation from the app.
 - Do not edit, format, refactor, or treat files under `references/` as app source unless explicitly asked.
