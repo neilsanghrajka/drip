@@ -237,24 +237,26 @@
   }
 
   .drip-update-stream {
-    mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+    mask-image: linear-gradient(180deg, transparent, #000 18%, #000 100%);
   }
 
-  .drip-update-track {
-    animation: drip-update-scroll 13s linear infinite;
+  .drip-update-stack {
+    animation: drip-update-scroll 420ms ease-out both;
   }
 
-  .drip-update-stream:hover .drip-update-track {
-    animation-play-state: paused;
+  .drip-update-row {
+    min-height: 17px;
   }
 }
 
 @keyframes drip-update-scroll {
   from {
-    transform: translateX(0);
+    opacity: 0;
+    transform: translateY(10px);
   }
 
   to {
-    transform: translateX(-50%);
+    opacity: 1;
+    transform: translateY(0);
   }
 }

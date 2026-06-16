@@ -1235,34 +1235,36 @@ function ActivityStreamBar({
   progress: number;
 }) {
   const items = activityItems.filter((item) => item.stage === active.key);
-  const progressItems = items.filter(
-    (item) => item.status === "running" || item.status === "pending",
+  const updateItems = items.filter(
+    (item) => item.status === "complete" || item.status === "running",
   );
+  const visibleItems = updateItems.slice(-2);
 
-  if (progress <= 0 || progress >= 100 || progressItems.length === 0) {
+  if (progress <= 0 || progress >= 100 || visibleItems.length === 0) {
     return null;
   }
 
   return (
     <div
       aria-label={`${active.shortName} progress update`}
-      className="drip-update-stream mt-2 max-w-[620px] overflow-hidden rounded-[9px] border-[2px] border-black bg-white/95 text-black shadow-[3px_3px_0_#000]"
+      className="drip-update-stream mt-2 max-w-[620px] overflow-hidden rounded-[9px] border-[2px] border-black bg-white/95 px-2.5 py-1 text-black shadow-[3px_3px_0_#000]"
     >
-      <div className="drip-update-track flex w-max items-center py-1">
-        {[0, 1].map((copy) => (
-          <div className="flex shrink-0 items-center gap-3 pr-4" key={copy}>
-            {progressItems.slice(0, 4).map((item, index) => (
-              <span
-                className="flex shrink-0 items-center gap-2 whitespace-nowrap text-[13px] font-black leading-none"
-                key={`${copy}-${item.stage}-${item.label}-${index}`}
-              >
-                <span
-                  className="size-2.5 rounded-full border-[2px] border-black"
-                  style={{ backgroundColor: active.color }}
-                />
-                {item.label}
-              </span>
-            ))}
+      <div
+        className="drip-update-stack flex min-h-[38px] flex-col justify-end gap-0.5"
+        key={visibleItems.map((item) => `${item.status}:${item.label}`).join("|")}
+      >
+        {visibleItems.map((item, index) => (
+          <div
+            className={`drip-update-row flex min-w-0 items-center gap-2 text-[13px] font-black leading-none ${
+              index === visibleItems.length - 1 ? "text-black" : "text-black/65"
+            }`}
+            key={`${item.status}-${item.label}`}
+          >
+            <span
+              className="size-2.5 shrink-0 rounded-full border-[2px] border-black"
+              style={{ backgroundColor: active.color }}
+            />
+            <span className="drip-clamp-1 min-w-0">{item.label}</span>
           </div>
         ))}
       </div>
