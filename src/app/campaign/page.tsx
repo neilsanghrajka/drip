@@ -170,7 +170,32 @@ type ScoutIdea = {
   signal: string;
   angle: string;
   urgency: string;
+  detail: ScoutIdeaDetail;
   raw: unknown;
+};
+
+type ScoutIdeaDetail = {
+  audience?: string;
+  description?: string;
+  localAnchor?: string;
+  uncertainty?: string;
+  whyNow?: string;
+  angle?: string;
+  evidenceHighlights: ScoutEvidenceHighlight[];
+  sources: ScoutSource[];
+};
+
+type ScoutEvidenceHighlight = {
+  id: string;
+  label: string;
+  detail: string;
+  url?: string;
+};
+
+type ScoutSource = {
+  id: string;
+  label: string;
+  url?: string;
 };
 
 type DesignerMock = {
@@ -1659,9 +1684,15 @@ function ScoutFocus({
   selectedIdeas: string[];
 }) {
   const waiting = dropView?.drop.status === "scouting" || scoutIdeas.length === 0;
+  const [inspectedIdeaId, setInspectedIdeaId] = useState<string | null>(null);
+  const inspectedIdea =
+    scoutIdeas.find((idea) => idea.id === inspectedIdeaId) ??
+    scoutIdeas.find((idea) => selectedIdeas.includes(idea.id)) ??
+    scoutIdeas[0];
+  const inspectedRows = inspectedIdea ? scoutInspectorRows(inspectedIdea) : [];
 
   return (
-    <div className="grid h-full min-h-0 gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
+    <div className="grid h-full min-h-0 gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
       <section className="flex min-h-0 min-w-0 flex-col">
         <div className="grid min-h-0 flex-1 content-start gap-2 overflow-y-auto pr-1 md:grid-cols-2 lg:grid-cols-3">
           {waiting ? (
@@ -1681,19 +1712,28 @@ function ScoutFocus({
           ) : (
             scoutIdeas.map((idea) => {
               const selected = selectedIdeas.includes(idea.id);
+              const inspected = inspectedIdea?.id === idea.id;
               return (
                 <button
-                  className={`min-h-[178px] rounded-[14px] border-[3px] border-black p-2.5 text-left transition hover:-translate-y-1 ${
+                  aria-pressed={selected}
+                  className={`min-h-[154px] rounded-[14px] border-[3px] border-black p-2.5 text-left outline-none transition hover:-translate-y-1 focus-visible:ring-4 focus-visible:ring-[#55d12c]/70 ${
                     selected
                       ? "bg-[#eaffdf] shadow-[5px_5px_0_#55d12c]"
-                      : "bg-white shadow-[4px_4px_0_#000]"
+                      : inspected
+                        ? "bg-neutral-50 shadow-[5px_5px_0_#000]"
+                        : "bg-white shadow-[4px_4px_0_#000]"
                   }`}
                   key={idea.id}
-                  onClick={() => onSelectIdea(idea.id)}
+                  onClick={() => {
+                    setInspectedIdeaId(idea.id);
+                    onSelectIdea(idea.id);
+                  }}
+                  onFocus={() => setInspectedIdeaId(idea.id)}
+                  onMouseEnter={() => setInspectedIdeaId(idea.id)}
                   type="button"
                 >
                   <div className="flex items-start justify-between gap-3">
-                    <h4 className="text-[16px] font-black leading-none tracking-[-0.04em]">
+                    <h4 className="drip-clamp-2 min-w-0 text-[16px] font-black leading-none tracking-[-0.04em]">
                       {idea.title}
                     </h4>
                     <span
@@ -1707,7 +1747,7 @@ function ScoutFocus({
                   <p className="mt-2 text-[10px] font-black uppercase leading-tight text-neutral-500">
                     {idea.xSignal}
                   </p>
-                  <p className="mt-1.5 text-[11px] font-bold leading-tight">
+                  <p className="drip-clamp-3 mt-1.5 text-[11px] font-bold leading-tight">
                     {idea.signal}
                   </p>
                 </button>
@@ -1718,27 +1758,71 @@ function ScoutFocus({
       </section>
 
       <section className="flex min-h-0 flex-col rounded-[18px] border-[3px] border-black bg-black p-3.5 text-white shadow-[5px_5px_0_#55d12c]">
-        <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#55d12c]">
-          Output
-        </p>
-        <h4 className="mt-2 text-[24px] font-black leading-none tracking-[-0.05em]">
-          {selectedIdeas.length} ideas selected
-        </h4>
-        <div className="mt-3 grid min-h-0 flex-1 content-start gap-2 overflow-y-auto pr-1">
-          {scoutIdeas
-            .filter((idea) => selectedIdeas.includes(idea.id))
-            .map((idea) => (
-              <div
-                className="group rounded-[12px] border border-white/20 p-2 outline-none transition hover:border-[#55d12c] hover:bg-white/10 focus-visible:border-[#55d12c] focus-visible:bg-white/10"
-                key={idea.id}
-                tabIndex={0}
-                title={idea.title}
-              >
-                <p className="drip-clamp-1 text-sm font-black leading-tight group-hover:block group-hover:overflow-visible group-hover:[-webkit-line-clamp:unset] group-focus-visible:block group-focus-visible:overflow-visible group-focus-visible:[-webkit-line-clamp:unset]">
-                  {idea.title}
-                </p>
-              </div>
-            ))}
+        <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+          <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#55d12c]">
+            Scout detail
+          </p>
+          {inspectedIdea ? (
+            <>
+              <h4 className="drip-clamp-2 mt-2 text-[24px] font-black leading-none tracking-[-0.05em]">
+                {inspectedIdea.title}
+              </h4>
+              <p className="mt-2 text-[10px] font-black uppercase leading-tight text-white/55">
+                {inspectedIdea.xSignal}
+              </p>
+              <p className="mt-2 text-[12px] font-bold leading-snug text-white/80">
+                {inspectedIdea.detail.description ?? inspectedIdea.signal}
+              </p>
+
+              {inspectedRows.length > 0 ? (
+                <div className="mt-3 divide-y divide-white/15 border-y border-white/15">
+                  {inspectedRows.map(([label, value]) => (
+                    <div className="py-2" key={label}>
+                      <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/45">
+                        {label}
+                      </p>
+                      <p className="mt-1 text-[12px] font-bold leading-snug text-white/80">
+                        {value}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+
+              <ScoutEvidenceHighlights highlights={inspectedIdea.detail.evidenceHighlights} />
+              <ScoutSourceChips sources={inspectedIdea.detail.sources} />
+            </>
+          ) : (
+            <p className="mt-3 text-sm font-bold leading-tight text-white/65">
+              Scout ideas will appear here after the run completes.
+            </p>
+          )}
+
+          <div className="mt-4 border-t border-white/15 pt-3">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-[11px] font-black uppercase tracking-[0.2em] text-white/55">
+                Output
+              </p>
+              <span className="rounded-full border border-white/25 px-2 py-0.5 text-[10px] font-black uppercase text-white/75">
+                {selectedIdeas.length} selected
+              </span>
+            </div>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {scoutIdeas
+                .filter((idea) => selectedIdeas.includes(idea.id))
+                .map((idea) => (
+                  <button
+                    className="max-w-full rounded-full border border-white/20 px-2.5 py-1 text-left text-[11px] font-black leading-tight text-white/85 transition hover:border-[#55d12c] hover:bg-white/10 focus-visible:border-[#55d12c] focus-visible:bg-white/10 focus-visible:outline-none"
+                    key={idea.id}
+                    onClick={() => setInspectedIdeaId(idea.id)}
+                    onFocus={() => setInspectedIdeaId(idea.id)}
+                    type="button"
+                  >
+                    <span className="drip-clamp-1">{idea.title}</span>
+                  </button>
+                ))}
+            </div>
+          </div>
         </div>
         <button
           className="drip-button mt-3 w-full px-5 py-3 text-base disabled:cursor-wait disabled:opacity-70"
@@ -1754,6 +1838,93 @@ function ScoutFocus({
           Send to Designer
         </button>
       </section>
+    </div>
+  );
+}
+
+function ScoutEvidenceHighlights({
+  highlights,
+}: {
+  highlights: ScoutEvidenceHighlight[];
+}) {
+  if (highlights.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="mt-3">
+      <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/45">
+        Evidence
+      </p>
+      <div className="mt-2 grid gap-2">
+        {highlights.slice(0, 3).map((highlight) => (
+          <div className="border-l-2 border-[#55d12c] pl-2" key={highlight.id}>
+            <p className="text-[10px] font-black uppercase leading-tight text-white/55">
+              {highlight.url ? (
+                <a
+                  className="inline-flex max-w-full items-center gap-1.5 hover:text-[#55d12c]"
+                  href={highlight.url}
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  <span className="drip-clamp-1">{highlight.label}</span>
+                  <ExternalLink className="size-3 shrink-0 stroke-[3]" />
+                </a>
+              ) : (
+                highlight.label
+              )}
+            </p>
+            <p className="mt-1 text-[12px] font-bold leading-snug text-white/80">
+              {highlight.detail}
+            </p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ScoutSourceChips({ sources }: { sources: ScoutSource[] }) {
+  if (sources.length === 0) {
+    return null;
+  }
+
+  const visibleSources = sources.slice(0, 6);
+  const remainingCount = sources.length - visibleSources.length;
+
+  return (
+    <div className="mt-3">
+      <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/45">
+        Sources
+      </p>
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        {visibleSources.map((source) =>
+          source.url ? (
+            <a
+              className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-white/25 px-2.5 py-1 text-[11px] font-black leading-tight text-white/85 transition hover:border-[#55d12c] hover:bg-white/10"
+              href={source.url}
+              key={source.id}
+              rel="noreferrer"
+              target="_blank"
+            >
+              <span className="drip-clamp-1 min-w-0">{source.label}</span>
+              <ExternalLink className="size-3 shrink-0 stroke-[3]" />
+            </a>
+          ) : (
+            <span
+              className="inline-flex max-w-full rounded-full border border-white/15 px-2.5 py-1 text-[11px] font-black leading-tight text-white/65"
+              key={source.id}
+            >
+              <span className="drip-clamp-1 min-w-0">{source.label}</span>
+            </span>
+          ),
+        )}
+        {remainingCount > 0 ? (
+          <span className="rounded-full border border-white/15 px-2.5 py-1 text-[11px] font-black leading-tight text-white/55">
+            +{remainingCount} more
+          </span>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -2680,6 +2851,7 @@ function readScoutIdeas(data: unknown): ScoutIdea[] {
     const item = asRecord(candidate);
     const signals = asRecord(item.signals);
     const sources = Array.isArray(item.sources) ? item.sources : [];
+    const detail = readScoutIdeaDetail(item);
     return {
       id: readString(item.id, readString(item.ideaRef, `idea_${index + 1}`)),
       title: readString(
@@ -2694,11 +2866,155 @@ function readScoutIdeas(data: unknown): ScoutIdea[] {
         `${readString(signals.xTrendNames, "Live signal")} · ${sources.length} sources`,
       ),
       xSignal: readString(item.xSignalLine, fallbackXSignal(signals, sources.length)),
-      angle: readString(item.whyFashionMerch, readString(item.merchAngle, "Fashionable limited drop")),
+      angle: readString(
+        item.whyFashionMerch,
+        readString(item.angle, readString(item.merchAngle, "Fashionable limited drop")),
+      ),
       urgency: readString(item.urgency, "This week"),
+      detail,
       raw: candidate,
     };
   });
+}
+
+function readScoutIdeaDetail(item: Record<string, unknown>): ScoutIdeaDetail {
+  const signals = asRecord(item.signals);
+  return {
+    description: readOptionalString(
+      item.description,
+      item.summary,
+      item.longDescription,
+    ),
+    whyNow: readOptionalString(item.whyNow, item.urgency),
+    audience: readOptionalString(
+      item.audience,
+      item.targetAudience,
+      item.customerAudience,
+    ),
+    localAnchor: readOptionalString(
+      item.localAnchor,
+      item.cityAnchor,
+      item.localContext,
+      item.location,
+    ),
+    angle: readOptionalString(item.whyFashionMerch, item.angle, item.merchAngle),
+    uncertainty: readOptionalString(
+      item.uncertainty,
+      item.evidenceUncertainty,
+      item.sourceUncertainty,
+      signals.xMetricsUncertainty,
+    ),
+    evidenceHighlights: readScoutEvidenceHighlights(item.evidenceHighlights),
+    sources: readScoutSources(item.sources),
+  };
+}
+
+function scoutInspectorRows(idea: ScoutIdea): Array<[string, string]> {
+  return [
+    ["Why now", idea.detail.whyNow],
+    ["Audience", idea.detail.audience],
+    ["Local anchor", idea.detail.localAnchor],
+    ["Merch angle", idea.detail.angle],
+    ["Uncertainty", idea.detail.uncertainty],
+  ].filter((row): row is [string, string] => Boolean(row[1]));
+}
+
+function readScoutSources(value: unknown): ScoutSource[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map<ScoutSource | null>((source, index) => {
+      if (typeof source === "string") {
+        const url = normalizeSourceUrl(source);
+        const label = url ? sourceLabelForUrl(url) : source.trim();
+        return label
+          ? {
+              id: `${index}-${label}`,
+              label,
+              ...(url ? { url } : {}),
+            }
+          : null;
+      }
+
+      const item = asRecord(source);
+      const url = normalizeSourceUrl(
+        readOptionalString(item.url, item.sourceUrl, item.link, item.href),
+      );
+      const type = readOptionalString(item.sourceType, item.type);
+      const label =
+        readOptionalString(
+          item.title,
+          item.name,
+          item.headline,
+          item.domain,
+          item.publisher,
+          item.siteName,
+        ) ??
+        (url ? sourceLabelForUrl(url) : undefined) ??
+        (type ? `${type.toUpperCase()} source` : undefined) ??
+        `Source ${index + 1}`;
+      return {
+        id: `${index}-${url ?? label}`,
+        label,
+        ...(url ? { url } : {}),
+      };
+    })
+    .filter((source): source is ScoutSource => source !== null);
+}
+
+function readScoutEvidenceHighlights(value: unknown): ScoutEvidenceHighlight[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .slice(0, 3)
+    .map<ScoutEvidenceHighlight | null>((highlight, index) => {
+      if (typeof highlight === "string") {
+        return highlight.trim()
+          ? {
+              id: `highlight-${index}`,
+              label: `Evidence ${index + 1}`,
+              detail: highlight.trim(),
+            }
+          : null;
+      }
+
+      const item = asRecord(highlight);
+      const label = readOptionalString(item.label, item.title, item.source, item.type);
+      const detail = readOptionalString(item.detail, item.summary, item.metric, item.text);
+      const url = normalizeSourceUrl(readOptionalString(item.url, item.sourceUrl, item.link));
+
+      if (!label && !detail) {
+        return null;
+      }
+
+      return {
+        id: `highlight-${index}-${label ?? detail}`,
+        label: label ?? `Evidence ${index + 1}`,
+        detail: detail ?? label ?? "Evidence signal",
+        ...(url ? { url } : {}),
+      };
+    })
+    .filter((highlight): highlight is ScoutEvidenceHighlight => highlight !== null);
+}
+
+function normalizeSourceUrl(value: string | undefined) {
+  if (!value) {
+    return undefined;
+  }
+  const trimmed = value.trim();
+  return /^https?:\/\//i.test(trimmed) ? trimmed : undefined;
+}
+
+function sourceLabelForUrl(url: string) {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "") || "Source";
+  } catch {
+    return url.replace(/^https?:\/\//i, "").split(/[/?#]/)[0] || "Source";
+  }
 }
 
 function fallbackXSignal(signals: Record<string, unknown>, sourceCount: number) {
@@ -2767,6 +3083,16 @@ function readString(value: unknown, fallback: string) {
     return value.filter((item) => typeof item === "string").join(", ") || fallback;
   }
   return fallback;
+}
+
+function readOptionalString(...values: unknown[]) {
+  for (const value of values) {
+    const read = readString(value, "");
+    if (read) {
+      return read;
+    }
+  }
+  return undefined;
 }
 
 function readNumber(value: unknown, fallback: number) {

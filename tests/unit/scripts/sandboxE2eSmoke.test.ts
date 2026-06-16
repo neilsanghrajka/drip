@@ -9,6 +9,7 @@ import {
   validateBuilderOutput,
   validateCommonEvents,
   validatePerformanceMarketerOutput,
+  validateScoutEvents,
   validateScoutOutput,
 } from "../../smoke/sandbox-e2e-smoke";
 
@@ -72,6 +73,59 @@ describe("sandbox smoke helpers", () => {
     ).toThrow("smoke: event seq gap between 1 and 3");
   });
 
+  it("validates Scout event logs include both researcher subagents", () => {
+    const scoutRun = {
+      _id: "run_1",
+      status: "succeeded",
+      task: "Use $scout",
+      workspaceId: "e2e-scout-cultural",
+      result: {
+        finalResponse: "Wrote /vercel/sandbox/agent-workspace/scout-output.json",
+      },
+    };
+    const scoutEvents = [
+      {
+        seq: 1,
+        type: "runner.started",
+        payload: {
+          codexEnvPresence: {
+            EXA_API_KEY: true,
+            X_BEARER_TOKEN: true,
+          },
+          modelReasoningEffort: "low",
+          webSearchMode: "live",
+        },
+      },
+      {
+        seq: 2,
+        type: "item.completed",
+        payload: {
+          item: {
+            type: "agent_message",
+            text: "Spawned x-researcher and exa-researcher for first-pass research.",
+          },
+        },
+      },
+    ];
+
+    expect(() => validateScoutEvents(scoutRun, scoutEvents)).not.toThrow();
+    expect(() =>
+      validateScoutEvents(scoutRun, [
+        scoutEvents[0],
+        {
+          seq: 2,
+          type: "item.completed",
+          payload: {
+            item: {
+              type: "agent_message",
+              text: "Spawned x-researcher for first-pass research.",
+            },
+          },
+        },
+      ]),
+    ).toThrow("Scout event log did not show exa-researcher spawn.");
+  });
+
   it("parses image headers and collects workspace image references", () => {
     const png = Buffer.alloc(24);
     Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).copy(png);
@@ -112,13 +166,26 @@ describe("sandbox smoke helpers", () => {
             shortTitle: "Monsoon cricket",
             xSignalLine: "Sources: 1",
             whyImportant: "Local cultural signal",
-            whyFashionMerch: "Graphic cap idea",
+            description:
+              "A neighborhood cricket watch party is pulling fans into a local monsoon-week ritual. The source-backed signal gives Scout enough detail to frame it as a city moment, not just a sports topic.",
+            whyNow: "A listed watch event is happening this week.",
+            audience: "Local cricket fans and monsoon hangout crews.",
+            localAnchor: "Bandra neighborhood watch-party listing",
+            whyFashionMerch:
+              "Graphic cap idea with rain-marked score grids, taped bat textures, and original match-day phrases for a limited local drop.",
             signals: {
               xTrendNames: [],
               exaEvidenceCount: 1,
               uniqueSourceDomains: 1,
             },
             sources: [{ url: "https://example.com/source", sourceType: "web" }],
+            evidenceHighlights: [
+              {
+                label: "Source",
+                detail: "Local listing anchors the watch-party timing.",
+                url: "https://example.com/source",
+              },
+            ],
           },
         ],
       }),
@@ -214,6 +281,7 @@ describe("sandbox smoke helpers", () => {
       validateScoutOutput({
         schemaVersion: "scout.cultural-moments.v1",
         strategy: {
+          exaQueriesRun: 0,
           notes: [
             "Exa was late, so this X-only candidate keeps uncertainty explicit.",
           ],
@@ -221,9 +289,14 @@ describe("sandbox smoke helpers", () => {
         candidates: [
           {
             id: "idea_01",
-            shortTitle: "Creator Queue Spike",
+            shortTitle: "Bandra Creator Queue",
             xSignalLine: "X: creator meet queue",
-            whyImportant: "Public X posts show a fresh local fan queue forming today.",
+            whyImportant: "Public X posts show a fresh creator meet queue forming in Bandra today.",
+            description:
+              "A creator meet-up queue is becoming a visible fan ritual around Bandra today. The signal is X-only, but the posts describe a local line forming rather than a generic celebrity trend.",
+            whyNow: "Posts sampled today show fans gathering around the meet-up queue.",
+            audience: "Creator fans and local youth culture followers.",
+            localAnchor: "Bandra creator meet queue",
             whyFashionMerch: "Queue-map graphics and original fan phrases.",
             signals: {
               xTrendNames: ["creator meet queue"],
@@ -235,10 +308,241 @@ describe("sandbox smoke helpers", () => {
               uniqueSourceDomains: 0,
             },
             sources: [],
+            evidenceHighlights: [
+              {
+                label: "X sample",
+                detail: "Recent public posts describe a Bandra queue forming today.",
+              },
+            ],
           },
         ],
       }),
     ).not.toThrow();
+  });
+
+  it("accepts mixed Scout candidates with Exa-only, X-only, and both-backed evidence", () => {
+    expect(() =>
+      validateScoutOutput({
+        schemaVersion: "scout.cultural-moments.v1",
+        strategy: {
+          exaQueriesRun: 4,
+          notes: [
+            "Exa returned source-backed moments while one X-only fallback kept uncertainty explicit.",
+          ],
+        },
+        candidates: [
+          {
+            id: "idea_01",
+            shortTitle: "Gallery Night Queue",
+            xSignalLine: "Sources: 2",
+            whyImportant: "Listings and coverage show a city gallery night pulling fresh crowds.",
+            whyFashionMerch: "Poster-grid graphics and opening-night badge cues.",
+            signals: {
+              xTrendNames: [],
+              exaEvidenceCount: 2,
+              uniqueSourceDomains: 2,
+            },
+            sources: [
+              { url: "https://example.com/gallery", sourceType: "web" },
+              { url: "https://events.example.com/gallery", sourceType: "web" },
+            ],
+          },
+          {
+            id: "idea_02",
+            shortTitle: "Bandra Creator Queue",
+            xSignalLine: "X: creator meet queue",
+            whyImportant: "Public X posts show a fresh local fan queue forming in Bandra today.",
+            description:
+              "A creator meet-up queue is visible enough on X to read as a small city behavior. It stays marked as a deadline fallback because Exa was thin for this specific queue.",
+            whyNow: "Recent posts today show the queue forming around the meet-up.",
+            audience: "Creator fans and nearby college-age followers.",
+            localAnchor: "Bandra creator meet queue",
+            whyFashionMerch: "Queue-map graphics and original fan phrases.",
+            signals: {
+              xTrendNames: ["creator meet queue"],
+              xTweetCountMax: null,
+              xPublicMetricsSample: null,
+              xMetricsUncertainty:
+                "Exa was thin for this deadline fallback, so X metrics remain directional.",
+              exaEvidenceCount: 0,
+              uniqueSourceDomains: 0,
+            },
+            sources: [],
+            evidenceHighlights: [
+              {
+                label: "X sample",
+                detail: "Recent-search samples describe local queue behavior.",
+              },
+            ],
+          },
+          {
+            id: "idea_03",
+            shortTitle: "Food Fest Chant",
+            xSignalLine: "X + sources",
+            whyImportant: "A food festival is drawing public chatter and fresh event coverage.",
+            whyFashionMerch: "Snack-stall emblems and chant-inspired original typography.",
+            signals: {
+              xTrendNames: ["food fest"],
+              xTweetCountMax: 42,
+              xPublicMetricsSample: { likes: 12 },
+              exaEvidenceCount: 1,
+              uniqueSourceDomains: 1,
+            },
+            sources: [
+              { url: "https://example.com/food-fest", sourceType: "web" },
+              { url: "https://x.com/example/status/1", sourceType: "x" },
+            ],
+          },
+        ],
+      }),
+    ).not.toThrow();
+  });
+
+  it("requires a normal Scout artifact to include Exa query and candidate evidence", () => {
+    expect(() =>
+      validateScoutOutput({
+        schemaVersion: "scout.cultural-moments.v1",
+        strategy: {
+          exaQueriesRun: 0,
+          notes: ["Source-backed local cultural signal."],
+        },
+        candidates: [
+          {
+            id: "idea_01",
+            shortTitle: "Monsoon cricket",
+            xSignalLine: "Sources: 1",
+            whyImportant: "Local cultural signal",
+            whyFashionMerch: "Graphic cap idea",
+            signals: {
+              xTrendNames: [],
+              exaEvidenceCount: 1,
+              uniqueSourceDomains: 1,
+            },
+            sources: [{ url: "https://example.com/source", sourceType: "web" }],
+          },
+        ],
+      }),
+    ).toThrow(
+      "Scout normal smoke must run Exa queries unless strategy.notes explains Exa was unavailable.",
+    );
+
+    expect(() =>
+      validateScoutOutput({
+        schemaVersion: "scout.cultural-moments.v1",
+        strategy: {
+          exaQueriesRun: 3,
+          notes: ["Exa returned source-backed moments for the normal Scout smoke."],
+        },
+        candidates: [
+          {
+            id: "idea_01",
+            shortTitle: "Bandra Creator Queue",
+            xSignalLine: "X: creator meet queue",
+            whyImportant: "Public X posts show a fresh local fan queue forming in Bandra today.",
+            description:
+              "A creator meet-up queue is visible enough on X to read as a local behavior. This fixture intentionally has no Exa-backed candidate elsewhere.",
+            whyNow: "Recent posts today show the queue forming around the meet-up.",
+            audience: "Creator fans and local youth culture followers.",
+            localAnchor: "Bandra creator meet queue",
+            whyFashionMerch: "Queue-map graphics and original fan phrases.",
+            signals: {
+              xTrendNames: ["creator meet queue"],
+              xTweetCountMax: null,
+              xPublicMetricsSample: null,
+              xMetricsUncertainty:
+                "X counts were unavailable, so this is a directional recency signal.",
+              exaEvidenceCount: 0,
+              uniqueSourceDomains: 0,
+            },
+            sources: [],
+            evidenceHighlights: [
+              {
+                label: "X sample",
+                detail: "Recent public posts describe a local queue.",
+              },
+            ],
+          },
+        ],
+      }),
+    ).toThrow(
+      "Scout must include at least one Exa-backed candidate when Exa returned evidence.",
+    );
+  });
+
+  it("rejects generic Scout topic labels without concrete moment context", () => {
+    expect(() =>
+      validateScoutOutput({
+        schemaVersion: "scout.cultural-moments.v1",
+        strategy: {
+          exaQueriesRun: 0,
+          notes: ["Exa was late, so this X-only candidate keeps uncertainty explicit."],
+        },
+        candidates: [
+          {
+            id: "idea_01",
+            shortTitle: "Cricket Chatter Spike",
+            xSignalLine: "X: 24 recent posts",
+            whyImportant:
+              "Ishan Kishan chatter is freshly active across Mumbai and India trend lanes.",
+            whyFashionMerch: "Use generic cricket graphics and match-day phrases.",
+            signals: {
+              xTrendNames: ["Ishan Kishan"],
+              xTweetCountMax: null,
+              xMetricsUncertainty:
+                "X counts were unavailable, so this is a directional recency signal.",
+              exaEvidenceCount: 0,
+              uniqueSourceDomains: 0,
+            },
+            sources: [],
+          },
+        ],
+      }),
+    ).toThrow(
+      "Scout candidate 0 is too generic; final moments need a concrete trigger and local anchor.",
+    );
+
+    expect(() =>
+      validateScoutOutput({
+        schemaVersion: "scout.cultural-moments.v1",
+        strategy: {
+          exaQueriesRun: 0,
+          notes: ["Exa was late, so this X-only candidate keeps uncertainty explicit."],
+        },
+        candidates: [
+          {
+            id: "idea_01",
+            shortTitle: "Mumbai Cricket Comeback",
+            xSignalLine: "X: 24 recent posts",
+            whyImportant:
+              "Cricket posts clustered today around live match discussion and Mumbai references.",
+            description:
+              "Ishan Kishan and #INDvsAFG appeared in Mumbai and India trend checks, with same-day cricket debate tied to Mumbai Indians history.",
+            whyNow: "X posts clustered today around live or same-day cricket discussion.",
+            audience: "Indian cricket fans and Mumbai Indians followers.",
+            localAnchor:
+              "Mumbai trend list, Mumbai Indians references and Wankhede-adjacent fan framing",
+            whyFashionMerch: "Use cricket score grids and local match-day phrases.",
+            signals: {
+              xTrendNames: ["Ishan Kishan", "#INDvsAFG"],
+              xTweetCountMax: null,
+              xMetricsUncertainty:
+                "X counts were unavailable, so this is a directional recency signal.",
+              exaEvidenceCount: 0,
+              uniqueSourceDomains: 0,
+            },
+            sources: [],
+            evidenceHighlights: [
+              {
+                label: "X sample",
+                detail: "Recent-search samples show same-day national cricket debate.",
+              },
+            ],
+          },
+        ],
+      }),
+    ).toThrow(
+      "Scout candidate 0 X-only evidence needs a concrete trigger and local anchor.",
+    );
   });
 
   it("rejects malformed or empty Scout candidates", () => {
@@ -256,6 +560,7 @@ describe("sandbox smoke helpers", () => {
       validateScoutOutput({
         schemaVersion: "scout.cultural-moments.v1",
         strategy: {
+          exaQueriesRun: 1,
           notes: ["Malformed candidate fixture."],
         },
         candidates: [

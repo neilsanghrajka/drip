@@ -1260,7 +1260,7 @@ function validateFashionDesignerEvents(run: SandboxRun, events: SandboxEvent[]) 
   assert(!/\$fashion-designer unavailable/i.test(text), "Fashion Designer skill was unavailable.");
 }
 
-function validateScoutEvents(run: SandboxRun, events: SandboxEvent[]) {
+export function validateScoutEvents(run: SandboxRun, events: SandboxEvent[]) {
   const text = eventText(events);
   const runnerStarted = findEventPayload(events, "runner.started");
   const codexEnvPresence = isRecord(runnerStarted)
@@ -1290,6 +1290,14 @@ function validateScoutEvents(run: SandboxRun, events: SandboxEvent[]) {
   assert(
     run.result?.finalResponse?.includes("scout-output.json"),
     "Scout final response did not mention scout-output.json.",
+  );
+  assert(
+    text.includes("x-researcher"),
+    "Scout event log did not show x-researcher spawn.",
+  );
+  assert(
+    text.includes("exa-researcher"),
+    "Scout event log did not show exa-researcher spawn.",
   );
   assert(!/\$scout unavailable/i.test(text), "Scout skill was unavailable.");
 }
@@ -1520,9 +1528,12 @@ export function validateScoutOutput(output: unknown) {
   }
   assert(candidates.length <= 5, "Scout candidate count out of range.");
   const strategy = asRecord(root.strategy, "Scout strategy");
+  const exaQueriesRun =
+    typeof strategy.exaQueriesRun === "number" ? strategy.exaQueriesRun : 0;
   const strategyNotes = Array.isArray(strategy.notes)
     ? strategy.notes.filter((note) => typeof note === "string").join(" ")
     : "";
+  let exaBackedCandidateCount = 0;
   for (const [index, candidateValue] of candidates.entries()) {
     const candidate = asRecord(candidateValue, `Scout candidate ${index}`);
     assert(
@@ -1530,21 +1541,37 @@ export function validateScoutOutput(output: unknown) {
       `Scout candidate ${index} missing shortTitle.`,
     );
     assert(
+      typeof candidate.xSignalLine === "string" && candidate.xSignalLine.trim().length > 0,
+      `Scout candidate ${index} missing xSignalLine.`,
+    );
+    assert(
       typeof candidate.whyImportant === "string" && candidate.whyImportant.length <= 180,
       `Scout candidate ${index} whyImportant should be compact.`,
     );
     assert(
-      typeof candidate.whyFashionMerch === "string" && candidate.whyFashionMerch.length <= 180,
-      `Scout candidate ${index} whyFashionMerch should be compact.`,
+      typeof candidate.whyFashionMerch === "string" && candidate.whyFashionMerch.length <= 420,
+      `Scout candidate ${index} whyFashionMerch should fit the detail view.`,
     );
     assert(isRecord(candidate.signals), `Scout candidate ${index} missing signals.`);
     const sources = asArray(candidate.sources, `Scout candidate ${index} sources`);
+    validateScoutRichFields(candidate, index);
+    assert(
+      hasSpecificScoutMoment(candidate),
+      `Scout candidate ${index} is too generic; final moments need a concrete trigger and local anchor.`,
+    );
+    if (isExaBackedScoutCandidate(candidate.signals, sources)) {
+      exaBackedCandidateCount += 1;
+    }
     if (isXOnlyScoutCandidate(candidate.signals, sources)) {
       const uncertainty = candidate.signals.xMetricsUncertainty;
       assert(
         (typeof uncertainty === "string" && uncertainty.trim().length > 0) ||
           /uncertain|uncertainty|limited|thin|empty|late/i.test(strategyNotes),
         `Scout candidate ${index} X-only source evidence must carry uncertainty.`,
+      );
+      assert(
+        hasXOnlyPromotionEvidence(candidate),
+        `Scout candidate ${index} X-only evidence needs a concrete trigger and local anchor.`,
       );
     } else {
       assert(sources.length > 0, `Scout candidate ${index} missing source evidence.`);
@@ -1553,6 +1580,17 @@ export function validateScoutOutput(output: unknown) {
         `Scout candidate ${index} source evidence must include a URL.`,
       );
     }
+  }
+  if (exaQueriesRun > 0) {
+    assert(
+      exaBackedCandidateCount > 0,
+      "Scout must include at least one Exa-backed candidate when Exa returned evidence.",
+    );
+  } else {
+    assert(
+      strategyNotesExplainMissingExaEvidence(strategyNotes),
+      "Scout normal smoke must run Exa queries unless strategy.notes explains Exa was unavailable.",
+    );
   }
 }
 
@@ -2676,6 +2714,123 @@ function containsObjectKey(value: unknown, key: string): boolean {
   );
 }
 
+function validateScoutRichFields(candidate: Record<string, unknown>, index: number) {
+  validateOptionalCompactString(candidate.description, `Scout candidate ${index} description`, 700);
+  validateOptionalCompactString(candidate.whyNow, `Scout candidate ${index} whyNow`, 220);
+  validateOptionalCompactString(candidate.audience, `Scout candidate ${index} audience`, 180);
+  validateOptionalCompactString(candidate.localAnchor, `Scout candidate ${index} localAnchor`, 180);
+
+  if (candidate.evidenceHighlights === undefined) {
+    return;
+  }
+
+  const highlights = asArray(
+    candidate.evidenceHighlights,
+    `Scout candidate ${index} evidenceHighlights`,
+  );
+  assert(
+    highlights.length <= 3,
+    `Scout candidate ${index} evidenceHighlights should include at most 3 items.`,
+  );
+  for (const [highlightIndex, highlightValue] of highlights.entries()) {
+    const highlight = asRecord(
+      highlightValue,
+      `Scout candidate ${index} evidenceHighlight ${highlightIndex}`,
+    );
+    assert(
+      typeof highlight.label === "string" && highlight.label.trim().length > 0,
+      `Scout candidate ${index} evidenceHighlight ${highlightIndex} missing label.`,
+    );
+    assert(
+      typeof highlight.detail === "string" && highlight.detail.trim().length > 0,
+      `Scout candidate ${index} evidenceHighlight ${highlightIndex} missing detail.`,
+    );
+    if (highlight.url !== undefined && highlight.url !== null) {
+      assert(
+        typeof highlight.url === "string" &&
+          (highlight.url.trim() === "" || /^https?:\/\//i.test(highlight.url)),
+        `Scout candidate ${index} evidenceHighlight ${highlightIndex} url must be HTTP(S).`,
+      );
+    }
+  }
+}
+
+function validateOptionalCompactString(value: unknown, label: string, maxLength: number) {
+  if (value === undefined) {
+    return;
+  }
+  assert(
+    typeof value === "string" && value.trim().length > 0 && value.length <= maxLength,
+    `${label} must be a non-empty string within ${maxLength} characters when present.`,
+  );
+}
+
+function hasSpecificScoutMoment(candidate: Record<string, unknown>) {
+  const title = optionalScoutString(candidate.shortTitle);
+  const event = optionalScoutString(candidate.event);
+  const titleText = `${title} ${event}`.trim();
+  if (!isGenericScoutTopicLabel(titleText)) {
+    return true;
+  }
+  return hasConcreteMomentContext(candidate);
+}
+
+function hasXOnlyPromotionEvidence(candidate: Record<string, unknown>) {
+  return hasConcreteMomentContext(candidate) && hasVisibleLocalBehavior(candidate);
+}
+
+function hasConcreteMomentContext(candidate: Record<string, unknown>) {
+  const localAnchor = optionalScoutString(candidate.localAnchor);
+  const whyNow = optionalScoutString(candidate.whyNow);
+  const description = optionalScoutString(candidate.description);
+  const audience = optionalScoutString(candidate.audience);
+  const whyImportant = optionalScoutString(candidate.whyImportant);
+  const evidenceHighlights = Array.isArray(candidate.evidenceHighlights)
+    ? candidate.evidenceHighlights
+    : [];
+
+  return Boolean(
+    localAnchor &&
+      (whyNow || description) &&
+      (audience || /\b(fans?|crowds?|creators?|artists?|audiences?|community|students?|locals?)\b/i.test(
+        `${description} ${whyImportant}`,
+      )) &&
+      (evidenceHighlights.length > 0 || whyNow || description),
+  );
+}
+
+function isGenericScoutTopicLabel(value: string) {
+  return /\b(chatter|buzz|attention|spike|mood|viral|trend|trending|token|topic)\b/i.test(
+    value,
+  );
+}
+
+function hasVisibleLocalBehavior(candidate: Record<string, unknown>) {
+  const localAnchor = optionalScoutString(candidate.localAnchor);
+  const combined = [
+    localAnchor,
+    optionalScoutString(candidate.description),
+    optionalScoutString(candidate.whyNow),
+    optionalScoutString(candidate.whyImportant),
+  ].join(" ");
+
+  if (
+    /\b(trend list|trend lane|trend check|query term|query lane|recent-search|search lane|market membership|woeid|national discussion|national match|team-history|references?|framing)\b/i.test(
+      combined,
+    )
+  ) {
+    return false;
+  }
+
+  return /\b(venue|neighbou?rhood|street|gallery|festival|stage|screening|queue|crowd|community|gathering|ritual|meet[- ]?up|club|bar|cafe|restaurant|market|college|station|mall|district|circuit|fans? (?:lining|gathering|meeting|queuing)|locals? (?:gathering|joining|queuing))\b/i.test(
+    combined,
+  );
+}
+
+function optionalScoutString(value: unknown) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
 function isXOnlyScoutCandidate(signals: Record<string, unknown>, sources: unknown[]) {
   const exaEvidenceCount =
     typeof signals.exaEvidenceCount === "number" ? signals.exaEvidenceCount : null;
@@ -2686,6 +2841,15 @@ function isXOnlyScoutCandidate(signals: Record<string, unknown>, sources: unknow
     return true;
   }
   return sources.every(isXSource);
+}
+
+function isExaBackedScoutCandidate(signals: Record<string, unknown>, sources: unknown[]) {
+  const exaEvidenceCount =
+    typeof signals.exaEvidenceCount === "number" ? signals.exaEvidenceCount : 0;
+  return (
+    exaEvidenceCount > 0 &&
+    sources.some((source) => hasSourceUrl(source) && !isXSource(source))
+  );
 }
 
 function isXSource(value: unknown) {
@@ -2703,6 +2867,15 @@ function isXSource(value: unknown) {
 function hasSourceUrl(value: unknown) {
   const source = asRecord(value, "Scout source");
   return typeof source.url === "string" && /^https?:\/\//i.test(source.url);
+}
+
+function strategyNotesExplainMissingExaEvidence(notes: string) {
+  return (
+    /\bexa\b/i.test(notes) &&
+    /\b(empty|error|failed|late|missing|no credible|no usable|thin|timed out|timeout|unavailable)\b/i.test(
+      notes,
+    )
+  );
 }
 
 export function collectWorkspaceImagePaths(value: unknown): string[] {

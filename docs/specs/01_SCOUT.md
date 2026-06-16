@@ -1,7 +1,7 @@
 # Scout
 
 Scout is Drip's first AI teammate. Its job is to find live cultural moments and
-turn them into up to five evidence-informed candidate ideas that could inspire
+turn them into five evidence-informed candidate ideas by default that could inspire
 original fashion merchandise.
 
 Scout stops at discovery. It does not design products, run ads, post to Convex,
@@ -50,10 +50,13 @@ the cultural moments.
 3. The runner sets `CODEX_HOME` to `/vercel/sandbox/agent-workspace/.codex` so Codex can load the sandbox skills and subagents.
 4. Codex uses `$scout`.
 5. `$scout` spawns `x-researcher` and `exa-researcher` in parallel.
-6. Researchers return compact evidence only.
-7. `$scout` begins synthesis around 2:30 and uses model judgment to choose the
-   final candidates before the 3-minute deadline.
-8. `$scout` writes `scout-output.json`.
+6. `x-researcher` returns up to ten independent X culture/attention moments.
+7. `exa-researcher` returns up to ten independent source-backed web moments.
+8. Researchers return compact evidence only.
+9. `$scout` begins synthesis around 2:30, applies the moment promotion test,
+   and uses model judgment to choose the final candidates before the 3-minute
+   deadline.
+10. `$scout` writes `scout-output.json`.
 
 ## Responsibility Map
 
@@ -85,11 +88,36 @@ the cultural moments.
   subagents.
 - Scout has a hard 3-minute wall-clock budget. It should start final synthesis
   around 2:30 and return the best available first-pass evidence by the deadline.
-- Exa is a minor quick evidence lane: 3-5 fast queries, compact source results,
-  no follow-up wave, no targeted backfill, and no final candidate judgment.
-- Final candidates should include source URLs when available, but X-only
-  candidates are allowed when Exa is late, empty, or too thin. Those candidates
-  must carry uncertainty in `signals` and `strategy.notes`.
+- X and Exa are equal parallel first-pass discovery lanes. X finds public
+  culture, attention, meme, fandom, creator, and recency signals. Exa finds big
+  web-backed city events, launches, festivals, concerts, food/nightlife,
+  screenings, exhibitions, local rituals, public happenings, and lifestyle
+  shifts.
+- Each source lane should return no more than ten moments. Exa should run 3-5
+  fast queries total, return up to ten compact source-backed moments, and
+  never double-check X/Twitter trends, run follow-up waves, target backfill, or
+  judge final candidates.
+- X should label each discovery as `specific_moment`, `topic_cluster`,
+  `global_token`, or `weak_query_lane`, with why-now, audience, local
+  specificity, sample metrics, and uncertainty.
+- Final candidates should normally combine both lanes when both return, but
+  Scout must not miss its 3-minute deadline. X-only candidates are allowed only
+  as a fallback when Exa is late, empty, or too thin, and must pass a higher
+  specificity bar with uncertainty in `signals` and `strategy.notes`.
+- For X-only candidates, WOEID trend-list presence, query terms, team-history
+  references, or national discussion with Mumbai wording are not enough. Scout
+  needs visible Mumbai behavior, venue, neighborhood, community, gathering,
+  ritual, or creator/fan action.
+- Five is the default target and upper bound. Scout should return five
+  candidates from the expanded source pool whenever the available evidence can
+  support five without fabrication, unsafe IP, or missing the deadline. If the
+  fifth choice is weaker than the first four, prefer the next strongest
+  Exa-backed or both-backed moment with a concrete trigger and local anchor over
+  a short list.
+- Final candidates may include optional detail fields for the campaign UI:
+  `description`, `whyNow`, `audience`, `localAnchor`, and
+  `evidenceHighlights`. These are additive v1 fields and old artifacts remain
+  compatible.
 - Safety/IP guardrails stay on: avoid copied logos, team marks, album art,
   lyrics, celebrity likenesses, protected characters, protected IP, and private
   controversy. Scout should use original phrases and non-infringing visual cues.
