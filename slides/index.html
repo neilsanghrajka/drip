@@ -1,0 +1,1190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>How Drip works — behind the scenes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&family=Caveat:wght@500;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --yellow: #ffd400;
+    --scout: #55d12c;
+    --designer: #1264ff;
+    --builder: #f8ca00;
+    --marketer: #ff3c38;
+    --ink: #000;
+    --paper: #fff;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    height: 100%;
+    margin: 0;
+    overflow: hidden;
+    background: #fff;
+  }
+
+  body {
+    color: #111;
+    font-family: "Patrick Hand", "Comic Sans MS", cursive;
+    background-image:
+      radial-gradient(rgb(0 0 0 / 9%) 1px, transparent 1.1px),
+      linear-gradient(#fff, #fff);
+    background-size: 12px 12px, 100% 100%;
+    -webkit-font-smoothing: antialiased;
+    user-select: none;
+  }
+
+  #stage {
+    width: 1280px;
+    height: 720px;
+    position: absolute;
+    top: 0;
+    left: 0;
+    transform-origin: top left;
+  }
+
+  .slide {
+    position: absolute;
+    inset: 0;
+    padding: 44px 72px 64px;
+    display: none;
+    flex-direction: column;
+  }
+
+  .slide.on { display: flex; animation: slidein 240ms ease-out both; }
+
+  @keyframes slidein {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ---------- typography ---------- */
+
+  .impact {
+    font-family: Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif;
+    font-stretch: condensed;
+    font-weight: 900;
+    color: #000;
+  }
+
+  .kick {
+    font-family: Caveat, cursive;
+    font-size: 24px;
+    font-weight: 700;
+    color: #888;
+    letter-spacing: 0.02em;
+  }
+
+  .h1s {
+    font-family: Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif;
+    font-stretch: condensed;
+    font-weight: 900;
+    font-size: 46px;
+    line-height: 1;
+    margin: 2px 0 0;
+    color: #000;
+    text-shadow: 2px 2px 0 rgb(0 0 0 / 8%);
+  }
+
+  .note {
+    font-family: Caveat, cursive;
+    font-size: 23px;
+    font-weight: 600;
+    color: #333;
+    line-height: 1.1;
+  }
+
+  .mark { background: linear-gradient(transparent 58%, rgb(255 212 0 / 65%) 0); padding: 0 2px; }
+
+  /* ---------- hand-drawn primitives ---------- */
+
+  .sk {
+    background: #fff;
+    border: 2.6px solid #000;
+    border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px;
+    box-shadow: 3px 4px 0 rgb(0 0 0 / 85%);
+  }
+
+  .sk.r2 { border-radius: 15px 255px 15px 225px / 225px 15px 255px 15px; }
+  .sk.r3 { border-radius: 225px 15px 255px 15px / 15px 255px 15px 225px; }
+  .sk.dash { border-style: dashed; box-shadow: none; }
+  .sk.flat { box-shadow: none; }
+
+  .box { padding: 12px 18px; text-align: center; }
+  .box .t { font-size: 22px; line-height: 1.1; }
+  .box .d { font-size: 15.5px; line-height: 1.25; color: #555; margin-top: 3px; }
+
+  .chip {
+    display: inline-block;
+    padding: 3px 13px 4px;
+    font-size: 17px;
+    line-height: 1.2;
+    background: #fff;
+    border: 2.2px solid #000;
+    border-radius: 95px 12px 110px 14px / 14px 105px 12px 90px;
+    box-shadow: 2px 2.5px 0 rgb(0 0 0 / 80%);
+    white-space: nowrap;
+  }
+
+  .chip.sys { background: rgb(255 212 0 / 55%); }
+
+  .code {
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+    font-size: 0.86em;
+    letter-spacing: -0.02em;
+  }
+
+  .face {
+    width: 84px;
+    height: 84px;
+    object-fit: cover;
+    object-position: top;
+    border: 3px solid #000;
+    border-radius: 14px;
+    box-shadow: 3px 3px 0 #000;
+    background: #eee;
+  }
+
+  .arr path, .arr polyline {
+    fill: none;
+    stroke: #000;
+    stroke-width: 3;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .arr.thin path { stroke-width: 2.4; }
+
+  /* ---------- step reveal / highlight ---------- */
+
+  [data-step] { opacity: 0.09; transition: opacity 300ms ease; }
+  [data-step].done { opacity: 0.92; }
+  [data-step].now { opacity: 1; }
+
+  .now.glow, .now .glow {
+    box-shadow: 0 0 0 4px var(--yellow), 4px 5px 0 rgb(0 0 0 / 85%) !important;
+  }
+
+  /* ---------- chrome ---------- */
+
+  #chrome {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  #chrome .corner {
+    position: absolute;
+    top: 18px;
+    right: 28px;
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+  }
+
+  #chrome .mini-logo {
+    font-family: Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 30px;
+    letter-spacing: -0.06em;
+    color: #000;
+  }
+
+  #chrome .mini-tag { font-family: Caveat, cursive; font-size: 20px; color: #999; }
+
+  #chrome .foot {
+    position: absolute;
+    left: 72px;
+    right: 72px;
+    bottom: 18px;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+  }
+
+  #counter { font-size: 18px; color: #777; min-width: 56px; }
+
+  #bar {
+    flex: 1;
+    height: 7px;
+    border: 2px solid #000;
+    border-radius: 60px 8px 70px 9px / 9px 70px 8px 60px;
+    background: #fff;
+    overflow: hidden;
+  }
+
+  #bar i {
+    display: block;
+    height: 100%;
+    width: 0%;
+    background: var(--yellow);
+    border-right: 2px solid #000;
+    transition: width 250ms ease;
+  }
+
+  #chrome .keys { font-family: Caveat, cursive; font-size: 20px; color: #999; }
+
+  /* ---------- layout helpers ---------- */
+
+  .row { display: flex; align-items: center; justify-content: center; }
+  .col { display: flex; flex-direction: column; align-items: center; }
+  .grow { flex: 1; }
+
+  .body-area { flex: 1; position: relative; display: flex; flex-direction: column; }
+
+  .head-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; }
+
+  /* ---------- slide 1 (title) ---------- */
+
+  .title-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 26px; }
+
+  .title-big {
+    font-size: 120px;
+    font-style: italic;
+    letter-spacing: -0.05em;
+    line-height: 0.9;
+    text-shadow: 4px 4px 0 rgb(0 0 0 / 10%);
+    position: relative;
+  }
+
+  .title-big .spark { position: absolute; top: -10px; right: -54px; font-size: 44px; font-style: normal; color: var(--yellow); -webkit-text-stroke: 1.6px #000; }
+
+  .underline-svg { display: block; margin-top: -6px; }
+
+  .cast { display: flex; gap: 26px; margin-top: 6px; }
+
+  .cast .member { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .cast .member span { font-size: 18px; }
+  .cast .member:nth-child(1) img { transform: rotate(-3deg); }
+  .cast .member:nth-child(2) img { transform: rotate(2deg); }
+  .cast .member:nth-child(3) img { transform: rotate(-2deg); }
+  .cast .member:nth-child(4) img { transform: rotate(3deg); }
+
+  .stack-chips { display: flex; gap: 14px; margin-top: 10px; }
+
+  /* ---------- slide 2 (architecture) ---------- */
+
+  .arch-row { display: flex; align-items: center; justify-content: center; gap: 6px; }
+
+  .arch-box { width: 252px; padding: 20px 16px 16px; }
+  .arch-box .big { font-size: 26px; line-height: 1.05; }
+  .arch-box .sub { font-size: 16px; color: #555; margin-top: 6px; line-height: 1.3; }
+
+  .sbx-cluster { width: 312px; padding: 14px 14px 12px; position: relative; }
+  .sbx-cluster .cluster-title { font-size: 24px; text-align: center; }
+  .sbx-grid { display: flex; gap: 10px; justify-content: center; margin-top: 10px; }
+  .sbx {
+    width: 88px;
+    padding: 8px 4px 7px;
+    text-align: center;
+    font-size: 14px;
+    line-height: 1.15;
+  }
+  .sbx b { display: block; font-size: 14.5px; }
+  .sbx .cpu { display: inline-block; margin-top: 5px; padding: 1px 7px 2px; font-size: 12.5px; background: rgb(255 212 0 / 55%); border: 1.8px solid #000; border-radius: 40px 8px 46px 9px / 9px 46px 8px 40px; }
+
+  .arrow-cell { display: flex; flex-direction: column; align-items: center; width: 108px; }
+  .arrow-cell .lbl { font-family: Caveat, cursive; font-size: 19px; color: #555; margin-bottom: -2px; white-space: nowrap; }
+
+  /* ---------- slide 3 (meet scout) ---------- */
+
+  .scout-grid { flex: 1; display: flex; gap: 44px; align-items: center; }
+
+  .portrait-card { position: relative; transform: rotate(-2deg); }
+  .portrait-card img {
+    width: 252px;
+    height: 320px;
+    object-fit: cover;
+    border: 3.5px solid #000;
+    border-radius: 16px;
+    box-shadow: 7px 7px 0 #000;
+    display: block;
+  }
+  .nameplate {
+    position: absolute;
+    left: 50%;
+    bottom: -22px;
+    transform: translateX(-50%) rotate(2.5deg);
+    background: #fff;
+    border: 2.6px solid #000;
+    border-radius: 110px 12px 120px 13px / 13px 120px 12px 110px;
+    box-shadow: 3px 3px 0 #000;
+    padding: 4px 16px 5px;
+    font-size: 20px;
+    white-space: nowrap;
+  }
+  .nameplate b { font-size: 22px; }
+
+  .sticky {
+    width: 196px;
+    padding: 10px 12px 11px;
+    font-size: 18px;
+    line-height: 1.2;
+    border: 2.4px solid #000;
+    border-radius: 14px 150px 13px 160px / 150px 14px 160px 13px;
+    box-shadow: 3px 3.5px 0 rgb(0 0 0 / 80%);
+  }
+  .sticky .when { display: block; font-family: Caveat, cursive; font-size: 16px; color: #666; }
+
+  .idea-card { padding: 14px 20px; }
+  .idea-card .t { font-size: 21px; }
+  .idea-card ul { margin: 6px 0 0; padding: 0 0 0 4px; list-style: none; text-align: left; font-size: 17px; line-height: 1.45; }
+  .idea-card li::before { content: "✓ "; }
+
+  /* ---------- anatomy slides ---------- */
+
+  .anat { flex: 1; display: flex; flex-direction: column; align-items: center; position: relative; }
+
+  .entry-box { padding: 10px 26px 12px; text-align: center; }
+  .entry-box .t { font-size: 24px; }
+  .entry-box .d { font-size: 15.5px; color: #555; margin-top: 2px; }
+
+  .agent-box { width: 252px; padding: 10px 14px 11px; text-align: center; }
+  .agent-box .t { font-size: 21px; }
+  .agent-box .d { font-size: 14.5px; color: #555; margin-top: 2px; line-height: 1.25; }
+
+  .stepnum {
+    position: absolute;
+    top: -16px;
+    left: -13px;
+    width: 30px;
+    height: 30px;
+    border: 2.4px solid #000;
+    border-radius: 50% 44% 52% 46% / 46% 52% 44% 50%;
+    background: var(--yellow);
+    font-size: 17px;
+    line-height: 26px;
+    text-align: center;
+    box-shadow: 2px 2px 0 #000;
+  }
+
+  .side-note {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .out-file {
+    padding: 9px 20px 10px;
+    font-size: 19px;
+    background: rgb(85 209 44 / 16%);
+    text-align: center;
+  }
+
+  .mini-face { width: 64px; height: 64px; border-width: 2.6px; box-shadow: 2.5px 2.5px 0 #000; }
+
+  .tm-head { display: flex; align-items: center; gap: 16px; }
+  .tm-head .who .nm { font-size: 40px; line-height: 0.95; }
+  .tm-head .who .role { font-family: Caveat, cursive; font-size: 21px; color: #777; }
+
+  /* polaroids (designer output) */
+  .polaroid {
+    width: 108px;
+    padding: 8px 8px 6px;
+    border: 2.5px solid #000;
+    background: #fff;
+    border-radius: 10px 90px 11px 100px / 95px 10px 105px 11px;
+    box-shadow: 3px 3.5px 0 rgb(0 0 0 / 80%);
+    text-align: center;
+  }
+  .polaroid .ph { height: 64px; border: 2px solid #000; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 34px; }
+  .polaroid .cap { font-family: Caveat, cursive; font-size: 16px; margin-top: 4px; color: #444; }
+
+  /* browser sketch (builder output) */
+  .browser { width: 300px; border: 2.6px solid #000; border-radius: 12px; box-shadow: 4px 4.5px 0 rgb(0 0 0 / 85%); background: #fff; overflow: hidden; }
+  .browser .bar { display: flex; align-items: center; gap: 5px; padding: 6px 10px; border-bottom: 2.4px solid #000; }
+  .browser .dot { width: 9px; height: 9px; border: 1.8px solid #000; border-radius: 50%; }
+  .browser .url { flex: 1; font-size: 13px; border: 1.8px solid #000; border-radius: 30px 6px 34px 7px / 7px 34px 6px 30px; padding: 0 8px; color: #444; }
+  .browser .page { padding: 10px 12px 12px; text-align: center; }
+  .browser .hero { font-size: 19px; line-height: 1.1; }
+  .browser .merch { display: flex; justify-content: center; gap: 8px; margin: 7px 0; font-size: 22px; }
+  .browser .buy { display: inline-block; padding: 2px 14px 3px; background: var(--yellow); border: 2.2px solid #000; border-radius: 8px; box-shadow: 2.5px 2.5px 0 #000; font-size: 14px; }
+
+  /* campaign card (marketer output) */
+  .fb-card { width: 296px; padding: 12px 16px 13px; position: relative; text-align: left; }
+  .fb-card .rowi { font-size: 17px; line-height: 1.5; }
+  .fb-card .rowi.ind1 { padding-left: 22px; }
+  .fb-card .rowi.ind2 { padding-left: 44px; }
+  .stamp {
+    position: absolute;
+    top: -14px;
+    right: -20px;
+    transform: rotate(8deg);
+    border: 3px solid var(--marketer);
+    color: var(--marketer);
+    border-radius: 8px 70px 9px 76px / 70px 8px 80px 9px;
+    padding: 1px 12px 2px;
+    font-size: 20px;
+    background: #fff;
+    box-shadow: 2px 2px 0 rgb(0 0 0 / 30%);
+  }
+
+  /* ---------- layers slide ---------- */
+
+  .layer-band { width: 100%; padding: 11px 18px 13px; position: relative; }
+  .layer-band .lbl-side {
+    position: absolute;
+    right: 14px;
+    top: 8px;
+    font-family: Caveat, cursive;
+    font-size: 19px;
+    color: #777;
+    text-align: right;
+    line-height: 1.05;
+    max-width: 190px;
+  }
+  .layer-band .band-title { font-size: 21px; margin-bottom: 7px; }
+  .layer-band .chips { display: flex; flex-wrap: wrap; gap: 9px; }
+
+  /* ---------- sandbox slide ---------- */
+
+  .sbx-cols { flex: 1; display: flex; gap: 30px; align-items: stretch; margin-top: 14px; }
+  .sbx-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 10px; position: relative; }
+  .sbx-col .col-title { font-size: 21px; text-align: center; }
+
+  .tree {
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+    font-size: 14.5px;
+    line-height: 1.62;
+    padding: 12px 16px;
+    text-align: left;
+    white-space: pre;
+    width: 100%;
+  }
+  .tree i { font-style: normal; color: #777; font-family: Caveat, cursive; font-size: 16px; }
+
+  .ghost { opacity: 0.45; }
+
+  /* ---------- recap ---------- */
+
+  .recap-flow { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 8px; }
+
+  .builtwith { display: flex; align-items: center; justify-content: center; gap: 14px; }
+</style>
+</head>
+<body>
+
+<div id="stage">
+
+  <!-- ============ 1 · TITLE ============ -->
+  <section class="slide" id="s-title">
+    <div class="title-wrap">
+      <div class="kick">an OpenAI hackathon project</div>
+      <div>
+        <h1 class="impact title-big">How Drip works<span class="spark">✦</span></h1>
+        <svg class="underline-svg" width="560" height="22" viewBox="0 0 560 22" style="margin-left:24px">
+          <path d="M6 13 C 120 7, 300 17, 552 9" fill="none" stroke="#ffd400" stroke-width="9" stroke-linecap="round"/>
+          <path d="M6 13 C 120 7, 300 17, 552 9" fill="none" stroke="#000" stroke-width="2.4" stroke-linecap="round" stroke-dasharray="1 0" transform="translate(0 5)"/>
+        </svg>
+      </div>
+      <div class="note" style="font-size:27px">four AI teammates take a cultural moment from idea&nbsp;→&nbsp;live merch drop</div>
+      <div class="cast">
+        <div class="member"><img class="face" src="/drip-team/scout-portrait.png" alt="Scout" /><span>Scout</span></div>
+        <div class="member"><img class="face" src="/drip-team/designer-portrait.png" alt="Fashion Designer" /><span>Fashion Designer</span></div>
+        <div class="member"><img class="face" src="/drip-team/builder-portrait.png" alt="Builder" /><span>Builder</span></div>
+        <div class="member"><img class="face" src="/drip-team/meta-portrait.png" alt="Performance Marketer" /><span>Perf. Marketer</span></div>
+      </div>
+      <div class="stack-chips">
+        <span class="chip">Next.js</span>
+        <span class="chip">Convex</span>
+        <span class="chip">Vercel Sandbox</span>
+        <span class="chip sys">Codex SDK</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 2 · HIGH-LEVEL ARCHITECTURE ============ -->
+  <section class="slide" id="s-arch">
+    <div class="kick">01 · the 10,000-ft view</div>
+    <h1 class="h1s">High-level architecture</h1>
+
+    <div class="body-area" style="justify-content:center; gap:46px">
+    <div class="arch-row">
+      <div data-step="1" class="col">
+        <div class="sk box arch-box glow">
+          <div class="big">Next.js frontend</div>
+          <div class="sub">the app you just saw —<br/>hosted on Vercel</div>
+        </div>
+        <div class="note" style="margin-top:10px">where you watch the team work</div>
+      </div>
+
+      <div data-step="2" class="arrow-cell">
+        <span class="lbl">live queries</span>
+        <svg class="arr" width="96" height="30" viewBox="0 0 100 30">
+          <path d="M4 17 C 26 13, 60 19, 86 14"/>
+          <path d="M75 6 L 88 14 L 74 22"/>
+        </svg>
+      </div>
+
+      <div data-step="2" class="col">
+        <div class="sk r2 box arch-box glow">
+          <div class="big">Convex backend</div>
+          <div class="sub">database · auth ·<br/>realtime sync · workflow</div>
+        </div>
+        <div class="note" style="margin-top:10px">the single source of truth</div>
+      </div>
+
+      <div data-step="3" class="arrow-cell">
+        <span class="lbl">spins up</span>
+        <svg class="arr" width="96" height="30" viewBox="0 0 100 30">
+          <path d="M4 14 C 26 19, 60 12, 86 16"/>
+          <path d="M75 8 L 88 16 L 74 24"/>
+        </svg>
+      </div>
+
+      <div data-step="3" class="col">
+        <div class="sk r3 dash sbx-cluster glow" style="box-shadow:none">
+          <div class="cluster-title">Vercel Sandboxes</div>
+          <div class="sbx-grid">
+            <div class="sk flat sbx"><b>sandbox</b><span class="cpu code">codex</span></div>
+            <div class="sk r2 flat sbx"><b>sandbox</b><span class="cpu code">codex</span></div>
+            <div class="sk r3 flat sbx"><b>sandbox</b><span class="cpu code">codex</span></div>
+          </div>
+        </div>
+        <div class="note" style="margin-top:10px">one isolated microVM per campaign</div>
+      </div>
+    </div>
+
+    <div data-step="4" class="row" style="gap:10px">
+      <svg class="arr thin" width="40" height="34" viewBox="0 0 40 34"><path d="M33 4 C 28 16, 18 24, 7 28"/><path d="M16 21 L 5 29 L 18 31"/></svg>
+      <div class="note" style="font-size:26px">the <span class="mark">Codex SDK</span> runs <i>inside</i> each sandbox — that's where all the agent work happens</div>
+    </div>
+    </div>
+  </section>
+
+  <!-- ============ 3 · MEET SCOUT ============ -->
+  <section class="slide" id="s-scout">
+    <div class="kick">02 · let's zoom into one teammate</div>
+    <h1 class="h1s">Meet Scout — the trend researcher</h1>
+
+    <div class="scout-grid">
+      <div data-step="1" class="portrait-card glow" style="flex:none">
+        <img src="/drip-team/scout-portrait.png" alt="Scout" />
+        <div class="nameplate"><b>Scout</b> · finds the moment</div>
+      </div>
+
+      <div class="col grow" style="gap:14px">
+        <div data-step="1" class="sk box" style="padding:12px 22px">
+          <div class="t">Her job: research X + the web for what's buzzing <u>right now</u>, and pitch <b>5 drop-worthy ideas</b></div>
+        </div>
+
+        <div data-step="2" class="col" style="gap:8px">
+          <div class="note">e.g. today she might notice…</div>
+          <div class="row" style="gap:16px">
+            <div class="sticky" style="background:rgb(85 209 44 / 14%); transform:rotate(-2deg)">☔ monsoon just hit Mumbai<span class="when">trending on X · 1 hr ago</span></div>
+            <div class="sticky" style="background:rgb(255 212 0 / 30%); transform:rotate(1.5deg)">🏏 RCB finally win the title<span class="when">everywhere, all at once</span></div>
+            <div class="sticky" style="background:rgb(18 100 255 / 10%); transform:rotate(-1deg)">☕ cult café opens in Bandra<span class="when">local buzz · food blogs</span></div>
+          </div>
+        </div>
+
+        <div data-step="3" class="row" style="gap:18px">
+          <svg class="arr" width="34" height="58" viewBox="0 0 34 58"><path d="M18 4 C 14 20, 20 34, 16 48"/><path d="M7 39 L 16 52 L 25 38"/></svg>
+          <div class="sk r2 box idea-card glow">
+            <div class="t code">scout-output.json</div>
+            <ul>
+              <li>5 source-backed merch ideas</li>
+              <li>diverse — not five cricket ideas</li>
+              <li>safe &amp; IP-clean, with rationale</li>
+            </ul>
+          </div>
+          <div class="note" style="max-width:170px">…which lands straight in the Drip UI for you to pick from</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 4 · ANATOMY OF SCOUT ============ -->
+  <section class="slide" id="s-anatomy">
+    <div class="kick">03 · inside the sandbox while Scout runs</div>
+    <h1 class="h1s">Anatomy of a teammate</h1>
+
+    <div class="anat" style="margin-top:42px">
+
+      <div data-step="1" class="col">
+        <div class="sk box entry-box glow" style="background:rgb(85 209 44 / 14%)">
+          <div class="t code">$scout</div>
+          <div class="d">the entry skill — owns judgment, taste &amp; the final call</div>
+        </div>
+      </div>
+
+      <div data-step="2" style="height:58px">
+        <svg class="arr" width="560" height="58" viewBox="0 0 560 58">
+          <path d="M280 5 C 270 28, 180 36, 130 48"/>
+          <path d="M143 38 L 126 50 L 146 53"/>
+          <path d="M280 5 C 290 28, 380 36, 430 48"/>
+          <path d="M417 38 L 434 50 L 414 53"/>
+        </svg>
+      </div>
+
+      <div data-step="2" class="side-note" style="left:-4px; top:108px; width:208px">
+        <div class="note" style="font-size:22px; transform:rotate(-2deg)">fans out to subagents — they run <span class="mark">in parallel</span> ↗</div>
+      </div>
+
+      <div class="row" style="gap:120px">
+        <div data-step="2" class="sk r2 box agent-box glow">
+          <div class="t code">x-researcher</div>
+          <div class="d">what has attention on X right now?</div>
+        </div>
+        <div data-step="2" class="sk r3 box agent-box glow">
+          <div class="t code">exa-researcher</div>
+          <div class="d">real source-backed context from the web</div>
+        </div>
+      </div>
+
+      <div class="row" style="gap:120px; height:46px">
+        <div data-step="3" style="width:252px; text-align:center">
+          <svg class="arr thin" width="26" height="42" viewBox="0 0 26 42"><path d="M14 3 C 11 14, 16 24, 13 34"/><path d="M6 27 L 13 38 L 20 26"/></svg>
+        </div>
+        <div data-step="3" style="width:252px; text-align:center">
+          <svg class="arr thin" width="26" height="42" viewBox="0 0 26 42"><path d="M12 3 C 15 14, 10 24, 13 34"/><path d="M6 27 L 13 38 L 20 26"/></svg>
+        </div>
+      </div>
+
+      <div class="row" style="gap:120px; margin-top:8px">
+        <div data-step="3" class="col" style="width:252px; gap:5px">
+          <span class="chip sys code">$x-trends</span>
+          <span class="note" style="font-size:19px">X CLI · X developer account</span>
+        </div>
+        <div data-step="3" class="col" style="width:252px; gap:5px">
+          <span class="chip sys code">$exa-search</span>
+          <span class="note" style="font-size:19px">Exa web search API</span>
+        </div>
+      </div>
+
+      <div data-step="5" class="row" style="gap:14px; margin-top:30px">
+        <svg class="arr thin" width="26" height="40" viewBox="0 0 26 40"><path d="M13 3 C 10 13, 16 22, 13 32"/><path d="M6 25 L 13 36 L 20 24"/></svg>
+        <div class="sk out-file glow"><span class="code">scout-output.json</span> → shows up in the UI</div>
+      </div>
+
+      <div data-step="4" class="side-note" style="right:-18px; top:96px; width:236px">
+        <svg class="arr thin" width="30" height="218" viewBox="0 0 30 218">
+          <path d="M22 6 C 6 40, 6 80, 14 109 C 6 138, 6 178, 22 212"/>
+          <path d="M14 109 L 27 109" />
+        </svg>
+        <div class="note" style="font-size:22px">the <span class="mark">Codex SDK</span> coordinates all of this from one prompt: <i>“use $scout”</i></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 5 · ZOOMING OUT (FULL RUN) ============ -->
+  <section class="slide" id="s-run">
+    <div class="kick">04 · how that fits the whole picture</div>
+    <h1 class="h1s">One stage, end to end</h1>
+
+    <div class="body-area" style="justify-content:center; gap:24px">
+
+      <div class="row" style="gap:8px">
+        <div data-step="1" class="col" style="width:196px">
+          <div class="sk box glow" style="width:100%">
+            <div class="t">UI</div>
+            <div class="d">you hit <b>“Run Scout”</b></div>
+          </div>
+        </div>
+        <div data-step="1" style="width:60px"><svg class="arr" width="56" height="26" viewBox="0 0 56 26"><path d="M3 15 C 16 11, 34 17, 48 13"/><path d="M39 6 L 50 13 L 38 20"/></svg></div>
+
+        <div data-step="2" class="col" style="width:196px">
+          <div class="sk r2 box glow" style="width:100%">
+            <div class="t">Convex action</div>
+            <div class="d">records the run, kicks off the stage</div>
+          </div>
+        </div>
+        <div data-step="2" style="width:60px"><svg class="arr" width="56" height="26" viewBox="0 0 56 26"><path d="M3 12 C 16 17, 34 11, 48 15"/><path d="M39 7 L 50 15 L 38 22"/></svg></div>
+
+        <div data-step="3" class="col" style="width:226px">
+          <div class="sk r3 box glow" style="width:100%">
+            <div class="t">Vercel Sandbox</div>
+            <div class="d">forked from a <b>base snapshot</b> — skills, agents &amp; CLIs preloaded</div>
+          </div>
+        </div>
+        <div data-step="4" style="width:60px"><svg class="arr" width="56" height="26" viewBox="0 0 56 26"><path d="M3 15 C 16 11, 34 17, 48 13"/><path d="M39 6 L 50 13 L 38 20"/></svg></div>
+
+        <div data-step="4" class="col" style="width:226px">
+          <div class="sk box glow" style="width:100%; background:rgb(255 212 0 / 22%)">
+            <div class="t">Codex SDK runs</div>
+            <div class="d">one thread: <span class="code">“$scout …”</span> — it orchestrates subagents &amp; skills</div>
+          </div>
+        </div>
+      </div>
+
+      <div data-step="5" class="row" style="gap:10px">
+        <div class="sk r2 box" style="width:240px">
+          <div class="t code" style="font-size:18px">scout-output.json</div>
+          <div class="d">+ image assets, written in the workspace</div>
+        </div>
+        <svg class="arr" width="56" height="26" viewBox="0 0 56 26"><path d="M3 14 C 16 10, 34 16, 48 12"/><path d="M39 5 L 50 12 L 38 19"/></svg>
+        <div class="sk r3 box" style="width:240px">
+          <div class="t">Convex storage &amp; DB</div>
+          <div class="d">artifacts collected out of the sandbox</div>
+        </div>
+        <svg class="arr" width="56" height="26" viewBox="0 0 56 26"><path d="M3 12 C 16 16, 34 10, 48 14"/><path d="M39 6 L 50 14 L 38 21"/></svg>
+        <div class="sk box glow" style="width:240px; background:rgb(85 209 44 / 12%)">
+          <div class="t">UI updates live</div>
+          <div class="d">the frontend just streams the DB — it never touches the sandbox</div>
+        </div>
+      </div>
+
+      <div data-step="5" class="note" style="text-align:center; font-size:25px">same loop for every stage — only the <span class="mark">skill name changes</span></div>
+    </div>
+  </section>
+
+  <!-- ============ 6 · FASHION DESIGNER ============ -->
+  <section class="slide" id="s-designer">
+    <div class="head-row">
+      <div class="tm-head">
+        <img class="face mini-face" src="/drip-team/designer-portrait.png" alt="Fashion Designer" style="transform:rotate(-2deg)" />
+        <div class="who">
+          <div class="impact nm">Fashion Designer</div>
+          <div class="role">your picks → real product mockups</div>
+        </div>
+      </div>
+      <div class="kick">05 · same anatomy, different craft</div>
+    </div>
+
+    <div class="anat" style="margin-top:10px; padding-right:240px">
+      <div data-step="1" class="sk box entry-box glow" style="background:rgb(18 100 255 / 9%)">
+        <div class="t code">$fashion-designer</div>
+        <div class="d">art direction · lane planning · final curation</div>
+      </div>
+
+      <div data-step="2" style="height:50px">
+        <svg class="arr" width="640" height="50" viewBox="0 0 640 50">
+          <path d="M320 4 C 290 22, 140 28, 75 41"/><path d="M89 31 L 71 43 L 91 46"/>
+          <path d="M320 4 C 318 20, 322 28, 320 40"/><path d="M312 32 L 320 44 L 328 31"/>
+          <path d="M320 4 C 350 22, 500 28, 565 41"/><path d="M551 31 L 569 43 L 549 46"/>
+        </svg>
+      </div>
+
+      <div class="row" style="gap:50px">
+        <div data-step="2" class="sk box agent-box glow" style="width:210px"><div class="t code">cap-designer</div><div class="d">🧢 one lane per product</div></div>
+        <div data-step="2" class="sk r2 box agent-box glow" style="width:210px"><div class="t code">sock-designer</div><div class="d">🧦 runs in parallel</div></div>
+        <div data-step="2" class="sk r3 box agent-box glow" style="width:210px"><div class="t code">apparel-designer</div><div class="d">👕 tees &amp; hoodies</div></div>
+      </div>
+
+      <div data-step="3" style="height:48px">
+        <svg class="arr thin" width="640" height="48" viewBox="0 0 640 48">
+          <path d="M75 4 C 150 22, 285 26, 316 38"/>
+          <path d="M320 4 C 319 18, 321 26, 320 38"/>
+          <path d="M565 4 C 490 22, 355 26, 324 38"/>
+          <path d="M311 30 L 320 42 L 329 29"/>
+        </svg>
+      </div>
+
+      <div data-step="3" class="col" style="gap:4px">
+        <span class="chip sys code" style="font-size:19px">$imagegen</span>
+        <span class="note" style="font-size:19px">one shared image-generation skill — all three lanes reuse it</span>
+      </div>
+
+      <div data-step="5" class="row" style="gap:18px; margin-top:18px">
+        <div class="polaroid" style="transform:rotate(-3deg)"><div class="ph" style="background:rgb(18 100 255 / 10%)">🧢</div><div class="cap">monsoon cap</div></div>
+        <div class="polaroid" style="transform:rotate(2deg)"><div class="ph" style="background:rgb(255 212 0 / 25%)">🧦</div><div class="cap">victory socks</div></div>
+        <div class="polaroid" style="transform:rotate(-1.5deg)"><div class="ph" style="background:rgb(255 60 56 / 10%)">👕</div><div class="cap">café tee</div></div>
+        <div class="note" style="max-width:230px">3–6 mockups land in <span class="code">fashion-designer-output.json</span> — you pick the winners in the UI</div>
+      </div>
+
+      <div data-step="4" class="side-note" style="right:-8px; top:100px; width:238px">
+        <div class="sk r2 box" style="padding:9px 14px">
+          <div class="t code" style="font-size:19px">fashion-reviewer</div>
+          <div class="d">judges every image — weak ones go back: <i>“reject → regenerate”</i></div>
+        </div>
+      </div>
+      <div data-step="4" class="side-note" style="right:232px; top:146px">
+        <svg class="arr thin" width="72" height="40" viewBox="0 0 74 40"><path d="M68 20 C 52 6, 24 8, 8 22"/><path d="M20 14 L 5 24 L 22 28"/></svg>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 7 · BUILDER ============ -->
+  <section class="slide" id="s-builder">
+    <div class="head-row">
+      <div class="tm-head">
+        <img class="face mini-face" src="/drip-team/builder-portrait.png" alt="Builder" style="transform:rotate(2deg)" />
+        <div class="who">
+          <div class="impact nm">Builder</div>
+          <div class="role">winning mockups → a live drop site</div>
+        </div>
+      </div>
+      <div class="kick">06 · this one runs as a relay</div>
+    </div>
+
+    <div class="anat" style="margin-top:12px">
+      <div data-step="1" class="sk box entry-box glow" style="background:rgb(248 202 0 / 18%)">
+        <div class="t code">$builder</div>
+        <div class="d">briefs the site, then hands the baton down the line</div>
+      </div>
+
+      <div data-step="1" style="height:40px">
+        <svg class="arr thin" width="26" height="38" viewBox="0 0 26 38"><path d="M13 2 C 10 12, 16 20, 13 30"/><path d="M6 23 L 13 34 L 20 22"/></svg>
+      </div>
+
+      <div class="row" style="gap:14px; align-items:stretch">
+        <div data-step="2" class="col" style="gap:8px">
+          <div class="sk box agent-box glow" style="width:268px; position:relative">
+            <div class="stepnum">1</div>
+            <div class="t code">drop-site-builder</div>
+            <div class="d">writes a one-page static site</div>
+          </div>
+          <div class="row" style="gap:8px">
+            <span class="chip sys code" style="font-size:15px">$frontend-skill</span>
+            <span class="chip sys code" style="font-size:15px">$imagegen</span>
+          </div>
+        </div>
+
+        <div data-step="3" class="col" style="justify-content:flex-start; padding-top:24px">
+          <svg class="arr" width="54" height="26" viewBox="0 0 56 26"><path d="M3 15 C 16 11, 34 17, 48 13"/><path d="M39 6 L 50 13 L 38 20"/></svg>
+          <span class="note" style="font-size:18px">then</span>
+        </div>
+
+        <div data-step="3" class="col" style="gap:8px">
+          <div class="sk r2 box agent-box glow" style="width:268px; position:relative">
+            <div class="stepnum">2</div>
+            <div class="t code">drop-site-reviewer</div>
+            <div class="d">opens it in a real browser — desktop &amp; mobile QA</div>
+          </div>
+          <div class="row" style="gap:8px">
+            <span class="chip sys code" style="font-size:15px">$agent-browser</span>
+          </div>
+        </div>
+
+        <div data-step="4" class="col" style="justify-content:flex-start; padding-top:24px">
+          <svg class="arr" width="54" height="26" viewBox="0 0 56 26"><path d="M3 12 C 16 17, 34 11, 48 15"/><path d="M39 7 L 50 15 L 38 22"/></svg>
+          <span class="note" style="font-size:18px">then</span>
+        </div>
+
+        <div data-step="4" class="col" style="gap:8px">
+          <div class="sk r3 box agent-box glow" style="width:268px; position:relative">
+            <div class="stepnum">3</div>
+            <div class="t code">drop-site-deployer</div>
+            <div class="d">ships the reviewed build</div>
+          </div>
+          <div class="row" style="gap:8px">
+            <span class="chip sys code" style="font-size:15px">Vercel CLI</span>
+          </div>
+        </div>
+      </div>
+
+      <div data-step="5" class="row" style="gap:22px; margin-top:22px">
+        <svg class="arr thin" width="26" height="44" viewBox="0 0 26 44"><path d="M13 2 C 10 14, 16 24, 13 36"/><path d="M6 29 L 13 40 L 20 28"/></svg>
+        <div class="browser glow" style="transform:rotate(-1deg)">
+          <div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="url code">monsoon-drop.vercel.app</span></div>
+          <div class="page">
+            <div class="hero impact" style="font-style:italic">THE MONSOON DROP ☔</div>
+            <div class="merch">🧢 🧦 👕</div>
+            <span class="buy">Cop it</span>
+          </div>
+        </div>
+        <div class="note" style="max-width:230px">a real, live storefront — URL goes into <span class="code">builder-output.json</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 8 · PERFORMANCE MARKETER ============ -->
+  <section class="slide" id="s-marketer">
+    <div class="head-row">
+      <div class="tm-head">
+        <img class="face mini-face" src="/drip-team/meta-portrait.png" alt="Performance Marketer" style="transform:rotate(-2deg)" />
+        <div class="who">
+          <div class="impact nm">Performance Marketer</div>
+          <div class="role">live site → ads ready to launch</div>
+        </div>
+      </div>
+      <div class="kick">07 · last leg of the relay</div>
+    </div>
+
+    <div class="anat" style="margin-top:16px; gap:6px">
+      <div data-step="1" class="sk box entry-box glow" style="background:rgb(255 60 56 / 8%)">
+        <div class="t code">$performance-marketer</div>
+        <div class="d">takes the site URL + product shots, plans the campaign</div>
+      </div>
+
+      <div data-step="1" style="height:42px">
+        <svg class="arr thin" width="26" height="40" viewBox="0 0 26 40"><path d="M13 2 C 10 13, 16 22, 13 32"/><path d="M6 25 L 13 36 L 20 24"/></svg>
+      </div>
+
+      <div class="row" style="gap:16px; align-items:stretch">
+        <div data-step="2" class="col" style="gap:8px">
+          <div class="sk box agent-box glow" style="width:300px; position:relative">
+            <div class="stepnum">1</div>
+            <div class="t code">facebook-ad-copywriter</div>
+            <div class="d">campaign names + ad copy variants that match the drop's voice</div>
+          </div>
+        </div>
+
+        <div data-step="3" class="col" style="justify-content:center">
+          <svg class="arr" width="54" height="26" viewBox="0 0 56 26"><path d="M3 15 C 16 11, 34 17, 48 13"/><path d="M39 6 L 50 13 L 38 20"/></svg>
+          <span class="note" style="font-size:18px">then</span>
+        </div>
+
+        <div data-step="3" class="col" style="gap:8px">
+          <div class="sk r2 box agent-box glow" style="width:300px; position:relative">
+            <div class="stepnum">2</div>
+            <div class="t code">facebook-ad-operator</div>
+            <div class="d">creates the real campaign objects via the Meta Ads API</div>
+          </div>
+          <span class="chip sys code" style="font-size:15px">$meta-ads-cli</span>
+        </div>
+      </div>
+
+      <div data-step="4" class="row" style="gap:24px; margin-top:20px">
+        <svg class="arr thin" width="26" height="44" viewBox="0 0 26 44"><path d="M13 2 C 10 14, 16 24, 13 36"/><path d="M6 29 L 13 40 L 20 28"/></svg>
+        <div class="sk r3 fb-card glow" style="transform:rotate(1deg)">
+          <div class="stamp">PAUSED ⏸</div>
+          <div class="rowi">📣 <b>Campaign</b> · Monsoon Drop</div>
+          <div class="rowi ind1">🎯 Ad set · Mumbai · 18–34</div>
+          <div class="rowi ind2">🖼 Ad · “Rain check? Cop the cap.”</div>
+          <div class="rowi ind2">🖼 Ad · “Drip for the deluge.”</div>
+        </div>
+        <div class="note" style="max-width:250px">everything is created <span class="mark">paused</span> — a human reviews and flips it live. No rogue ad spend.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 9 · WHY THIS SHAPE ============ -->
+  <section class="slide" id="s-layers">
+    <div class="kick">08 · why we structured it this way</div>
+    <h1 class="h1s">Three layers, on purpose</h1>
+
+    <div class="body-area" style="justify-content:center; gap:16px; margin-top:6px">
+
+      <div data-step="1" class="sk layer-band glow" style="background:rgb(255 212 0 / 14%)">
+        <div class="lbl-side">domain brains — one per teammate, they own judgment</div>
+        <div class="band-title">Entry skills <span class="note" style="font-size:18px">(the only thing the prompt names)</span></div>
+        <div class="chips">
+          <span class="chip code" style="background:rgb(85 209 44 / 18%)">$scout</span>
+          <span class="chip code" style="background:rgb(18 100 255 / 12%)">$fashion-designer</span>
+          <span class="chip code" style="background:rgb(248 202 0 / 25%)">$builder</span>
+          <span class="chip code" style="background:rgb(255 60 56 / 12%)">$performance-marketer</span>
+        </div>
+      </div>
+
+      <div data-step="2" class="sk r2 layer-band glow">
+        <div class="lbl-side">parallel specialists — do one job, hand back results</div>
+        <div class="band-title">Subagents</div>
+        <div class="chips">
+          <span class="chip code">x-researcher</span>
+          <span class="chip code">exa-researcher</span>
+          <span class="chip code">cap / sock / apparel-designer</span>
+          <span class="chip code">fashion-reviewer</span>
+          <span class="chip code">drop-site-builder · reviewer · deployer</span>
+          <span class="chip code">ad-copywriter · ad-operator</span>
+        </div>
+      </div>
+
+      <div data-step="3" class="sk r3 layer-band glow" style="background:rgb(255 212 0 / 24%)">
+        <div class="lbl-side">domain-blind tools — they don't know fashion exists</div>
+        <div class="band-title">Reusable skills</div>
+        <div class="chips">
+          <span class="chip code">$x-trends</span>
+          <span class="chip code">$exa-search</span>
+          <span class="chip code">$imagegen</span>
+          <span class="chip code">$frontend-skill</span>
+          <span class="chip code">$agent-browser</span>
+          <span class="chip code">$meta-ads-cli</span>
+        </div>
+      </div>
+
+      <div data-step="4" class="row" style="gap:12px">
+        <svg class="arr thin" width="40" height="34" viewBox="0 0 40 34"><path d="M33 4 C 28 16, 18 24, 7 28"/><path d="M16 21 L 5 29 L 18 31"/></svg>
+        <div class="note" style="font-size:26px">e.g. <span class="code mark">$imagegen</span> serves the Fashion Designer's mockups <b>and</b> the Builder's site imagery — build a tool once, every teammate gets it</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 10 · SANDBOX INTERNALS ============ -->
+  <section class="slide" id="s-sandbox">
+    <div class="kick">09 · quick notes on the sandbox itself</div>
+    <h1 class="h1s">Sandbox internals</h1>
+
+    <div class="sbx-cols">
+
+      <div data-step="1" class="sbx-col">
+        <div class="col-title">One snapshot, many forks</div>
+        <div class="sk box glow" style="width:200px; padding:9px 12px">
+          <div class="t" style="font-size:19px">base snapshot</div>
+          <div class="d">skills · agents · CLIs already baked in</div>
+        </div>
+        <svg class="arr thin" width="150" height="40" viewBox="0 0 150 40">
+          <path d="M75 3 C 60 16, 36 22, 22 32"/><path d="M34 24 L 18 34 L 37 37"/>
+          <path d="M75 3 C 90 16, 114 22, 128 32"/><path d="M116 24 L 132 34 L 113 37"/>
+        </svg>
+        <div class="row" style="gap:12px">
+          <div class="sk r2 box" style="padding:6px 10px"><div class="t code" style="font-size:15px">drip-drop-a1</div></div>
+          <div class="sk r3 box ghost" style="padding:6px 10px"><div class="t code" style="font-size:15px">drip-drop-b2</div></div>
+        </div>
+        <div class="note" style="text-align:center; font-size:20px; margin-top:4px">one sandbox per campaign —<br/>it <span class="mark">pauses between stages</span> and resumes where it left off</div>
+      </div>
+
+      <div class="sbx-col" style="flex:1.15">
+        <div data-step="2" class="col-title" style="width:100%">What's inside</div>
+        <div data-step="2" class="sk r2 tree glow">/vercel/sandbox
+├─ runner/            <i>← Codex SDK + reporter</i>
+├─ .codex/            <i>← config · agents · skills</i>
+└─ agent-workspace/   <i>← where outputs land</i>
+   └─ drops/&lt;id&gt;/runs/&lt;stage&gt;/</div>
+        <div data-step="3" class="chips row" style="flex-wrap:wrap; gap:8px; justify-content:center">
+          <span class="chip sys" style="font-size:14.5px">X CLI</span>
+          <span class="chip sys" style="font-size:14.5px">Exa CLI</span>
+          <span class="chip sys" style="font-size:14.5px">Meta Ads CLI</span>
+          <span class="chip sys" style="font-size:14.5px">Vercel CLI</span>
+          <span class="chip" style="font-size:14.5px">Node</span>
+          <span class="chip" style="font-size:14.5px">Python</span>
+        </div>
+        <div data-step="3" class="note" style="font-size:20px">all preinstalled in the base image — zero setup per run</div>
+      </div>
+
+      <div data-step="4" class="sbx-col">
+        <div class="col-title">Getting data back out</div>
+        <div class="sk box" style="width:230px; padding:8px 12px"><div class="t" style="font-size:18px">outputs in workspace</div><div class="d code" style="font-size:13px">*.json + images</div></div>
+        <svg class="arr thin" width="24" height="32" viewBox="0 0 24 32"><path d="M12 2 C 9 10, 15 18, 12 26"/><path d="M5 19 L 12 30 L 19 18"/></svg>
+        <div class="sk r2 box glow" style="width:230px; padding:8px 12px"><div class="t" style="font-size:18px">Convex storage + DB</div><div class="d">runner reports progress; artifacts collected after each stage</div></div>
+        <svg class="arr thin" width="24" height="32" viewBox="0 0 24 32"><path d="M12 2 C 15 10, 9 18, 12 26"/><path d="M5 19 L 12 30 L 19 18"/></svg>
+        <div class="sk r3 box" style="width:230px; padding:8px 12px"><div class="t" style="font-size:18px">UI streams it live</div><div class="d">the browser only ever talks to Convex</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 11 · RECAP ============ -->
+  <section class="slide" id="s-recap">
+    <div class="kick">10 · that's the whole trick</div>
+    <h1 class="h1s">Recap</h1>
+
+    <div class="recap-flow">
+      <div data-step="1" class="row" style="gap:10px">
+        <div class="sk box" style="width:170px"><div class="t" style="font-size:19px">Next.js UI</div></div>
+        <svg class="arr thin" width="44" height="24" viewBox="0 0 44 24"><path d="M3 13 C 13 10, 26 15, 37 12"/><path d="M29 5 L 39 12 L 28 18"/></svg>
+        <div class="sk r2 box" style="width:170px"><div class="t" style="font-size:19px">Convex</div></div>
+        <svg class="arr thin" width="44" height="24" viewBox="0 0 44 24"><path d="M3 11 C 13 14, 26 9, 37 13"/><path d="M29 6 L 39 13 L 28 19"/></svg>
+        <div class="sk r3 box glow" style="width:420px; background:rgb(255 212 0 / 14%)">
+          <div class="t" style="font-size:19px">Vercel Sandbox</div>
+          <div class="d" style="font-size:15px"><span class="code">Codex SDK</span> → entry skill → subagents → reusable skills</div>
+        </div>
+        <svg class="arr thin" width="44" height="24" viewBox="0 0 44 24"><path d="M3 13 C 13 10, 26 15, 37 12"/><path d="M29 5 L 39 12 L 28 18"/></svg>
+        <div class="sk box" style="width:150px"><div class="t" style="font-size:18px">artifacts<br/>→ back to UI</div></div>
+      </div>
+
+      <div data-step="1" class="note" style="text-align:center; font-size:25px; margin-top:10px">
+        give the <span class="mark">Codex SDK</span> a sandbox and one line — <i>“use $scout”</i> — and it runs the whole show
+      </div>
+
+      <div data-step="2" class="row" style="gap:30px; margin-top:26px">
+        <div class="builtwith">
+          <span class="note" style="font-size:22px">built on</span>
+          <span class="chip sys">Codex SDK</span>
+          <span class="chip">Vercel Sandbox</span>
+          <span class="chip">Convex</span>
+          <span class="chip">Next.js</span>
+        </div>
+        <div class="sk dash box" style="padding:8px 18px; transform:rotate(-1deg)">
+          <div class="t" style="font-size:19px">up next 🎬 how Codex built Drip itself</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ chrome ============ -->
+  <div id="chrome">
+    <div class="corner"><span class="mini-logo">Drip</span><span class="mini-tag">· behind the scenes</span></div>
+    <div class="foot">
+      <span id="counter">1 / 11</span>
+      <div id="bar"><i></i></div>
+      <span class="keys">← back&nbsp;&nbsp;·&nbsp;&nbsp;→ / click / space: next</span>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  var stage = document.getElementById('stage');
+  var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+  var counter = document.getElementById('counter');
+  var bar = document.querySelector('#bar i');
+  var s = 0, k = 0;
+
+  function stepsOf(slide) {
+    var max = 0;
+    slide.querySelectorAll('[data-step]').forEach(function (el) {
+      max = Math.max(max, parseInt(el.dataset.step, 10) || 0);
+    });
+    return max;
+  }
+
+  function totalBeats() {
+    return slides.reduce(function (acc, sl) { return acc + stepsOf(sl) + 1; }, 0);
+  }
+
+  function beatsBefore() {
+    var n = 0;
+    for (var i = 0; i < s; i++) n += stepsOf(slides[i]) + 1;
+    return n + k + 1;
+  }
+
+  function render() {
+    slides.forEach(function (sl, i) { sl.classList.toggle('on', i === s); });
+    slides[s].querySelectorAll('[data-step]').forEach(function (el) {
+      var n = parseInt(el.dataset.step, 10) || 0;
+      el.classList.toggle('now', n === k);
+      el.classList.toggle('done', n < k);
+    });
+    counter.textContent = (s + 1) + ' / ' + slides.length;
+    bar.style.width = (beatsBefore() / totalBeats() * 100) + '%';
+    if (history.replaceState) history.replaceState(null, '', '#' + (s + 1) + '.' + k);
+  }
+
+  function next() {
+    if (k < stepsOf(slides[s])) { k++; }
+    else if (s < slides.length - 1) { s++; k = 0; }
+    render();
+  }
+
+  function prev() {
+    if (k > 0) { k--; }
+    else if (s > 0) { s--; k = stepsOf(slides[s]); }
+    render();
+  }
+
+  function goto(slideIdx, stepIdx) {
+    s = Math.min(Math.max(slideIdx, 0), slides.length - 1);
+    k = Math.min(Math.max(stepIdx, 0), stepsOf(slides[s]));
+    render();
+  }
+
+  document.addEventListener('keydown', function (e) {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    switch (e.key) {
+      case 'ArrowRight': case 'ArrowDown': case ' ': case 'Enter': case 'PageDown':
+        e.preventDefault(); next(); break;
+      case 'ArrowLeft': case 'ArrowUp': case 'Backspace': case 'PageUp':
+        e.preventDefault(); prev(); break;
+      case 'Home': e.preventDefault(); goto(0, 0); break;
+      case 'End': e.preventDefault(); goto(slides.length - 1, 99); break;
+    }
+  });
+
+  document.addEventListener('click', function (e) {
+    if (e.target.closest('a')) return;
+    if (e.clientX < window.innerWidth * 0.18) prev(); else next();
+  });
+
+  function fit() {
+    var sc = Math.min(window.innerWidth / 1280, window.innerHeight / 720);
+    stage.style.transform = 'scale(' + sc + ')';
+    stage.style.left = ((window.innerWidth - 1280 * sc) / 2) + 'px';
+    stage.style.top = ((window.innerHeight - 720 * sc) / 2) + 'px';
+  }
+  window.addEventListener('resize', fit);
+  fit();
+
+  var m = (location.hash || '').match(/^#(\d+)(?:\.(\d+))?$/);
+  if (m) goto(parseInt(m[1], 10) - 1, m[2] ? parseInt(m[2], 10) : 0);
+  else render();
+})();
+</script>
+
+</body>
+</html>

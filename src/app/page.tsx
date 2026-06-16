@@ -748,6 +748,9 @@ export default function Home() {
           Drip
           <Sparkle className="absolute -right-6 top-1 size-7 fill-[#ffd400] stroke-black stroke-[1.5] transition group-hover:rotate-12" />
         </a>
+        <a className="drip-button h-[52px] px-6 text-lg" href="/slides">
+          How it works
+        </a>
       </header>
 
       {visibleAuthMode !== null && !isAuthenticated ? (
