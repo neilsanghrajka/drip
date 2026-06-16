@@ -339,7 +339,7 @@ Never commit or print real values for these names.
 | `DRIP_SANDBOX_RUNNER_TIMEOUT_MS` | Convex action | Detached runner command timeout. |
 | `DRIP_HEARTBEAT_MS` | Runner | Heartbeat interval. |
 
-Prototype-only env belongs to `docs/prototypes/sandbox-codex-sdk/*` and
+Prototype-only env belongs to `references/sandbox-prototypes/*` and
 `src/convex/sandboxPrototype.ts`; it is not part of the product run contract.
 
 ## Base Snapshot Operation
@@ -494,4 +494,4 @@ successful run.
 | `src/convex/schema.ts` | `sandboxRuns` and `sandboxRunEvents` table shape. |
 | `src/convex/sandboxRuns.ts` | Control-plane queries/mutations and runner token checks. |
 | `src/convex/sandboxRunActions.ts` | Vercel Sandbox provisioning and runner command startup. |
-| `docs/prototypes/sandbox-codex-sdk/` | Prototype-only tutorial code and env surface. |
+| `references/sandbox-prototypes/` | Prototype-only tutorial code and env surface. |

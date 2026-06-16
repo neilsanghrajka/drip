@@ -239,15 +239,11 @@
 
   /* ---------- highlight interaction ---------- */
 
-  [data-step] { transition: background-color 250ms ease, box-shadow 250ms ease; border-radius: 22px; }
-  [data-step].now { background: rgb(255 212 0 / 32%); box-shadow: 0 0 0 9px rgb(255 212 0 / 32%); }
-
-  .chip, .sk, .browser, .doc, .face, .sticky, .polaroid, .cylwrap, .vm.mini, .term {
-    transition: transform 140ms ease;
-    cursor: pointer;
+  [data-step] { transition: background-color 200ms ease, box-shadow 200ms ease; border-radius: 22px; }
+  [data-step].now, [data-step].hov {
+    background: rgb(255 212 0 / 32%);
+    box-shadow: 0 0 0 9px rgb(255 212 0 / 32%);
   }
-  .chip:hover, .sk:hover, .browser:hover, .doc:hover, .face:hover, .sticky:hover,
-  .polaroid:hover, .cylwrap:hover, .vm.mini:hover, .term:hover { transform: scale(1.05); }
 
   /* ---------- chrome ---------- */
 
@@ -689,67 +685,100 @@
     </div>
   </section>
 
-  <!-- ============ 5 · FORKING THE SANDBOX ============ -->
+  <!-- ============ 5 · HIT RUN, END TO END ============ -->
   <section class="slide" id="s-run">
     <div class="kick">04 · what happens when you hit Run</div>
-    <h1 class="h1s">Fork the sandbox, run the skill</h1>
+    <h1 class="h1s">Hit Run — fork a sandbox, run the skill</h1>
 
-    <div class="body-area" style="justify-content:center">
-      <div class="row" style="gap:18px; align-items:center">
+    <div class="body-area" style="justify-content:center; gap:22px">
+      <div class="row" style="gap:8px; align-items:center">
 
-        <div data-step="1" class="col" style="gap:9px; width:340px; padding:8px">
-          <div class="term" style="width:330px">
+        <div data-step="1" class="col" style="gap:7px; width:148px; padding:7px">
+          <div class="browser" style="width:140px">
+            <div class="bbar"><span class="bdot"></span><span class="bdot"></span><span class="bdot"></span></div>
+            <div class="bpage" style="padding:8px 8px 10px">
+              <div style="font-size:14px; margin-bottom:5px">Drip UI</div>
+              <span style="display:inline-block; padding:2px 11px 3px; background:var(--yellow); border:2.2px solid #000; border-radius:8px; box-shadow:2px 2px 0 #000; font-size:13.5px">▶ Run</span>
+            </div>
+          </div>
+          <div class="cap" style="font-size:17px">you hit Run</div>
+        </div>
+
+        <div data-step="2" style="width:48px"><svg class="arr thin" width="44" height="22" viewBox="0 0 44 22"><path d="M3 13 C 14 10, 28 15, 38 12"/><path d="M30 5 L 40 12 L 29 18"/></svg></div>
+
+        <div data-step="2" class="col" style="gap:7px; width:262px; padding:7px">
+          <div class="cylwrap" style="width:128px">
+            <svg width="128" height="80" viewBox="0 0 128 80">
+              <path d="M8 17 C 8 9, 34 4, 64 4 C 94 4, 120 9, 120 17 L 120 63 C 120 71, 94 76, 64 76 C 34 76, 8 71, 8 63 Z" fill="#fff" stroke="#000" stroke-width="2.4"/>
+              <path d="M8 17 C 8 25, 34 30, 64 30 C 94 30, 120 25, 120 17" fill="none" stroke="#000" stroke-width="2.2"/>
+            </svg>
+            <div class="cyltext" style="top:34px; font-size:16px">Convex</div>
+          </div>
+          <div class="sk" style="width:252px; padding:7px 12px 9px; text-align:left">
+            <div class="cap" style="font-size:16px; text-align:left; margin-bottom:2px">runs · one row per run</div>
+            <div class="tree" style="font-size:11.5px; line-height:1.55"><b>run    sandbox        stage</b>
+r_81   drip-drop-a1   <span style="color:#b58900">⠧ scout</span>
+r_77   drip-drop-b2   <span style="color:#2e9e44">✓ builder</span></div>
+          </div>
+          <div class="cap" style="font-size:16.5px; max-width:250px">backend records the run — runId + its sandbox id</div>
+        </div>
+
+        <div data-step="3" class="col" style="width:54px">
+          <span class="alabel" style="font-size:17px">boots</span>
+          <svg class="arr thin" width="46" height="22" viewBox="0 0 46 22"><path d="M3 12 C 14 15, 30 10, 40 13"/><path d="M32 6 L 42 13 L 31 19"/></svg>
+        </div>
+
+        <div data-step="3" class="col" style="gap:7px; width:252px; padding:7px">
+          <div class="term" style="width:244px">
             <div class="tbar">
               <span class="tdot" style="background:#ff5f57"></span><span class="tdot" style="background:#febc2e"></span><span class="tdot" style="background:#28c840"></span>
-              <span class="ttitle">Vercel Sandbox · base snapshot</span>
+              <span class="ttitle">base snapshot</span>
             </div>
-            <div class="tbody"><span class="p">$</span> ls /vercel/sandbox
-<span class="m">├─</span> runner/            <span class="m"># Codex SDK</span>
-<span class="m">├─</span> .codex/agents/     <span class="m"># subagents</span>
-<span class="m">├─</span> .agents/skills/    <span class="m"># all skills</span>
-<span class="m">└─</span> agent-workspace/
-<span class="p">$</span> which x exa meta vercel node
+            <div class="tbody" style="font-size:11.5px"><span class="p">$</span> ls /vercel/sandbox
+<span class="m">runner/  .codex/agents/</span>
+<span class="m">.agents/skills/  workspace/</span>
+<span class="p">$</span> which x exa meta vercel
 <span class="m">all preinstalled</span> <span class="p">✓</span></div>
           </div>
-          <div class="cap" style="max-width:310px">built <b>once</b> — every CLI installed, every skill in place, before any campaign exists</div>
+          <div class="cap" style="font-size:16.5px; max-width:240px">built <b>once</b> — skills + CLIs already in place</div>
         </div>
 
-        <div data-step="2" class="col" style="width:200px; gap:2px; padding:8px">
-          <div class="sk" style="padding:5px 18px 6px; font-size:18px; background:var(--yellow)">▶ you hit <b>Run</b></div>
-          <svg class="arr thin" width="20" height="30" viewBox="0 0 20 30"><path d="M10 2 C 7 9, 13 16, 10 23"/><path d="M3 17 L 10 27 L 17 16"/></svg>
-          <span class="alabel" style="font-size:21px">fork</span>
-          <svg class="arr" width="150" height="42" viewBox="0 0 150 42">
-            <path d="M6 21 C 40 15, 100 15, 136 19"/>
-            <path d="M125 10 L 139 19 L 124 27"/>
-            <path d="M6 21 C 40 28, 90 30, 118 33" stroke-dasharray="7 6"/>
+        <div data-step="4" class="col" style="width:60px">
+          <span class="alabel" style="font-size:18px">forks</span>
+          <svg class="arr thin" width="56" height="150" viewBox="0 0 56 150">
+            <path d="M5 75 C 22 62, 36 46, 46 30"/><path d="M34 36 L 48 26 L 29 24" transform="translate(2 2)"/>
+            <path d="M5 75 C 22 88, 36 104, 46 120"/><path d="M31 122 L 48 124 L 36 110" transform="translate(0 2)"/>
           </svg>
-          <span class="cap" style="font-size:16.5px">a full copy of the image,<br/>ready in seconds</span>
         </div>
 
-        <div data-step="3" class="col" style="gap:9px; width:410px; padding:8px">
-          <div style="position:relative; width:390px">
-            <div class="term ghost" style="position:absolute; inset:-14px -14px 14px 14px; box-shadow:none"></div>
-            <div class="term" style="position:relative; width:390px">
-              <div class="tbar">
-                <span class="tdot" style="background:#ff5f57"></span><span class="tdot" style="background:#febc2e"></span><span class="tdot" style="background:#28c840"></span>
-                <span class="ttitle">Vercel Sandbox · drip-drop-a1</span>
-              </div>
-              <div class="tbody"><span class="p">$</span> ls   <span class="m"># same files, copied in</span>
-<span class="m">runner/  .codex/  .agents/  agent-workspace/</span>
-<span class="p">$</span> codex <span class="y">"use $scout — 5 moments · Mumbai"</span>
-<span class="m">⠧ Codex SDK orchestrating subagents…</span></div>
+        <div data-step="4" class="col" style="gap:14px; width:336px; padding:7px">
+          <div class="term" style="width:328px">
+            <div class="tbar">
+              <span class="tdot" style="background:#ff5f57"></span><span class="tdot" style="background:#febc2e"></span><span class="tdot" style="background:#28c840"></span>
+              <span class="ttitle">Vercel Sandbox · drip-drop-a1</span>
             </div>
+            <div class="tbody" style="font-size:11.5px"><span class="p">$</span> codex <span class="y">"use $scout · Mumbai"</span>
+<span class="m">⠧ Codex SDK orchestrating subagents…</span></div>
           </div>
-          <div class="cap" style="max-width:370px"><b>one sandbox per campaign</b> — boots from the fork, then the Codex SDK takes over</div>
+          <div class="term" style="width:328px">
+            <div class="tbar">
+              <span class="tdot" style="background:#ff5f57"></span><span class="tdot" style="background:#febc2e"></span><span class="tdot" style="background:#28c840"></span>
+              <span class="ttitle">Vercel Sandbox · drip-drop-b2</span>
+            </div>
+            <div class="tbody" style="font-size:11.5px"><span class="p">$</span> codex <span class="y">"use $builder · drop site"</span>
+<span class="m">artifacts written</span> <span class="p">✓</span></div>
+          </div>
+          <div class="cap" style="font-size:16.5px; max-width:330px"><b>one sandbox per campaign</b> — each run gets its own fork; it <span class="mark">pauses</span> between stages &amp; resumes</div>
         </div>
+      </div>
 
-        <div data-step="4" class="col" style="gap:8px; width:210px; padding:8px">
-          <svg class="arr thin" width="60" height="22" viewBox="0 0 60 22"><path d="M4 12 C 18 9, 38 14, 52 11"/><path d="M43 4 L 54 11 L 42 17"/></svg>
-          <div class="doc sm" style="padding:8px 14px 9px">
-            <div class="fname" style="font-size:15px">scout-output.json</div>
-          </div>
-          <div class="cap" style="max-width:200px">artifacts come out — then the sandbox <span class="mark">pauses</span> until the next stage and <b>resumes right there</b></div>
-        </div>
+      <div data-step="5" class="row" style="gap:14px; padding:6px 14px">
+        <div class="doc sm" style="padding:7px 13px 8px"><div class="fname" style="font-size:14px">scout-output.json</div></div>
+        <svg class="arr thin" width="320" height="24" viewBox="0 0 320 24">
+          <path d="M312 12 C 230 8, 100 16, 14 11"/>
+          <path d="M24 4 L 10 11 L 25 19"/>
+        </svg>
+        <span class="cap" style="font-size:18px">artifacts are collected to Convex and <b>stream straight back into the UI</b></span>
       </div>
     </div>
   </section>
@@ -1061,60 +1090,11 @@
         <div class="pin" style="left:1063px; top:8px"><span class="chip sys" style="font-size:14px"><svg class="li" viewBox="0 0 24 24"><use href="#lg-meta"/></svg><span class="code">$meta-ads-cli</span></span></div>
       </div>
 
-      <div data-step="4" class="lyr row" style="top:404px; gap:12px; padding:6px 14px">
+      <div data-step="4" class="lyr row" style="top:404px; gap:14px; padding:6px 14px">
         <svg class="arr thin" width="34" height="28" viewBox="0 0 34 28"><path d="M28 25 C 24 14, 15 7, 6 3"/><path d="M14 10 L 4 2 L 16 0" transform="translate(0 2)"/></svg>
-        <div class="note" style="font-size:24px">the dashed line is the point — <span class="code mark">$imagegen</span> serves the Designer's lanes <b>and</b> the Builder's site imagery. Tools are domain-blind; <span class="mark">build once, every teammate gets it</span></div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ============ 10 · RECAP ============ -->
-  <section class="slide" id="s-recap">
-    <div class="kick">09 · that's the whole trick</div>
-    <h1 class="h1s">Recap</h1>
-
-    <div class="body-area" style="justify-content:center; gap:26px">
-      <div data-step="1" class="row" style="gap:12px; padding:8px 14px">
-        <div class="browser" style="width:158px">
-          <div class="bbar"><span class="bdot"></span><span class="bdot"></span><span class="bdot"></span></div>
-          <div class="bpage" style="padding:7px 8px 9px; font-size:15px">Next.js UI</div>
-        </div>
-        <svg class="arr thin" width="42" height="24" viewBox="0 0 42 24"><path d="M3 13 C 13 10, 25 15, 35 12"/><path d="M27 5 L 37 12 L 26 18"/></svg>
-        <div class="cylwrap" style="width:120px">
-          <svg width="120" height="84" viewBox="0 0 120 84">
-            <path d="M8 18 C 8 9, 32 4, 60 4 C 88 4, 112 9, 112 18 L 112 66 C 112 75, 88 80, 60 80 C 32 80, 8 75, 8 66 Z" fill="#fff" stroke="#000" stroke-width="2.4"/>
-            <path d="M8 18 C 8 27, 32 32, 60 32 C 88 32, 112 27, 112 18" fill="none" stroke="#000" stroke-width="2.2"/>
-          </svg>
-          <div class="cyltext" style="top:36px; font-size:16px">Convex</div>
-        </div>
-        <svg class="arr thin" width="42" height="24" viewBox="0 0 42 24"><path d="M3 11 C 13 14, 25 9, 35 13"/><path d="M27 6 L 37 13 L 26 19"/></svg>
-        <div class="vm" style="width:430px; padding:24px 18px 12px">
-          <span class="vmtab" style="font-size:12px; top:-13px"><svg class="li" style="width:11px;height:11px" viewBox="0 0 24 24"><use href="#lg-vercel"/></svg>VERCEL SANDBOX · forked per campaign</span>
-          <div class="row" style="gap:8px; font-size:15.5px">
-            <span class="chip dark" style="font-size:14px"><svg class="li" viewBox="0 0 24 24"><use href="#lg-codex"/></svg>Codex SDK</span>
-            <span>→</span><span class="code" style="font-size:14px">$skill</span>
-            <span>→</span><span>subagents</span>
-            <span>→</span><span>tools</span>
-          </div>
-        </div>
-        <svg class="arr thin" width="42" height="24" viewBox="0 0 42 24"><path d="M3 13 C 13 10, 25 15, 35 12"/><path d="M27 5 L 37 12 L 26 18"/></svg>
-        <div class="doc sm" style="padding:7px 12px 8px"><div class="fname" style="font-size:14px">artifacts<br/>→ back to UI</div></div>
-      </div>
-
-      <div data-step="1" class="note" style="text-align:center; font-size:26px">
-        give the <span class="mark">Codex SDK</span> a sandbox and one line — <i>“use $scout”</i> — and it runs the whole show
-      </div>
-
-      <div data-step="2" class="row" style="gap:28px; padding:8px 14px">
-        <div class="row" style="gap:12px">
-          <span class="note" style="font-size:21px">built on</span>
-          <span class="chip dark"><svg class="li" viewBox="0 0 24 24"><use href="#lg-codex"/></svg>Codex SDK</span>
-          <span class="chip"><svg class="li" viewBox="0 0 24 24"><use href="#lg-vercel"/></svg>Vercel Sandbox</span>
-          <span class="chip">Convex</span>
-          <span class="chip">Next.js</span>
-        </div>
-        <div class="sk" style="padding:8px 18px; transform:rotate(-1deg); border-style:dashed; box-shadow:none">
-          <div style="font-size:18px">up next 🎬 how Codex built Drip itself</div>
+        <div class="note" style="font-size:23px; max-width:760px">the dashed line is the point — <span class="code mark">$imagegen</span> serves the Designer's lanes <b>and</b> the Builder's site imagery. Tools are domain-blind; <span class="mark">build once, every teammate gets it</span></div>
+        <div class="sk" style="padding:8px 16px; transform:rotate(-1deg); border-style:dashed; box-shadow:none">
+          <div style="font-size:17px">up next 🎬 how Codex<br/>built Drip itself</div>
         </div>
       </div>
     </div>
@@ -1126,7 +1106,7 @@
     <div class="foot">
       <span id="counter">1 / 10</span>
       <div id="bar"><i></i></div>
-      <span class="keys">→ next highlight · click anything to spotlight it · ← back</span>
+      <span class="keys">→ / click · next slide&nbsp;&nbsp;·&nbsp;&nbsp;space · step highlights&nbsp;&nbsp;·&nbsp;&nbsp;hover · spotlight</span>
     </div>
   </div>
 
@@ -1168,13 +1148,16 @@
     if (history.replaceState) history.replaceState(null, '', '#' + (s + 1) + '.' + k);
   }
 
-  function next() {
+  function nextSlide() { if (s < slides.length - 1) { s++; k = 0; render(); } }
+  function prevSlide() { if (s > 0) { s--; k = 0; render(); } }
+
+  function nextBeat() {
     if (k < stepsOf(slides[s])) { k++; }
     else if (s < slides.length - 1) { s++; k = 0; }
     render();
   }
 
-  function prev() {
+  function prevBeat() {
     if (k > 0) { k--; }
     else if (s > 0) { s--; k = 0; }
     render();
@@ -1189,10 +1172,14 @@
   document.addEventListener('keydown', function (e) {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     switch (e.key) {
-      case 'ArrowRight': case 'ArrowDown': case ' ': case 'Enter': case 'PageDown':
-        e.preventDefault(); next(); break;
-      case 'ArrowLeft': case 'ArrowUp': case 'Backspace': case 'PageUp':
-        e.preventDefault(); prev(); break;
+      case 'ArrowRight': case 'Enter': case 'PageDown':
+        e.preventDefault(); nextSlide(); break;
+      case 'ArrowLeft': case 'PageUp':
+        e.preventDefault(); prevSlide(); break;
+      case ' ': case 'ArrowDown':
+        e.preventDefault(); if (e.shiftKey) prevBeat(); else nextBeat(); break;
+      case 'Backspace': case 'ArrowUp':
+        e.preventDefault(); prevBeat(); break;
       case 'Home': e.preventDefault(); goto(0, 0); break;
       case 'End': e.preventDefault(); goto(slides.length - 1, 0); break;
     }
@@ -1200,14 +1187,18 @@
 
   document.addEventListener('click', function (e) {
     if (e.target.closest('a')) return;
-    var hit = e.target.closest('[data-step]');
-    if (hit) {
-      var step = parseInt(hit.dataset.step, 10) || 0;
-      k = (k === step) ? 0 : step;
-      render();
-      return;
+    if (e.clientX < window.innerWidth * 0.12) prevSlide(); else nextSlide();
+  });
+
+  document.addEventListener('mouseover', function (e) {
+    var sl = slides[s];
+    sl.querySelectorAll('[data-step].hov').forEach(function (el) { el.classList.remove('hov'); });
+    var t = e.target.closest('[data-step]');
+    if (t && t.closest('.slide') === sl) {
+      sl.querySelectorAll('[data-step="' + t.dataset.step + '"]').forEach(function (el) {
+        el.classList.add('hov');
+      });
     }
-    if (e.clientX < window.innerWidth * 0.12) prev(); else next();
   });
 
   function fit() {
@@ -1219,9 +1210,13 @@
   window.addEventListener('resize', fit);
   fit();
 
-  var m = (location.hash || '').match(/^#(\d+)(?:\.(\d+))?$/);
-  if (m) goto(parseInt(m[1], 10) - 1, m[2] ? parseInt(m[2], 10) : 0);
-  else render();
+  function applyHash() {
+    var m = (location.hash || '').match(/^#(\d+)(?:\.(\d+))?$/);
+    if (m) goto(parseInt(m[1], 10) - 1, m[2] ? parseInt(m[2], 10) : 0);
+    else render();
+  }
+  window.addEventListener('hashchange', applyHash);
+  applyHash();
 })();
 </script>
 

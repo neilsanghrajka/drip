@@ -15,8 +15,9 @@ When deployment changes:
 2. Update `docs/CONVEX.md` for Convex-specific backend rules.
 3. Update `docs/VERCEL.md` for Vercel-specific platform rules.
 4. Update `.env.example` in the same change if any production env var changes.
-5. Keep real production URLs, deployment IDs, dashboard links, project IDs, and
-   deploy keys out of committed files.
+5. Keep deployment IDs, dashboard links, project IDs, team IDs, and deploy keys
+   out of committed files. Public-facing URLs (the live app and generated drop
+   sites) are fine in public docs.
 
 ## Production Model
 
@@ -85,8 +86,9 @@ Verify:
 
 Use production Convex CLI targeting only when the production deployment selector
 is known from private operator config. Do not paste deployment selectors,
-dashboard URLs, production URLs, or generated Convex URLs into committed docs or
-final responses.
+dashboard URLs, or generated Convex URLs into committed docs or final responses.
+Public-facing URLs (the live app and generated drop sites) are fine in public
+docs; private identifiers remain forbidden.
 
 ## References
 

@@ -20,7 +20,7 @@ set -a
 . ./.env
 set +a
 
-pnpm exec tsx docs/prototypes/sandbox-codex-sdk/run-sandbox-codex-sdk.ts
+pnpm exec tsx references/sandbox-prototypes/run-sandbox-codex-sdk.ts
 ```
 
 Required env names: `CODEX_API_KEY`, Vercel Sandbox auth, `NEXT_PUBLIC_CONVEX_URL`,

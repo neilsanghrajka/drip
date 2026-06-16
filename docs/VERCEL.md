@@ -17,7 +17,8 @@ When Vercel setup changes:
 4. Update `.env.example` in the same change if any env var is added, renamed,
    removed, or moved.
 5. Keep real project IDs, team IDs, deployment URLs, dashboard links, deploy
-   keys, and account-specific values out of committed files.
+   keys, and account-specific values out of committed files. Public-facing URLs
+   (the live app and generated drop sites) are fine in public docs.
 
 ## Role in Drip
 
@@ -147,8 +148,10 @@ pnpm exec vercel inspect <deployment> --wait
 ```
 
 When inspecting deployments or envs, report names, presence, and readiness only.
-Do not print project IDs, deployment IDs, production URLs, dashboard URLs, team
-IDs, or secret values in docs, screenshots, logs, or final responses.
+Do not print project IDs, deployment IDs, dashboard URLs, team IDs, or secret
+values in docs, screenshots, logs, or final responses. Public-facing URLs (the
+live app and generated drop sites) are fine in public docs; private identifiers
+remain forbidden.
 
 ## References
 
