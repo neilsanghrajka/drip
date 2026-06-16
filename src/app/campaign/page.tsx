@@ -20,7 +20,7 @@ import {
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { ComponentType, CSSProperties } from "react";
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useAction, useMutation, useQuery } from "convex/react";
 
 import { api } from "../../convex/_generated/api";
@@ -247,7 +247,7 @@ const stages: Stage[] = [
 export default function CampaignPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const createDrop = useAction(api.dropActions.createDrop);
+  const createDrop = useAction(api.dropActions.createDropShell);
   const startNextStage = useAction(api.dropActions.startNextStage);
   const selectScoutIdeas = useMutation(api.drops.selectScoutIdeas);
   const selectDesignerMocks = useMutation(api.drops.selectDesignerMocks);
@@ -271,6 +271,7 @@ export default function CampaignPage() {
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showArtifacts, setShowArtifacts] = useState(false);
+  const bootstrappingDropRef = useRef<Id<"drops"> | null>(null);
   const newSessionRequested = searchParams.get("new") === "1";
   const requestedDropId = searchParams.get("drop") as Id<"drops"> | null;
   const activeDropId = newSessionRequested ? null : (requestedDropId ?? dropId);
@@ -337,6 +338,32 @@ export default function CampaignPage() {
   const activityItems = dropView?.activity ?? [];
   const cancellableRun = useMemo(() => activeDropStageRun(dropView), [dropView]);
   const workspaceStatus = workspaceLifecycleStatus(dropView, cancellableRun);
+  const isStageActionPending = Boolean(
+    pendingAction || dropView?.drop.status === "creating",
+  );
+
+  useEffect(() => {
+    const currentDropId = dropView?.drop._id;
+    const currentDropStatus = dropView?.drop.status;
+    if (
+      !currentDropId ||
+      currentDropStatus !== "creating" ||
+      bootstrappingDropRef.current === currentDropId
+    ) {
+      return;
+    }
+
+    bootstrappingDropRef.current = currentDropId;
+    void startNextStage({ dropId: currentDropId })
+      .catch((caught) => {
+        setError(cleanActionError(caught));
+      })
+      .finally(() => {
+        if (bootstrappingDropRef.current === currentDropId) {
+          bootstrappingDropRef.current = null;
+        }
+      });
+  }, [dropView?.drop._id, dropView?.drop.status, startNextStage]);
 
   async function runAction(label: string, action: () => Promise<void>) {
     setPendingAction(label);
@@ -370,7 +397,6 @@ export default function CampaignPage() {
       setSelectedIdeasOverride(null);
       setSelectedMocksOverride(null);
       setManualStage("scout");
-      await startNextStage({ dropId: created.dropId });
     });
   }
 
@@ -610,7 +636,7 @@ export default function CampaignPage() {
                 designerMocks={designerMocks}
                 dropView={dropView}
                 error={cleanNullableError(error ?? dropView?.drop.error?.message)}
-                isPending={Boolean(pendingAction)}
+                isPending={isStageActionPending}
                 marketerArtifact={artifacts.marketer}
                 activityItems={activityItems}
                 onGoToMarket={goToMarketer}
@@ -1141,6 +1167,7 @@ function StageWorkspace({
   const body =
     active.key === "scout" ? (
       <ScoutFocus
+        activityItems={activityItems}
         dropView={dropView}
         isPending={isPending}
         onApproveIdeas={onApproveIdeas}
@@ -1150,6 +1177,7 @@ function StageWorkspace({
       />
     ) : active.key === "designer" ? (
       <DesignerFocus
+        activityItems={activityItems}
         designerMocks={designerMocks}
         dropView={dropView}
         isPending={isPending}
@@ -1160,15 +1188,18 @@ function StageWorkspace({
       />
     ) : active.key === "builder" ? (
       <BuilderFocus
+        activityItems={activityItems}
         builderUrl={builderUrl}
         designerMocks={designerMocks}
         dropView={dropView}
+        isPending={isPending}
         onGoToMarket={onGoToMarket}
         onOpenImage={setPreviewImage}
         selectedMocks={selectedMocks}
       />
     ) : (
       <MarketerFocus
+        activityItems={activityItems}
         designerMocks={designerMocks}
         dropView={dropView}
         isPending={isPending}
@@ -1324,6 +1355,200 @@ function ActivityStreamBar({
   );
 }
 
+function LiveStageProgress({
+  activityItems,
+  dropView,
+  previewLabels,
+  stage,
+}: {
+  activityItems: ActivityItem[];
+  dropView?: DropView | null;
+  previewLabels: string[];
+  stage: Stage;
+}) {
+  const items = activityItems.filter((item) => item.stage === stage.key);
+  const visibleItems =
+    items.length > 0
+      ? items
+      : [
+          {
+            stage: stage.key,
+            label: "Preparing workspace",
+            detail: stage.line,
+            status: "running" as const,
+          },
+        ];
+  const latestRun = latestStageRun(dropView, stage.key);
+  const stageEvents =
+    dropView?.sandboxEvents?.filter((event) => event.stage === stage.key) ?? [];
+  const latestEvent = stageEvents[stageEvents.length - 1];
+  const activeItem =
+    [...visibleItems].reverse().find((item) => item.status === "running") ??
+    [...visibleItems].reverse().find((item) => item.status === "complete") ??
+    visibleItems[0];
+  const statusLabel = stageRunStatusLabel(latestRun?.status ?? dropView?.drop.status);
+  const signalLabel = latestEvent
+    ? sandboxSignalLabel(latestEvent.type)
+    : statusLabel;
+
+  return (
+    <div
+      aria-live="polite"
+      className="col-span-full grid h-full min-h-[360px] gap-3 lg:grid-cols-[minmax(0,0.95fr)_minmax(260px,0.7fr)]"
+      style={{ "--stage-color": stage.color } as CSSProperties}
+    >
+      <section className="drip-live-panel flex min-h-0 flex-col overflow-hidden rounded-[16px] border-[3px] border-black bg-white shadow-[4px_4px_0_#000]">
+        <div className="border-b-[3px] border-black px-4 py-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-[11px] font-black uppercase tracking-[0.18em] text-neutral-500">
+              Live run
+            </p>
+            <span className="rounded-full border-[2px] border-black bg-white px-2.5 py-1 text-[10px] font-black uppercase">
+              {statusLabel}
+            </span>
+          </div>
+          <h3 className="mt-2 text-[24px] font-black leading-none tracking-[-0.04em]">
+            {stage.shortName} is working
+          </h3>
+          <p className="mt-1 text-sm font-bold leading-tight text-neutral-600">
+            {activeItem?.detail ?? stage.line}
+          </p>
+        </div>
+
+        <div className="grid gap-2 overflow-y-auto p-3">
+          {visibleItems.map((item, index) => (
+            <div
+              className={`flex items-center gap-3 rounded-[12px] border-[2px] border-black px-3 py-2 ${
+                item.status === "running"
+                  ? "drip-live-scan bg-white"
+                  : item.status === "complete"
+                    ? "bg-neutral-50"
+                    : "bg-white/70 text-neutral-500"
+              }`}
+              key={`${item.stage}-${item.label}-${index}`}
+            >
+              <span
+                className={`grid size-8 shrink-0 place-items-center rounded-full border-[3px] border-black text-xs font-black ${
+                  item.status === "complete" ? "text-black" : "bg-white"
+                }`}
+                style={{
+                  backgroundColor:
+                    item.status === "complete" || item.status === "running"
+                      ? stage.color
+                      : "#fff",
+                }}
+              >
+                {item.status === "complete" ? (
+                  <Check className="size-4 stroke-[4]" />
+                ) : item.status === "running" ? (
+                  <Loader2 className="size-4 animate-spin stroke-[3]" />
+                ) : (
+                  index + 1
+                )}
+              </span>
+              <span className="min-w-0">
+                <span className="drip-clamp-1 block text-sm font-black leading-tight">
+                  {item.label}
+                </span>
+                <span className="drip-clamp-1 mt-0.5 block text-[11px] font-bold leading-tight text-neutral-500">
+                  {item.status === "running" ? signalLabel : item.detail}
+                </span>
+              </span>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section
+        className="flex min-h-0 flex-col rounded-[16px] border-[3px] border-black bg-black p-3 text-white"
+        style={{ boxShadow: `4px 4px 0 ${stage.color}` }}
+      >
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-[11px] font-black uppercase tracking-[0.2em] text-white/65">
+            In progress
+          </p>
+          <span className="drip-live-pulse size-3 rounded-full border-[2px] border-white bg-[var(--stage-color)]" />
+        </div>
+        <div className="mt-3 grid grid-cols-2 gap-2 text-center">
+          <div className="rounded-[10px] border border-white/20 p-2">
+            <p className="text-[9px] font-black uppercase text-white/50">Attempt</p>
+            <p className="mt-1 text-lg font-black">{latestRun?.attempt ?? 1}</p>
+          </div>
+          <div className="rounded-[10px] border border-white/20 p-2">
+            <p className="text-[9px] font-black uppercase text-white/50">
+              Live events
+            </p>
+            <p className="mt-1 text-lg font-black">{stageEvents.length}</p>
+          </div>
+        </div>
+
+        <div className="mt-3 grid min-h-0 flex-1 grid-cols-2 gap-2 overflow-hidden">
+          {previewLabels.map((label, index) => (
+            <div
+              className="drip-live-slot drip-live-scan min-h-[78px] overflow-hidden rounded-[12px] border-[2px] border-white/25 bg-white text-black"
+              key={label}
+              style={{ animationDelay: `${index * 110}ms` }}
+            >
+              <div className="h-1.5 bg-[var(--stage-color)]" />
+              <div className="grid h-[calc(100%-6px)] content-between p-2">
+                <p className="drip-clamp-1 text-[11px] font-black leading-tight">
+                  {label}
+                </p>
+                <div className="grid gap-1">
+                  <span className="h-2 rounded-full bg-neutral-200" />
+                  <span className="h-2 w-2/3 rounded-full bg-neutral-200" />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <p className="mt-3 text-[12px] font-bold leading-tight text-white/65">
+          {stage.shortName} is still active; outputs will replace this board when
+          the artifact is saved.
+        </p>
+      </section>
+    </div>
+  );
+}
+
+function StageHandoffPrompt({
+  detail,
+  stage,
+  title,
+}: {
+  detail: string;
+  stage: Stage;
+  title: string;
+}) {
+  const Icon = stage.icon;
+
+  return (
+    <div
+      className="col-span-full grid h-full min-h-[280px] place-items-center rounded-[16px] border-[3px] border-black bg-white p-5 text-center shadow-[4px_4px_0_#000]"
+      style={{ "--stage-color": stage.color } as CSSProperties}
+    >
+      <div className="max-w-[430px]">
+        <div
+          className="mx-auto grid size-14 place-items-center rounded-[16px] border-[3px] border-black bg-white"
+          style={{ boxShadow: `3px 3px 0 ${stage.color}` }}
+        >
+          <Icon className="size-7 stroke-[3]" style={{ color: stage.color }} />
+        </div>
+        <p className="mt-4 text-[11px] font-black uppercase tracking-[0.2em] text-neutral-500">
+          {stage.shortName} idle
+        </p>
+        <h3 className="mt-2 text-[26px] font-black leading-none tracking-[-0.04em]">
+          {title}
+        </h3>
+        <p className="mt-2 text-sm font-bold leading-tight text-neutral-600">
+          {detail}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function ImageLightbox({
   image,
   onClose,
@@ -1393,6 +1618,7 @@ function ImageLightbox({
 }
 
 function ScoutFocus({
+  activityItems,
   dropView,
   isPending,
   onApproveIdeas,
@@ -1400,6 +1626,7 @@ function ScoutFocus({
   scoutIdeas,
   selectedIdeas,
 }: {
+  activityItems: ActivityItem[];
   dropView?: DropView | null;
   isPending: boolean;
   onApproveIdeas: () => void;
@@ -1414,7 +1641,19 @@ function ScoutFocus({
       <section className="flex min-h-0 min-w-0 flex-col">
         <div className="grid min-h-0 flex-1 content-start gap-2 overflow-y-auto pr-1 md:grid-cols-2 lg:grid-cols-3">
           {waiting ? (
-            <LoadingTiles label="Scout" />
+            <LiveStageProgress
+              activityItems={activityItems}
+              dropView={dropView}
+              previewLabels={[
+                "Trend brief",
+                "X signal",
+                "Exa context",
+                "Source check",
+                "Merch angle",
+                "Proposal card",
+              ]}
+              stage={stages[0]}
+            />
           ) : (
             scoutIdeas.map((idea) => {
               const selected = selectedIdeas.includes(idea.id);
@@ -1496,6 +1735,7 @@ function ScoutFocus({
 }
 
 function DesignerFocus({
+  activityItems,
   designerMocks,
   dropView,
   isPending,
@@ -1504,6 +1744,7 @@ function DesignerFocus({
   onSelectMock,
   selectedMocks,
 }: {
+  activityItems: ActivityItem[];
   designerMocks: DesignerMock[];
   dropView?: DropView | null;
   isPending: boolean;
@@ -1512,10 +1753,12 @@ function DesignerFocus({
   onSelectMock: (id: string) => void;
   selectedMocks: string[];
 }) {
-  const waiting =
+  const designerLive =
+    isPending ||
     dropView?.drop.status === "designing" ||
     dropView?.drop.status === "ready_to_design" ||
-    designerMocks.length === 0;
+    stageHasActiveRun(dropView, "designer");
+  const waiting = designerMocks.length === 0;
 
   return (
     <div className="grid h-full min-h-0 gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
@@ -1526,7 +1769,27 @@ function DesignerFocus({
           </p>
           <div className="min-h-0 flex-1 overflow-hidden">
             <div className="grid h-full content-start gap-3 md:grid-cols-2 lg:grid-cols-3">
-              {waiting ? null : (
+              {waiting && designerLive ? (
+                <LiveStageProgress
+                  activityItems={activityItems}
+                  dropView={dropView}
+                  previewLabels={[
+                    "Idea brief",
+                    "Product direction",
+                    "Image prompt",
+                    "Mock image",
+                    "Quality pass",
+                    "Asset pack",
+                  ]}
+                  stage={stages[1]}
+                />
+              ) : waiting ? (
+                <StageHandoffPrompt
+                  detail="Select Scout ideas, then send them to Designer to generate product mockups."
+                  stage={stages[1]}
+                  title="Waiting for Scout selections"
+                />
+              ) : (
                 designerMocks.map((mock, index) => {
                   const selected = selectedMocks.includes(mock.id);
                   return (
@@ -1622,8 +1885,23 @@ function DesignerFocus({
           {selectedMocks.length} products selected
         </h4>
         <p className="mt-4 text-white/75">
-          These selected images become the limited-drop website carousel.
+          {waiting && designerLive
+            ? "Mockups will appear here as soon as Designer saves the output."
+            : waiting
+              ? "Scout selections become Designer's product brief."
+            : "These selected images become the limited-drop website carousel."}
         </p>
+        {waiting && designerLive ? (
+          <div className="mt-5 rounded-[14px] border border-white/20 bg-white/5 p-3">
+            <div className="flex items-center gap-2 text-sm font-black">
+              <Loader2 className="size-4 animate-spin" />
+              Designer is generating products
+            </div>
+            <p className="mt-2 text-[12px] font-bold leading-tight text-white/60">
+              Images and concept data are still in the active run.
+            </p>
+          </div>
+        ) : null}
         <button
           className="drip-button mt-auto w-full px-6 py-4 text-lg disabled:cursor-wait disabled:opacity-70"
           disabled={
@@ -1643,16 +1921,20 @@ function DesignerFocus({
 }
 
 function BuilderFocus({
+  activityItems,
   builderUrl,
   designerMocks,
   dropView,
+  isPending,
   onGoToMarket,
   onOpenImage,
   selectedMocks,
 }: {
+  activityItems: ActivityItem[];
   builderUrl?: string;
   designerMocks: DesignerMock[];
   dropView?: DropView | null;
+  isPending: boolean;
   onGoToMarket: () => void;
   onOpenImage: (image: ImagePreview) => void;
   selectedMocks: string[];
@@ -1661,8 +1943,29 @@ function BuilderFocus({
   const heroMock = selected.find((mock) => mock.imageUrl) ?? selected[0];
   const building =
     dropView?.drop.status === "building" || dropView?.drop.status === "ready_to_build";
+  const showLiveProgress =
+    !builderUrl &&
+    (isPending || building || stageHasActiveRun(dropView, "builder"));
   const canGoToMarket =
     isStageUnlocked("marketer", dropView) && !isStageComplete("marketer", dropView);
+
+  if (showLiveProgress) {
+    return (
+      <LiveStageProgress
+        activityItems={activityItems}
+        dropView={dropView}
+        previewLabels={[
+          "Selected assets",
+          "Page layout",
+          "Product carousel",
+          "Buy CTA",
+          "Visual review",
+          "Deploy URL",
+        ]}
+        stage={stages[2]}
+      />
+    );
+  }
 
   return (
     <div className="grid h-full min-h-0 gap-4 lg:grid-cols-[300px_minmax(0,1fr)]">
@@ -1773,6 +2076,7 @@ function BuilderFocus({
 }
 
 function MarketerFocus({
+  activityItems,
   designerMocks,
   dropView,
   isPending,
@@ -1781,6 +2085,7 @@ function MarketerFocus({
   onOpenImage,
   selectedMocks,
 }: {
+  activityItems: ActivityItem[];
   designerMocks: DesignerMock[];
   dropView?: DropView | null;
   isPending: boolean;
@@ -1819,6 +2124,11 @@ function MarketerFocus({
       dropStatus === "failed" ||
       dropStatus === "cancelled" ||
       metaBlocked);
+  const showLiveProgress =
+    !marketerArtifact &&
+    (dropStatus === "marketing" ||
+      stageHasActiveRun(dropView, "marketer") ||
+      (isPending && marketerIsCurrent));
   const actionLabel =
     metaReady
       ? "Ad ready"
@@ -1930,6 +2240,24 @@ function MarketerFocus({
       ) : null}
     </div>
   );
+
+  if (showLiveProgress) {
+    return (
+      <LiveStageProgress
+        activityItems={activityItems}
+        dropView={dropView}
+        previewLabels={[
+          "Builder URL",
+          "Product images",
+          "Ad copy",
+          "Campaign shell",
+          "Paused status",
+          "Sanitized proof",
+        ]}
+        stage={stages[3]}
+      />
+    );
+  }
 
   return (
     <div className="grid h-full min-h-0 gap-3 lg:grid-cols-[minmax(0,1fr)_300px]">
@@ -2043,21 +2371,6 @@ function MarketerFocus({
   );
 }
 
-function LoadingTiles({ label }: { label: string }) {
-  return Array.from({ length: 6 }, (_, index) => (
-    <div
-      className="min-h-[96px] rounded-[14px] border-[3px] border-black bg-white p-3 shadow-[4px_4px_0_#000]"
-      key={index}
-    >
-      <Loader2 className="size-5 animate-spin" />
-      <p className="drip-clamp-1 mt-2 text-base font-black leading-tight">{label}</p>
-      <p className="mt-1 text-[11px] font-bold uppercase text-neutral-500">
-        Live output
-      </p>
-    </div>
-  ));
-}
-
 function latestStageRun(
   dropView: DropView | null | undefined,
   stage: StageKey,
@@ -2065,6 +2378,15 @@ function latestStageRun(
   return dropView?.stageRuns
     .filter((stageRun) => stageRun.stage === stage)
     .sort((left, right) => (right.startedAt ?? right.updatedAt ?? 0) - (left.startedAt ?? left.updatedAt ?? 0))[0];
+}
+
+function stageHasActiveRun(
+  dropView: DropView | null | undefined,
+  stage: StageKey,
+) {
+  const activeStatuses = new Set(["queued", "starting", "running", "collecting"]);
+  const latest = latestStageRun(dropView, stage);
+  return Boolean(latest && activeStatuses.has(latest.status));
 }
 
 function activeDropStageRun(dropView: DropView | null | undefined) {
@@ -2138,6 +2460,58 @@ function workspaceLifecycleStatus(
 
 function stageLabel(stage: StageKey) {
   return stages.find((item) => item.key === stage)?.shortName ?? stage;
+}
+
+function stageRunStatusLabel(status: string | undefined) {
+  switch (status) {
+    case "queued":
+      return "Queued";
+    case "starting":
+    case "creating":
+      return "Starting";
+    case "running":
+    case "scouting":
+    case "designing":
+    case "building":
+    case "marketing":
+      return "Running";
+    case "collecting":
+      return "Collecting";
+    case "succeeded":
+      return "Saving output";
+    case "failed":
+      return "Failed";
+    case "cancelled":
+      return "Cancelled";
+    case "ready_to_design":
+    case "ready_to_build":
+      return "Queued";
+    default:
+      return status ? status.replaceAll("_", " ") : "Preparing";
+  }
+}
+
+function sandboxSignalLabel(type: string) {
+  switch (type) {
+    case "runner.started":
+      return "Runner booted";
+    case "runner.heartbeat":
+      return "Run is still active";
+    case "thread.started":
+      return "Agent thread started";
+    case "turn.started":
+      return "Teammate is thinking";
+    case "item.started":
+      return "Work item started";
+    case "item.completed":
+      return "Work item completed";
+    case "turn.completed":
+      return "Turn completed";
+    case "runner.finished":
+      return "Runner finished";
+    default:
+      return type.replaceAll(".", " ");
+  }
 }
 
 function latestArtifact(dropView: DropView | null | undefined, stage: StageKey) {

@@ -688,8 +688,7 @@ export default function Home() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isAuthenticated, isLoading } = useConvexAuth();
-  const createDrop = useAction(api.dropActions.createDrop);
-  const startNextStage = useAction(api.dropActions.startNextStage);
+  const createDrop = useAction(api.dropActions.createDropShell);
   const rawRecentDrops = useQuery(
     api.drops.listDrops,
     isAuthenticated ? { limit: 8 } : "skip",
@@ -745,7 +744,6 @@ export default function Home() {
         ],
       });
       writeStoredDropId(created.dropId);
-      await startNextStage({ dropId: created.dropId });
       setSetupOpen(false);
       router.push(`/campaign?drop=${created.dropId}`);
     } catch (caught) {

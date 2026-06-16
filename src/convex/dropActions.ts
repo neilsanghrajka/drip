@@ -230,49 +230,33 @@ const startSandboxRun = makeFunctionReference<
   { sandboxId: string; commandId: string }
 >;
 
-export const createDrop = action({
-  args: {
-    name: v.string(),
-    dropDate: v.string(),
-    city: v.optional(v.string()),
-    startingMode: v.string(),
-    topics: v.optional(v.array(v.string())),
-    productCategories: v.optional(v.array(v.string())),
-    tasteConstraints: v.optional(v.array(v.string())),
-    winningDrop: v.optional(v.any()),
-  },
+const createDropArgs = {
+  name: v.string(),
+  dropDate: v.string(),
+  city: v.optional(v.string()),
+  startingMode: v.string(),
+  topics: v.optional(v.array(v.string())),
+  productCategories: v.optional(v.array(v.string())),
+  tasteConstraints: v.optional(v.array(v.string())),
+  winningDrop: v.optional(v.any()),
+};
+
+export const createDropShell = action({
+  args: createDropArgs,
   handler: async (ctx, args) => {
-    const workspaceId = await requireUserWorkspaceId(ctx);
-    const created = await ctx.runMutation(createDropFromAction, {
-      ...args,
-      workspaceId,
-    });
-    try {
-      const sandbox = await getOrCreateDropSandbox(created.sandboxName);
-      await assertSandboxReady(sandbox);
-      const stopped = await sandbox.stop().catch(() => undefined);
-      const ready = await ctx.runMutation(markDropSandboxReady, {
-        dropId: created.dropId,
-        sandboxName: created.sandboxName,
-        sandboxId: sandbox.name,
-        currentSnapshotId:
-          stopped?.snapshot?.id ?? sandbox.currentSnapshotId ?? undefined,
-      });
-      return {
-        ...created,
-        status: ready.status,
-      };
-    } catch (error) {
-      const failure = normalizeSandboxProvisioningError(
-        error,
-        "drop_sandbox_create_failed",
-      );
-      await ctx.runMutation(markDropSandboxFailed, {
-        dropId: created.dropId,
-        error: failure,
-      });
-      throw new Error(failure.message);
-    }
+    const created = await createDropRow(ctx, args);
+    return {
+      ...created,
+      status: "creating" as const,
+    };
+  },
+});
+
+export const createDrop = action({
+  args: createDropArgs,
+  handler: async (ctx, args) => {
+    const created = await createDropRow(ctx, args);
+    return await prepareDropSandbox(ctx, created);
   },
 });
 
@@ -282,6 +266,7 @@ export const startNextStage = action({
   },
   handler: async (ctx, args) => {
     await requireOwnedDrop(ctx, args.dropId);
+    await ensureDropSandboxReady(ctx, args.dropId);
     const prepared = await ctx.runMutation(prepareNextStageRun, {
       dropId: args.dropId,
     });
@@ -294,6 +279,73 @@ export const startNextStage = action({
     };
   },
 });
+
+async function ensureDropSandboxReady(ctx: ActionCtx, dropId: Id<"drops">) {
+  const drop = await ctx.runQuery(getDropForAction, { dropId });
+  if (!drop) {
+    throw new Error("Drop not found.");
+  }
+  if (drop.status !== "creating") {
+    return drop;
+  }
+
+  return await prepareDropSandbox(ctx, {
+    dropId,
+    sandboxName: drop.sandboxName,
+  });
+}
+
+async function createDropRow(
+  ctx: ActionCtx,
+  args: {
+    name: string;
+    dropDate: string;
+    city?: string;
+    startingMode: string;
+    topics?: string[];
+    productCategories?: string[];
+    tasteConstraints?: string[];
+    winningDrop?: unknown;
+  },
+) {
+  const workspaceId = await requireUserWorkspaceId(ctx);
+  return await ctx.runMutation(createDropFromAction, {
+    ...args,
+    workspaceId,
+  });
+}
+
+async function prepareDropSandbox(
+  ctx: ActionCtx,
+  created: CreateDropResult,
+) {
+  try {
+    const sandbox = await getOrCreateDropSandbox(created.sandboxName);
+    await assertSandboxReady(sandbox);
+    const stopped = await sandbox.stop().catch(() => undefined);
+    const ready = await ctx.runMutation(markDropSandboxReady, {
+      dropId: created.dropId,
+      sandboxName: created.sandboxName,
+      sandboxId: sandbox.name,
+      currentSnapshotId:
+        stopped?.snapshot?.id ?? sandbox.currentSnapshotId ?? undefined,
+    });
+    return {
+      ...created,
+      status: ready.status,
+    };
+  } catch (error) {
+    const failure = normalizeSandboxProvisioningError(
+      error,
+      "drop_sandbox_create_failed",
+    );
+    await ctx.runMutation(markDropSandboxFailed, {
+      dropId: created.dropId,
+      error: failure,
+    });
+    throw new Error(failure.message);
+  }
+}
 
 export const collectStageArtifacts = internalAction({
   args: {
