@@ -117,7 +117,6 @@
 
   .li { width: 1em; height: 1em; flex: none; }
 
-  /* zone: dashed excalidraw-style group frame */
   .zone {
     position: relative;
     border: 2.3px dashed #999;
@@ -137,7 +136,7 @@
     letter-spacing: 0.04em;
   }
 
-  /* sandbox container — the shape that means "Vercel Sandbox microVM" */
+  /* sandbox container */
   .vm {
     position: relative;
     border: 3px solid #000;
@@ -161,10 +160,8 @@
     white-space: nowrap;
   }
   .vmtab .li { width: 13px; height: 13px; }
-  .vm.mini { box-shadow: 3px 3.5px 0 rgb(0 0 0 / 85%); border-width: 2.5px; }
-  .vm.mini .vmtab { font-size: 11.5px; top: -13px; left: 12px; padding: 2px 9px 2px; letter-spacing: 0.05em; }
 
-  /* document with a folded corner — the shape that means "output artifact" */
+  /* document with folded corner */
   .doc {
     position: relative;
     background: #fff;
@@ -178,27 +175,27 @@
     position: absolute;
     top: -2.6px;
     right: -2.6px;
-    width: 26px;
-    height: 26px;
+    width: 22px;
+    height: 22px;
     background: #fff;
     border-left: 2.6px solid #000;
     border-bottom: 2.6px solid #000;
-    border-bottom-left-radius: 9px;
+    border-bottom-left-radius: 8px;
     border-top-right-radius: 4px;
     box-shadow: -2px 2px 0 rgb(0 0 0 / 12%);
   }
   .doc.sm::before { width: 16px; height: 16px; border-bottom-left-radius: 6px; }
-  .doc .fname { font-family: "SFMono-Regular", Consolas, monospace; font-size: 16.5px; letter-spacing: -0.02em; padding-right: 24px; }
+  .doc .fname { font-family: "SFMono-Regular", Consolas, monospace; font-size: 16.5px; letter-spacing: -0.02em; padding-right: 22px; }
   .doc ul { margin: 6px 0 0; padding: 0; list-style: none; font-size: 16.5px; line-height: 1.45; text-align: left; }
 
-  /* browser window — the shape that means "frontend / website" */
+  /* browser window */
   .browser { background: #fff; border: 2.6px solid #000; border-radius: 12px; box-shadow: 4px 4.5px 0 rgb(0 0 0 / 85%); overflow: hidden; }
   .browser .bbar { display: flex; align-items: center; gap: 5px; padding: 6px 10px; border-bottom: 2.4px solid #000; }
   .browser .bdot { width: 9px; height: 9px; border: 1.8px solid #000; border-radius: 50%; flex: none; }
   .browser .burl { flex: 1; font-size: 13px; border: 1.8px solid #000; border-radius: 30px 6px 34px 7px / 7px 34px 6px 30px; padding: 0 9px; color: #555; white-space: nowrap; overflow: hidden; }
   .browser .bpage { padding: 10px 12px 12px; text-align: center; }
 
-  /* cylinder — the shape that means "database / backend" */
+  /* cylinder */
   .cylwrap { position: relative; filter: drop-shadow(3px 4px 0 rgb(0 0 0 / 85%)); }
   .cylwrap svg { display: block; }
   .cylwrap .cyltext { position: absolute; left: 0; right: 0; text-align: center; }
@@ -217,12 +214,10 @@
   .arr.thin path { stroke-width: 2.4; }
   .alabel { font-family: Caveat, cursive; font-size: 19px; font-weight: 600; color: #666; white-space: nowrap; }
 
-  /* subagent card */
   .agent { padding: 9px 14px 10px; text-align: center; }
   .agent .t { font-family: "SFMono-Regular", Consolas, monospace; font-size: 17.5px; letter-spacing: -0.03em; }
   .agent .d { font-size: 14.5px; color: #555; margin-top: 2px; line-height: 1.25; }
 
-  /* entry-skill node */
   .entry { padding: 8px 22px 10px; text-align: center; }
   .entry .t { font-family: "SFMono-Regular", Consolas, monospace; font-size: 21px; letter-spacing: -0.02em; }
   .entry .d { font-size: 14.5px; color: #555; margin-top: 1px; }
@@ -242,13 +237,17 @@
     box-shadow: 2px 2px 0 #000;
   }
 
-  /* ---------- spotlight steps ---------- */
+  /* ---------- highlight interaction ---------- */
 
-  [data-step] { transition: opacity 250ms ease; }
-  .slide.spot [data-step] { opacity: 0.18; }
-  .slide.spot [data-step].now { opacity: 1; }
-  .now .glow, .now.glow { box-shadow: 0 0 0 4px var(--yellow), 4px 5px 0 rgb(0 0 0 / 85%) !important; }
-  .now .glow-soft, .now.glow-soft { background: rgb(255 212 0 / 38%) !important; border-radius: 18px; }
+  [data-step] { transition: background-color 250ms ease, box-shadow 250ms ease; border-radius: 22px; }
+  [data-step].now { background: rgb(255 212 0 / 32%); box-shadow: 0 0 0 9px rgb(255 212 0 / 32%); }
+
+  .chip, .sk, .browser, .doc, .face, .sticky, .polaroid, .cylwrap, .vm.mini, .term {
+    transition: transform 140ms ease;
+    cursor: pointer;
+  }
+  .chip:hover, .sk:hover, .browser:hover, .doc:hover, .face:hover, .sticky:hover,
+  .polaroid:hover, .cylwrap:hover, .vm.mini:hover, .term:hover { transform: scale(1.05); }
 
   /* ---------- chrome ---------- */
 
@@ -307,7 +306,7 @@
   .cast .member:nth-child(3) img { transform: rotate(-2deg); }
   .cast .member:nth-child(4) img { transform: rotate(3deg); }
 
-  /* ---------- scout slide ---------- */
+  /* ---------- misc cards ---------- */
 
   .sticky {
     padding: 8px 12px 9px;
@@ -317,10 +316,9 @@
     border-radius: 12px 130px 11px 140px / 130px 12px 140px 11px;
     box-shadow: 2.5px 3px 0 rgb(0 0 0 / 80%);
     text-align: left;
+    background: #fff;
   }
-  .sticky .src { display: block; font-family: Caveat, cursive; font-size: 15px; color: #666; }
 
-  /* polaroids / fb card (outputs) */
   .polaroid {
     width: 104px;
     padding: 7px 7px 5px;
@@ -351,32 +349,63 @@
     box-shadow: 2px 2px 0 rgb(0 0 0 / 25%);
   }
 
-  /* layers slide */
-  .layer-band { width: 100%; padding: 10px 16px 12px; position: relative; }
-  .layer-band .lbl-side {
-    position: absolute;
-    right: 14px;
-    top: 9px;
-    font-family: Caveat, cursive;
-    font-size: 19px;
-    color: #777;
-    text-align: right;
-    line-height: 1.05;
-    max-width: 200px;
-  }
-  .layer-band .band-title { font-size: 20px; margin-bottom: 7px; }
-  .layer-band .chips { display: flex; flex-wrap: wrap; gap: 9px; }
-
   .tree {
     font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
-    font-size: 14px;
-    line-height: 1.6;
+    font-size: 13.5px;
+    line-height: 1.62;
     text-align: left;
     white-space: pre;
   }
-  .tree i { font-style: normal; color: #888; font-family: Caveat, cursive; font-size: 15.5px; }
+  .tree i { font-style: normal; color: #888; font-family: Caveat, cursive; font-size: 15px; }
+  .tree b { color: #000; }
+
+  /* terminal window — how we picture the inside of a sandbox */
+  .term {
+    background: #17171b;
+    border: 2.6px solid #000;
+    border-radius: 14px;
+    box-shadow: 4px 5px 0 rgb(0 0 0 / 85%);
+    overflow: hidden;
+    color: #e8e8ea;
+    text-align: left;
+  }
+  .term .tbar {
+    position: relative;
+    display: flex;
+    align-items: center;
+    padding: 7px 12px;
+    background: #26262c;
+    border-bottom: 2px solid #000;
+  }
+  .term .tdot { width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; flex: none; }
+  .term .ttitle {
+    position: absolute;
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-size: 13.5px;
+    color: #9a9aa2;
+    pointer-events: none;
+  }
+  .term .tbody {
+    padding: 10px 14px 12px;
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+    font-size: 12.5px;
+    line-height: 1.6;
+    white-space: pre;
+  }
+  .term .p { color: #55d12c; }
+  .term .m { color: #84848e; }
+  .term .y { color: var(--yellow); }
 
   .ghost { opacity: 0.45; }
+
+  /* org chart (layers slide) */
+  .lyr { position: absolute; left: 0; right: 0; }
+  .lyr .pin { position: absolute; transform: translateX(-50%); }
+  .lyr-lbl { position: absolute; left: 0; font-family: Caveat, cursive; font-size: 20px; font-weight: 700; color: #999; }
+  .chip.xs { font-size: 13px; padding: 2px 10px 3px; gap: 5px; }
+  .chip.xs .li { width: 12px; height: 12px; }
 </style>
 </head>
 <body>
@@ -431,8 +460,8 @@
     <div class="body-area" style="justify-content:center; gap:42px">
       <div class="row" style="gap:10px; align-items:flex-start">
 
-        <div data-step="1" class="col" style="gap:9px; width:280px">
-          <div class="browser glow" style="width:280px">
+        <div data-step="1" class="col" style="gap:9px; width:280px; padding:8px">
+          <div class="browser" style="width:272px">
             <div class="bbar"><span class="bdot"></span><span class="bdot"></span><span class="bdot"></span><span class="burl code">dripbycodex.vercel.app</span></div>
             <div class="bpage">
               <div class="impact" style="font-style:italic; font-size:26px; letter-spacing:-0.05em">Drip<span style="color:var(--yellow); -webkit-text-stroke:1px #000">✦</span></div>
@@ -458,8 +487,8 @@
           </svg>
         </div>
 
-        <div data-step="2" class="col" style="gap:9px; width:232px">
-          <div class="cylwrap glow" style="width:232px; border-radius:46%/24%">
+        <div data-step="2" class="col" style="gap:9px; width:240px; padding:8px">
+          <div class="cylwrap" style="width:232px">
             <svg width="232" height="156" viewBox="0 0 232 156">
               <path d="M13 32 C 13 16, 62 7, 116 7 C 170 7, 219 16, 219 32 L 219 124 C 219 140, 170 149, 116 149 C 62 149, 13 140, 13 124 Z" fill="#fff" stroke="#000" stroke-width="2.6"/>
               <path d="M13 32 C 13 48, 62 57, 116 57 C 170 57, 219 48, 219 32" fill="none" stroke="#000" stroke-width="2.4"/>
@@ -480,8 +509,8 @@
           </svg>
         </div>
 
-        <div data-step="3" class="col" style="gap:9px; width:330px">
-          <div class="vm glow" style="width:330px; padding:26px 18px 14px">
+        <div data-step="3" class="col" style="gap:9px; width:340px; padding:8px">
+          <div class="vm" style="width:330px; padding:26px 18px 14px">
             <span class="vmtab"><svg class="li" viewBox="0 0 24 24"><use href="#lg-vercel"/></svg>VERCEL SANDBOX</span>
             <div class="row" style="gap:10px">
               <div class="sk agent" style="padding:8px 6px"><div class="t" style="font-size:13.5px">campaign&nbsp;a1</div><span class="chip dark" style="font-size:12px; padding:1px 8px 2px; margin-top:5px"><svg class="li" viewBox="0 0 24 24"><use href="#lg-codex"/></svg>codex</span></div>
@@ -493,255 +522,235 @@
         </div>
       </div>
 
-      <div data-step="4" class="row" style="gap:12px">
+      <div data-step="4" class="row" style="gap:12px; align-self:center; padding:6px 14px">
         <svg class="arr thin" width="38" height="32" viewBox="0 0 38 32"><path d="M31 28 C 26 16, 16 8, 6 4"/><path d="M15 11 L 4 3 L 17 1" transform="translate(0 2)"/></svg>
         <div class="note" style="font-size:25px">the <span class="mark">Codex SDK</span> runs <i>inside</i> each sandbox — every agent decision happens in there, not in our backend</div>
       </div>
     </div>
   </section>
 
-  <!-- ============ 3 · MEET SCOUT ============ -->
+  <!-- ============ 3 · MEET SCOUT (HIGH LEVEL) ============ -->
   <section class="slide" id="s-scout">
     <div class="kick">02 · zoom into one teammate</div>
     <h1 class="h1s">Meet Scout — the trend researcher</h1>
+    <div class="note" style="font-size:24px; margin-top:4px">her role: spot what's trending in the world right now, and pitch <b>five concrete drop ideas</b></div>
 
     <div class="body-area" style="justify-content:center">
-      <div class="row" style="gap:0; align-items:center">
+      <div class="row" style="gap:14px">
 
-        <div data-step="2" class="zone col" style="width:300px; gap:12px">
-          <span class="zlbl">INPUT · the world right now</span>
-          <div class="sticky" style="background:rgb(85 209 44 / 14%); transform:rotate(-2deg); width:240px">☔ monsoon just hit Mumbai<span class="src">trending on X · 1 hr ago</span></div>
-          <div class="sticky" style="background:rgb(255 212 0 / 28%); transform:rotate(1.5deg); width:240px">🏏 RCB finally win the title<span class="src">everywhere, all at once</span></div>
-          <div class="sticky" style="background:rgb(18 100 255 / 10%); transform:rotate(-1deg); width:240px">☕ cult café opens in Bandra<span class="src">local buzz · food blogs</span></div>
+        <div data-step="2" class="col" style="gap:8px; padding:8px">
+          <div class="zone col" style="width:230px; gap:10px; padding:26px 16px 16px">
+            <span class="zlbl">INPUT</span>
+            <div class="sk" style="padding:6px 18px; font-size:20px">📍 Mumbai</div>
+            <div class="sk r2" style="padding:6px 18px; font-size:20px">📅 today</div>
+          </div>
+          <div class="cap" style="max-width:210px">that's all she gets —<br/>a city and a date</div>
         </div>
 
-        <div data-step="2" class="col" style="width:108px">
-          <span class="alabel">scans X + web</span>
+        <div data-step="2" class="col" style="width:110px">
           <svg class="arr" width="96" height="28" viewBox="0 0 96 28">
             <path d="M5 16 C 28 12, 60 18, 86 13"/>
             <path d="M76 5 L 88 13 L 75 20"/>
           </svg>
         </div>
 
-        <div data-step="1" class="col" style="gap:10px">
-          <div style="position:relative; transform:rotate(-1.5deg)">
-            <img class="face glow" src="/drip-team/scout-portrait.png" alt="Scout" style="width:206px; height:252px; border-radius:16px; border-width:3.5px; box-shadow:6px 6px 0 #000" />
-          </div>
-          <span class="chip" style="background:rgb(85 209 44 / 18%)"><span class="code" style="font-size:18px">$scout</span></span>
-          <div class="cap" style="max-width:210px">judges what's merch-worthy: diverse, safe, IP-clean</div>
+        <div data-step="1" class="col" style="gap:10px; padding:10px">
+          <img class="face" src="/drip-team/scout-portrait.png" alt="Scout" style="width:206px; height:252px; border-radius:16px; border-width:3.5px; box-shadow:6px 6px 0 #000; transform:rotate(-1.5deg)" />
+          <span class="chip" style="background:rgb(85 209 44 / 18%)"><span class="code" style="font-size:18px">$scout</span>&nbsp;· a Codex skill</span>
         </div>
 
-        <div data-step="3" class="col" style="width:108px">
-          <span class="alabel">writes</span>
+        <div data-step="3" class="col" style="width:110px">
+          <span class="alabel">pitches</span>
           <svg class="arr" width="96" height="28" viewBox="0 0 96 28">
             <path d="M5 13 C 28 18, 60 12, 86 16"/>
             <path d="M76 8 L 88 16 L 75 23"/>
           </svg>
         </div>
 
-        <div data-step="3" class="col" style="gap:9px; width:310px">
-          <div class="zone col" style="width:100%; padding:24px 16px 14px">
-            <span class="zlbl">OUTPUT · 5 drop ideas</span>
-            <div class="doc glow" style="width:262px">
-              <div class="fname">scout-output.json</div>
-              <ul>
-                <li>☔ rain-day capsule</li>
-                <li>🏏 victory-night tee</li>
-                <li>☕ café-core line</li>
-                <li style="color:#888">+ 2 more · each with sources<br/>&amp; a why-it-works rationale</li>
-              </ul>
+        <div data-step="3" class="col" style="gap:8px; padding:8px">
+          <div class="zone" style="width:350px; padding:26px 20px 16px">
+            <span class="zlbl">OUTPUT · drop ideas</span>
+            <div style="font-size:19px; line-height:1.65; text-align:left">
+              ✦ rain-day capsule <span class="cap" style="display:inline; font-size:16px">— monsoon just hit</span><br/>
+              ✦ victory-night tee <span class="cap" style="display:inline; font-size:16px">— RCB win the title</span><br/>
+              ✦ café-core merch <span class="cap" style="display:inline; font-size:16px">— new cult café in Bandra</span><br/>
+              <span style="color:#888">✦ + two more…</span>
             </div>
           </div>
-          <div class="cap">lands in the UI — <b>you pick the winners</b></div>
+          <div class="cap" style="max-width:320px">concrete &amp; source-backed — <b>you pick the winners in the UI</b></div>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- ============ 4 · ANATOMY OF SCOUT ============ -->
+  <!-- ============ 4 · BEHIND THE SCENES OF A RUN ============ -->
   <section class="slide" id="s-anatomy">
-    <div class="kick">03 · inside the sandbox while Scout runs</div>
-    <h1 class="h1s">Anatomy of a teammate</h1>
+    <div class="kick">03 · how does that actually work?</div>
+    <h1 class="h1s">Behind the scenes of a run</h1>
 
     <div class="body-area" style="align-items:center; justify-content:center">
-      <div class="vm" style="width:1010px; padding:34px 28px 22px">
+      <div data-step="1" class="row" style="gap:10px; align-self:flex-start; margin:0 0 4px 30px; padding:6px 12px">
+        <span class="chip dark"><svg class="li" viewBox="0 0 24 24"><use href="#lg-codex"/></svg>Codex SDK</span>
+        <span style="font-size:18px">←</span>
+        <div class="sk" style="padding:5px 16px 6px; font-size:16px"><span class="code">"use $scout — find 5 trending moments · Mumbai · today"</span></div>
+        <span class="alabel">that's the whole integration: one prompt</span>
+      </div>
+
+      <svg class="arr thin" width="30" height="26" viewBox="0 0 30 26" style="align-self:flex-start; margin-left:420px"><path d="M14 2 C 11 9, 17 14, 14 20"/><path d="M7 14 L 14 24 L 21 13"/></svg>
+
+      <div class="vm" style="width:1120px; padding:30px 24px 16px; display:flex; gap:24px; align-items:stretch">
         <span class="vmtab"><svg class="li" viewBox="0 0 24 24"><use href="#lg-vercel"/></svg>VERCEL SANDBOX</span>
 
-        <div data-step="4" class="col" style="position:absolute; right:26px; top:26px; width:218px; gap:7px">
-          <span class="chip dark glow" style="font-size:18px"><svg class="li" viewBox="0 0 24 24"><use href="#lg-codex"/></svg>Codex SDK</span>
-          <div class="cap" style="font-size:18.5px">orchestrates everything below from one prompt:<br/><span class="code" style="font-size:15px">use $scout</span></div>
+        <div data-step="5" class="col" style="width:320px; gap:7px; padding:8px">
+          <div class="term" style="width:100%">
+            <div class="tbar">
+              <span class="tdot" style="background:#ff5f57"></span><span class="tdot" style="background:#febc2e"></span><span class="tdot" style="background:#28c840"></span>
+              <span class="ttitle">Vercel Sandbox</span>
+            </div>
+            <div class="tbody"><span class="p">$</span> tree /vercel/sandbox
+<span class="m">├─</span> runner/           <span class="m"># calls Codex SDK</span>
+<span class="m">├─</span> .codex/agents/
+<span class="m">│   ├─</span> x-researcher.toml
+<span class="m">│   └─</span> exa-researcher.toml
+<span class="m">├─</span> .agents/skills/
+<span class="m">│   ├─</span> <span class="y">scout/</span>
+<span class="m">│   ├─</span> x-trends/
+<span class="m">│   └─</span> exa-search/
+<span class="m">└─</span> agent-workspace/
+<span class="m">    └─</span> <span class="y">scout-output.json</span></div>
+          </div>
+          <div class="cap" style="font-size:17px">how it's laid out in there</div>
         </div>
 
-        <div class="col">
-          <div data-step="1" class="row" style="gap:14px">
-            <div class="sk entry glow" style="background:rgb(85 209 44 / 14%)">
+        <div style="border-left:2.3px dashed #bbb"></div>
+
+        <div class="col grow" style="justify-content:flex-start">
+          <div data-step="2" class="col" style="padding:6px 10px">
+            <div class="sk entry" style="background:rgb(85 209 44 / 14%)">
               <div class="t">$scout</div>
               <div class="d">entry skill — owns judgment &amp; the final call</div>
             </div>
           </div>
 
-          <div data-step="2" style="height:48px">
-            <svg class="arr" width="560" height="48" viewBox="0 0 560 48">
-              <path d="M280 5 C 268 24, 140 30, 80 40"/>
-              <path d="M94 30 L 76 42 L 96 45"/>
-              <path d="M280 5 C 292 24, 420 30, 480 40"/>
-              <path d="M466 30 L 484 42 L 464 45"/>
+          <div data-step="3" style="height:40px">
+            <svg class="arr" width="440" height="40" viewBox="0 0 440 40">
+              <path d="M220 4 C 210 20, 130 24, 92 32"/>
+              <path d="M105 23 L 88 34 L 107 38"/>
+              <path d="M220 4 C 230 20, 310 24, 348 32"/>
+              <path d="M335 23 L 352 34 L 333 38"/>
             </svg>
           </div>
-          <div data-step="2" class="alabel" style="position:absolute; left:46px; top:108px; width:170px; white-space:normal; text-align:left">fans out to <b>subagents</b> — they run in parallel ↘</div>
 
-          <div class="row" style="gap:130px">
-            <div data-step="2" class="sk agent glow" style="width:266px">
-              <div class="t">x-researcher</div>
-              <div class="d">what has attention on X right now?</div>
+          <div class="row" style="gap:56px">
+            <div data-step="3" class="sk agent" style="width:198px; padding:8px 10px">
+              <div class="t" style="font-size:16px">x-researcher</div>
+              <div class="d" style="font-size:13.5px">what has attention on X?</div>
             </div>
-            <div data-step="2" class="sk r2 agent glow" style="width:266px">
-              <div class="t">exa-researcher</div>
-              <div class="d">source-backed context from the web</div>
+            <div data-step="3" class="sk r2 agent" style="width:198px; padding:8px 10px">
+              <div class="t" style="font-size:16px">exa-researcher</div>
+              <div class="d" style="font-size:13.5px">evidence from the web</div>
             </div>
           </div>
 
-          <div class="row" style="gap:130px; height:38px">
-            <div data-step="3" style="width:266px; text-align:center"><svg class="arr thin" width="22" height="34" viewBox="0 0 22 34"><path d="M12 2 C 9 11, 14 19, 11 27"/><path d="M4 20 L 11 31 L 18 19"/></svg></div>
-            <div data-step="3" style="width:266px; text-align:center"><svg class="arr thin" width="22" height="34" viewBox="0 0 22 34"><path d="M10 2 C 13 11, 8 19, 11 27"/><path d="M4 20 L 11 31 L 18 19"/></svg></div>
+          <div class="row" style="gap:56px; height:34px">
+            <div data-step="4" style="width:198px; text-align:center"><svg class="arr thin" width="20" height="30" viewBox="0 0 20 30"><path d="M11 2 C 8 9, 13 16, 10 23"/><path d="M3 17 L 10 27 L 17 16"/></svg></div>
+            <div data-step="4" style="width:198px; text-align:center"><svg class="arr thin" width="20" height="30" viewBox="0 0 20 30"><path d="M9 2 C 12 9, 7 16, 10 23"/><path d="M3 17 L 10 27 L 17 16"/></svg></div>
           </div>
 
-          <div class="row" style="gap:130px">
-            <div data-step="3" class="col" style="width:266px; gap:4px">
-              <span class="chip sys glow"><svg class="li" viewBox="0 0 24 24"><use href="#lg-x"/></svg><span class="code" style="font-size:17px">$x-trends</span></span>
-              <span class="cap" style="font-size:17px">X CLI · X developer account</span>
+          <div class="row" style="gap:56px">
+            <div data-step="4" class="col" style="width:198px; gap:3px; padding:5px">
+              <span class="chip sys"><svg class="li" viewBox="0 0 24 24"><use href="#lg-x"/></svg><span class="code" style="font-size:15px">$x-trends</span></span>
+              <span class="cap" style="font-size:15.5px">X CLI · X developer account</span>
             </div>
-            <div data-step="3" class="col" style="width:266px; gap:4px">
-              <span class="chip sys glow"><b style="font-size:15px">exa</b><span class="code" style="font-size:17px">$exa-search</span></span>
-              <span class="cap" style="font-size:17px">Exa web-search API</span>
+            <div data-step="4" class="col" style="width:198px; gap:3px; padding:5px">
+              <span class="chip sys"><b style="font-size:13px">exa</b><span class="code" style="font-size:15px">$exa-search</span></span>
+              <span class="cap" style="font-size:15.5px">Exa web-search API</span>
             </div>
           </div>
-          <div data-step="3" class="alabel" style="position:absolute; left:46px; top:236px; width:170px; white-space:normal; text-align:left">each subagent gets its own <b>skills + CLIs</b> →</div>
+        </div>
 
-          <div data-step="5" class="row" style="gap:14px; margin-top:18px">
-            <svg class="arr thin" width="22" height="36" viewBox="0 0 22 36"><path d="M11 2 C 8 12, 14 20, 11 29"/><path d="M4 22 L 11 33 L 18 21"/></svg>
-            <div class="doc sm glow" style="padding:8px 16px 9px">
-              <div class="fname" style="font-size:17px">scout-output.json</div>
-            </div>
-            <span class="alabel">→ collected out of the sandbox, into the UI</span>
+        <div style="border-left:2.3px dashed #bbb"></div>
+
+        <div data-step="6" class="col tree-card" style="width:268px; gap:6px; justify-content:flex-start; padding:8px">
+          <div class="cap" style="font-size:18px">the output it writes</div>
+          <div class="doc" style="width:100%">
+            <div class="fname" style="font-size:14px">scout-output.json</div>
+            <div class="tree" style="font-size:12px; line-height:1.55; margin-top:4px">{ "candidates": [
+  { "title": "Monsoon
+      hits Mumbai",
+    "signals": ["X","web"],
+    "merch": "rain-day
+      capsule" },
+  <i>… ×5, with sources</i>
+]}</div>
           </div>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- ============ 5 · ZOOMING OUT (FULL RUN) ============ -->
+  <!-- ============ 5 · FORKING THE SANDBOX ============ -->
   <section class="slide" id="s-run">
-    <div class="kick">04 · how that fits the whole picture</div>
-    <h1 class="h1s">One stage, end to end</h1>
+    <div class="kick">04 · what happens when you hit Run</div>
+    <h1 class="h1s">Fork the sandbox, run the skill</h1>
 
-    <div class="body-area" style="justify-content:center; gap:10px">
+    <div class="body-area" style="justify-content:center">
+      <div class="row" style="gap:18px; align-items:center">
 
-      <div class="row" style="gap:8px; align-items:center">
-        <div data-step="1" class="col" style="gap:7px; width:212px">
-          <div class="browser glow" style="width:206px">
-            <div class="bbar"><span class="bdot"></span><span class="bdot"></span><span class="bdot"></span></div>
-            <div class="bpage" style="padding:8px 10px 10px">
-              <div style="font-size:15px">you hit</div>
-              <span style="display:inline-block; padding:2px 14px 3px; background:var(--yellow); border:2.2px solid #000; border-radius:8px; box-shadow:2.5px 2.5px 0 #000; font-size:15px">Run Scout ▸</span>
+        <div data-step="1" class="col" style="gap:9px; width:340px; padding:8px">
+          <div class="term" style="width:330px">
+            <div class="tbar">
+              <span class="tdot" style="background:#ff5f57"></span><span class="tdot" style="background:#febc2e"></span><span class="tdot" style="background:#28c840"></span>
+              <span class="ttitle">Vercel Sandbox · base snapshot</span>
             </div>
+            <div class="tbody"><span class="p">$</span> ls /vercel/sandbox
+<span class="m">├─</span> runner/            <span class="m"># Codex SDK</span>
+<span class="m">├─</span> .codex/agents/     <span class="m"># subagents</span>
+<span class="m">├─</span> .agents/skills/    <span class="m"># all skills</span>
+<span class="m">└─</span> agent-workspace/
+<span class="p">$</span> which x exa meta vercel node
+<span class="m">all preinstalled</span> <span class="p">✓</span></div>
           </div>
-          <div class="cap">the Drip UI</div>
+          <div class="cap" style="max-width:310px">built <b>once</b> — every CLI installed, every skill in place, before any campaign exists</div>
         </div>
 
-        <div data-step="2" class="col" style="width:92px">
-          <span class="alabel">action</span>
-          <svg class="arr" width="80" height="24" viewBox="0 0 80 24"><path d="M5 14 C 24 10, 50 16, 70 12"/><path d="M60 4 L 72 12 L 59 19"/></svg>
+        <div data-step="2" class="col" style="width:200px; gap:2px; padding:8px">
+          <div class="sk" style="padding:5px 18px 6px; font-size:18px; background:var(--yellow)">▶ you hit <b>Run</b></div>
+          <svg class="arr thin" width="20" height="30" viewBox="0 0 20 30"><path d="M10 2 C 7 9, 13 16, 10 23"/><path d="M3 17 L 10 27 L 17 16"/></svg>
+          <span class="alabel" style="font-size:21px">fork</span>
+          <svg class="arr" width="150" height="42" viewBox="0 0 150 42">
+            <path d="M6 21 C 40 15, 100 15, 136 19"/>
+            <path d="M125 10 L 139 19 L 124 27"/>
+            <path d="M6 21 C 40 28, 90 30, 118 33" stroke-dasharray="7 6"/>
+          </svg>
+          <span class="cap" style="font-size:16.5px">a full copy of the image,<br/>ready in seconds</span>
         </div>
 
-        <div data-step="2" class="col" style="gap:7px; width:200px">
-          <div class="cylwrap glow" style="width:190px; border-radius:46%/24%">
-            <svg width="190" height="118" viewBox="0 0 190 118">
-              <path d="M11 25 C 11 13, 51 6, 95 6 C 139 6, 179 13, 179 25 L 179 93 C 179 105, 139 112, 95 112 C 51 112, 11 105, 11 93 Z" fill="#fff" stroke="#000" stroke-width="2.6"/>
-              <path d="M11 25 C 11 37, 51 44, 95 44 C 139 44, 179 37, 179 25" fill="none" stroke="#000" stroke-width="2.4"/>
-            </svg>
-            <div class="cyltext" style="top:52px">
-              <div style="font-size:19px">Convex</div>
-              <div style="font-size:13.5px; color:#555">records the run</div>
-            </div>
-          </div>
-          <div class="cap">backend kicks off the stage</div>
-        </div>
-
-        <div data-step="3" class="col" style="width:92px">
-          <span class="alabel">forks</span>
-          <svg class="arr" width="80" height="24" viewBox="0 0 80 24"><path d="M5 12 C 24 16, 50 10, 70 14"/><path d="M60 6 L 72 14 L 59 21"/></svg>
-        </div>
-
-        <div data-step="3" class="col" style="gap:7px; width:300px">
-          <div class="vm glow" style="width:296px; padding:24px 16px 12px">
-            <span class="vmtab" style="font-size:12.5px; top:-13px"><svg class="li" style="width:11px;height:11px" viewBox="0 0 24 24"><use href="#lg-vercel"/></svg>SANDBOX · forked from base snapshot</span>
-            <div class="row" style="gap:9px">
-              <span class="chip dark" style="font-size:15px"><svg class="li" viewBox="0 0 24 24"><use href="#lg-codex"/></svg>Codex SDK</span>
-              <span class="code" style="font-size:14.5px">use $scout</span>
-            </div>
-            <div class="cap" style="font-size:16px; margin-top:6px">skills · subagents · CLIs preloaded</div>
-          </div>
-          <div class="cap">runs the whole research show</div>
-        </div>
-      </div>
-
-      <div class="row" style="justify-content:flex-end; padding-right:120px; height:44px">
-        <div data-step="4" class="col">
-          <svg class="arr" width="60" height="44" viewBox="0 0 60 44"><path d="M42 4 C 52 16, 50 30, 34 38"/><path d="M46 28 L 31 40 L 48 42" transform="translate(-2 -2)"/></svg>
-          <span class="alabel" style="margin-top:-8px">writes artifacts</span>
-        </div>
-      </div>
-
-      <div class="row" style="gap:8px; align-items:center">
-        <div data-step="5" class="col" style="gap:7px; width:212px">
-          <div class="browser glow" style="width:206px">
-            <div class="bbar"><span class="bdot"></span><span class="bdot"></span><span class="bdot"></span></div>
-            <div class="bpage" style="padding:8px 10px 10px">
-              <div style="font-size:15px">5 ideas appear</div>
-              <div class="row" style="gap:5px; margin-top:4px">
-                <span style="width:30px;height:22px;border:2px solid #000;border-radius:5px;background:rgb(85 209 44/25%)"></span>
-                <span style="width:30px;height:22px;border:2px solid #000;border-radius:5px;background:rgb(255 212 0/40%)"></span>
-                <span style="width:30px;height:22px;border:2px solid #000;border-radius:5px;background:rgb(18 100 255/15%)"></span>
+        <div data-step="3" class="col" style="gap:9px; width:410px; padding:8px">
+          <div style="position:relative; width:390px">
+            <div class="term ghost" style="position:absolute; inset:-14px -14px 14px 14px; box-shadow:none"></div>
+            <div class="term" style="position:relative; width:390px">
+              <div class="tbar">
+                <span class="tdot" style="background:#ff5f57"></span><span class="tdot" style="background:#febc2e"></span><span class="tdot" style="background:#28c840"></span>
+                <span class="ttitle">Vercel Sandbox · drip-drop-a1</span>
               </div>
+              <div class="tbody"><span class="p">$</span> ls   <span class="m"># same files, copied in</span>
+<span class="m">runner/  .codex/  .agents/  agent-workspace/</span>
+<span class="p">$</span> codex <span class="y">"use $scout — 5 moments · Mumbai"</span>
+<span class="m">⠧ Codex SDK orchestrating subagents…</span></div>
             </div>
           </div>
-          <div class="cap"><b>UI updates live</b> — it only ever talks to Convex</div>
+          <div class="cap" style="max-width:370px"><b>one sandbox per campaign</b> — boots from the fork, then the Codex SDK takes over</div>
         </div>
 
-        <div data-step="5" class="col" style="width:92px">
-          <span class="alabel">streams</span>
-          <svg class="arr" width="80" height="24" viewBox="0 0 80 24"><path d="M75 14 C 56 10, 30 16, 10 12"/><path d="M20 4 L 8 12 L 21 19"/></svg>
-        </div>
-
-        <div data-step="4" class="col" style="gap:7px; width:200px">
-          <div class="cylwrap glow" style="width:190px; border-radius:46%/24%">
-            <svg width="190" height="118" viewBox="0 0 190 118">
-              <path d="M11 25 C 11 13, 51 6, 95 6 C 139 6, 179 13, 179 25 L 179 93 C 179 105, 139 112, 95 112 C 51 112, 11 105, 11 93 Z" fill="#fff" stroke="#000" stroke-width="2.6"/>
-              <path d="M11 25 C 11 37, 51 44, 95 44 C 139 44, 179 37, 179 25" fill="none" stroke="#000" stroke-width="2.4"/>
-            </svg>
-            <div class="cyltext" style="top:52px">
-              <div style="font-size:19px">Convex</div>
-              <div style="font-size:13.5px; color:#555">storage + DB</div>
-            </div>
+        <div data-step="4" class="col" style="gap:8px; width:210px; padding:8px">
+          <svg class="arr thin" width="60" height="22" viewBox="0 0 60 22"><path d="M4 12 C 18 9, 38 14, 52 11"/><path d="M43 4 L 54 11 L 42 17"/></svg>
+          <div class="doc sm" style="padding:8px 14px 9px">
+            <div class="fname" style="font-size:15px">scout-output.json</div>
           </div>
-          <div class="cap">artifacts collected after the run</div>
-        </div>
-
-        <div data-step="4" class="col" style="width:92px">
-          <span class="alabel">collects</span>
-          <svg class="arr" width="80" height="24" viewBox="0 0 80 24"><path d="M75 12 C 56 16, 30 10, 10 14"/><path d="M20 6 L 8 14 L 21 21"/></svg>
-        </div>
-
-        <div data-step="4" class="col" style="gap:7px; width:300px">
-          <div class="doc glow" style="width:250px">
-            <div class="fname">scout-output.json</div>
-            <ul style="font-size:15px"><li>+ image assets in the workspace</li></ul>
-          </div>
+          <div class="cap" style="max-width:200px">artifacts come out — then the sandbox <span class="mark">pauses</span> until the next stage and <b>resumes right there</b></div>
         </div>
       </div>
-
-      <div class="cap" style="font-size:22px; margin-top:4px">same loop for all four teammates — <span class="mark">only the skill name changes</span></div>
     </div>
   </section>
 
@@ -763,9 +772,11 @@
         <span class="vmtab"><svg class="li" viewBox="0 0 24 24"><use href="#lg-vercel"/></svg>VERCEL SANDBOX</span>
 
         <div class="col" style="margin-right:250px">
-          <div data-step="1" class="sk entry glow" style="background:rgb(18 100 255 / 9%)">
-            <div class="t">$fashion-designer</div>
-            <div class="d">entry skill — art direction · lanes · final curation</div>
+          <div data-step="1" class="col" style="padding:6px 10px">
+            <div class="sk entry" style="background:rgb(18 100 255 / 9%)">
+              <div class="t">$fashion-designer</div>
+              <div class="d">entry skill — art direction · lanes · final curation</div>
+            </div>
           </div>
 
           <div data-step="2" style="height:40px">
@@ -777,9 +788,9 @@
           </div>
 
           <div class="row" style="gap:38px">
-            <div data-step="2" class="sk agent glow" style="width:206px"><div class="t">cap-designer</div><div class="d">🧢 one lane per product</div></div>
-            <div data-step="2" class="sk r2 agent glow" style="width:206px"><div class="t">sock-designer</div><div class="d">🧦 all run in parallel</div></div>
-            <div data-step="2" class="sk r3 agent glow" style="width:206px"><div class="t">apparel-designer</div><div class="d">👕 tees &amp; hoodies</div></div>
+            <div data-step="2" class="sk agent" style="width:206px"><div class="t">cap-designer</div><div class="d">🧢 one lane per product</div></div>
+            <div data-step="2" class="sk r2 agent" style="width:206px"><div class="t">sock-designer</div><div class="d">🧦 all run in parallel</div></div>
+            <div data-step="2" class="sk r3 agent" style="width:206px"><div class="t">apparel-designer</div><div class="d">👕 tees &amp; hoodies</div></div>
           </div>
 
           <div data-step="3" style="height:38px">
@@ -791,14 +802,14 @@
             </svg>
           </div>
 
-          <div data-step="3" class="col" style="gap:3px">
-            <span class="chip sys glow"><svg class="li" viewBox="0 0 24 24"><use href="#lg-openai"/></svg><span class="code" style="font-size:18px">$imagegen</span></span>
+          <div data-step="3" class="col" style="gap:3px; padding:5px 10px">
+            <span class="chip sys"><svg class="li" viewBox="0 0 24 24"><use href="#lg-openai"/></svg><span class="code" style="font-size:18px">$imagegen</span></span>
             <span class="cap" style="font-size:17px">one shared image-gen skill (gpt-image) — all lanes reuse it</span>
           </div>
         </div>
 
-        <div data-step="4" class="col" style="position:absolute; right:22px; top:74px; width:236px; gap:4px">
-          <div class="sk r2 agent glow" style="width:100%">
+        <div data-step="4" class="col" style="position:absolute; right:22px; top:74px; width:236px; gap:4px; padding:6px">
+          <div class="sk r2 agent" style="width:100%">
             <div class="t">fashion-reviewer</div>
             <div class="d">judges every image — weak ones go back: <i>reject → regenerate</i></div>
           </div>
@@ -806,7 +817,7 @@
         </div>
       </div>
 
-      <div data-step="5" class="row" style="gap:16px">
+      <div data-step="5" class="row" style="gap:16px; padding:6px 12px">
         <svg class="arr thin" width="22" height="36" viewBox="0 0 22 36"><path d="M11 2 C 8 12, 14 20, 11 29"/><path d="M4 22 L 11 33 L 18 21"/></svg>
         <div class="polaroid" style="transform:rotate(-3deg)"><div class="ph" style="background:rgb(18 100 255 / 10%)">🧢</div><div class="pc">monsoon cap</div></div>
         <div class="polaroid" style="transform:rotate(2deg)"><div class="ph" style="background:rgb(255 212 0 / 25%)">🧦</div><div class="pc">victory socks</div></div>
@@ -835,9 +846,11 @@
         <span class="vmtab"><svg class="li" viewBox="0 0 24 24"><use href="#lg-vercel"/></svg>VERCEL SANDBOX</span>
 
         <div class="col">
-          <div data-step="1" class="sk entry glow" style="background:rgb(248 202 0 / 16%)">
-            <div class="t">$builder</div>
-            <div class="d">entry skill — briefs the site, then hands the baton down the relay</div>
+          <div data-step="1" class="col" style="padding:6px 10px">
+            <div class="sk entry" style="background:rgb(248 202 0 / 16%)">
+              <div class="t">$builder</div>
+              <div class="d">entry skill — briefs the site, then hands the baton down the relay</div>
+            </div>
           </div>
 
           <div data-step="1" style="height:32px">
@@ -845,8 +858,8 @@
           </div>
 
           <div class="row" style="gap:12px; align-items:flex-start">
-            <div data-step="2" class="col" style="gap:7px; width:270px">
-              <div class="sk agent glow" style="width:100%; position:relative">
+            <div data-step="2" class="col" style="gap:7px; width:270px; padding:6px">
+              <div class="sk agent" style="width:100%; position:relative">
                 <div class="stepnum">1</div>
                 <div class="t">drop-site-builder</div>
                 <div class="d">writes a one-page static site</div>
@@ -862,8 +875,8 @@
               <span class="alabel" style="font-size:17px">then</span>
             </div>
 
-            <div data-step="3" class="col" style="gap:7px; width:270px">
-              <div class="sk r2 agent glow" style="width:100%; position:relative">
+            <div data-step="3" class="col" style="gap:7px; width:270px; padding:6px">
+              <div class="sk r2 agent" style="width:100%; position:relative">
                 <div class="stepnum">2</div>
                 <div class="t">drop-site-reviewer</div>
                 <div class="d">QA in a real browser — desktop &amp; mobile</div>
@@ -876,8 +889,8 @@
               <span class="alabel" style="font-size:17px">then</span>
             </div>
 
-            <div data-step="4" class="col" style="gap:7px; width:270px">
-              <div class="sk r3 agent glow" style="width:100%; position:relative">
+            <div data-step="4" class="col" style="gap:7px; width:270px; padding:6px">
+              <div class="sk r3 agent" style="width:100%; position:relative">
                 <div class="stepnum">3</div>
                 <div class="t">drop-site-deployer</div>
                 <div class="d">ships the reviewed build</div>
@@ -888,9 +901,9 @@
         </div>
       </div>
 
-      <div data-step="5" class="row" style="gap:18px">
+      <div data-step="5" class="row" style="gap:18px; padding:6px 12px">
         <svg class="arr thin" width="22" height="36" viewBox="0 0 22 36"><path d="M11 2 C 8 12, 14 20, 11 29"/><path d="M4 22 L 11 33 L 18 21"/></svg>
-        <div class="browser glow" style="width:290px; transform:rotate(-1deg)">
+        <div class="browser" style="width:290px; transform:rotate(-1deg)">
           <div class="bbar"><span class="bdot"></span><span class="bdot"></span><span class="bdot"></span><span class="burl code">monsoon-drop.vercel.app</span></div>
           <div class="bpage" style="padding:8px 12px 10px">
             <div class="impact" style="font-style:italic; font-size:18px">THE MONSOON DROP ☔</div>
@@ -921,9 +934,11 @@
         <span class="vmtab"><svg class="li" viewBox="0 0 24 24"><use href="#lg-vercel"/></svg>VERCEL SANDBOX</span>
 
         <div class="col">
-          <div data-step="1" class="sk entry glow" style="background:rgb(255 60 56 / 8%)">
-            <div class="t">$performance-marketer</div>
-            <div class="d">entry skill — takes the site URL + product shots, plans the campaign</div>
+          <div data-step="1" class="col" style="padding:6px 10px">
+            <div class="sk entry" style="background:rgb(255 60 56 / 8%)">
+              <div class="t">$performance-marketer</div>
+              <div class="d">entry skill — takes the site URL + product shots, plans the campaign</div>
+            </div>
           </div>
 
           <div data-step="1" style="height:32px">
@@ -931,8 +946,8 @@
           </div>
 
           <div class="row" style="gap:14px; align-items:flex-start">
-            <div data-step="2" class="col" style="gap:7px; width:312px">
-              <div class="sk agent glow" style="width:100%; position:relative">
+            <div data-step="2" class="col" style="gap:7px; width:312px; padding:6px">
+              <div class="sk agent" style="width:100%; position:relative">
                 <div class="stepnum">1</div>
                 <div class="t">facebook-ad-copywriter</div>
                 <div class="d">campaign names + copy variants in the drop's voice</div>
@@ -944,8 +959,8 @@
               <span class="alabel" style="font-size:17px">then</span>
             </div>
 
-            <div data-step="3" class="col" style="gap:7px; width:312px">
-              <div class="sk r2 agent glow" style="width:100%; position:relative">
+            <div data-step="3" class="col" style="gap:7px; width:312px; padding:6px">
+              <div class="sk r2 agent" style="width:100%; position:relative">
                 <div class="stepnum">2</div>
                 <div class="t">facebook-ad-operator</div>
                 <div class="d">creates the real campaign objects via the Meta Ads API</div>
@@ -956,9 +971,9 @@
         </div>
       </div>
 
-      <div data-step="4" class="row" style="gap:22px">
+      <div data-step="4" class="row" style="gap:22px; padding:6px 12px">
         <svg class="arr thin" width="22" height="36" viewBox="0 0 22 36"><path d="M11 2 C 8 12, 14 20, 11 29"/><path d="M4 22 L 11 33 L 18 21"/></svg>
-        <div class="sk r3 fb-card glow" style="transform:rotate(1deg)">
+        <div class="sk r3 fb-card" style="transform:rotate(1deg)">
           <div class="stamp">PAUSED ⏸</div>
           <div class="rowi">📣 <b>Campaign</b> · Monsoon Drop</div>
           <div class="rowi ind1">🎯 Ad set · Mumbai · 18–34</div>
@@ -970,142 +985,102 @@
     </div>
   </section>
 
-  <!-- ============ 9 · WHY THIS SHAPE ============ -->
+  <!-- ============ 9 · HOW IT ALL CONNECTS ============ -->
   <section class="slide" id="s-layers">
-    <div class="kick">08 · why we structured it this way</div>
-    <h1 class="h1s">Three layers, on purpose</h1>
+    <div class="kick">08 · why it's structured this way</div>
+    <h1 class="h1s">Skills → subagents → shared tools</h1>
 
-    <div class="body-area" style="justify-content:center; gap:15px; margin-top:4px">
+    <div class="body-area" style="margin-top:44px">
 
-      <div data-step="1" class="sk layer-band glow" style="background:rgb(255 212 0 / 13%)">
-        <div class="lbl-side">domain brains — one per teammate, they own judgment</div>
-        <div class="band-title">Entry skills <span class="cap" style="display:inline; font-size:17px">(the only thing the prompt names)</span></div>
-        <div class="chips">
-          <span class="chip code" style="background:rgb(85 209 44 / 18%)">$scout</span>
-          <span class="chip code" style="background:rgb(18 100 255 / 12%)">$fashion-designer</span>
-          <span class="chip code" style="background:rgb(248 202 0 / 25%)">$builder</span>
-          <span class="chip code" style="background:rgb(255 60 56 / 12%)">$performance-marketer</span>
-        </div>
+      <svg class="arr thin" width="1152" height="380" viewBox="0 0 1152 380" style="position:absolute; left:0; top:30px; pointer-events:none">
+        <!-- entry → subagents -->
+        <g stroke-width="2">
+          <path d="M130 64 C 122 88, 96 110, 82 132"/>
+          <path d="M130 64 C 142 100, 176 150, 196 178"/>
+          <path d="M420 64 C 406 88, 348 110, 334 132"/>
+          <path d="M420 64 C 420 100, 420 150, 420 178"/>
+          <path d="M420 64 C 436 88, 492 110, 506 132"/>
+          <path d="M420 64 C 452 104, 552 152, 592 178"/>
+          <path d="M730 64 C 724 88, 710 110, 702 132"/>
+          <path d="M730 64 C 742 100, 778 152, 794 178"/>
+          <path d="M730 64 C 764 92, 866 112, 898 132"/>
+          <path d="M1030 64 C 1022 100, 1002 152, 992 178"/>
+          <path d="M1030 64 C 1052 92, 1084 112, 1100 132"/>
+        </g>
+        <!-- subagents → tools -->
+        <g stroke-width="2">
+          <path d="M80 176 C 82 226, 86 260, 90 294"/>
+          <path d="M200 222 C 208 246, 222 268, 232 294"/>
+          <path d="M330 176 C 348 220, 392 262, 410 294"/>
+          <path d="M420 222 C 420 246, 420 270, 420 294"/>
+          <path d="M510 176 C 492 220, 448 262, 432 294"/>
+          <path d="M700 176 C 678 220, 624 262, 600 294"/>
+          <path d="M800 222 C 814 246, 842 268, 858 294"/>
+          <path d="M905 176 C 906 220, 906 262, 906 294"/>
+          <path d="M1105 176 C 1098 220, 1078 262, 1066 294"/>
+        </g>
+        <!-- the reuse line: builder → imagegen -->
+        <path d="M695 178 C 620 230, 510 266, 448 296" stroke-dasharray="8 7" stroke-width="2.6"/>
+        <path d="M462 284 L 443 299 L 464 302"/>
+      </svg>
+
+      <div data-step="1" class="lyr" style="top:0; height:76px; border-radius:18px">
+        <span class="lyr-lbl" style="top:-4px">entry skills</span>
+        <div class="pin" style="left:130px; top:22px"><span class="chip code" style="background:rgb(85 209 44 / 18%)">$scout</span></div>
+        <div class="pin" style="left:420px; top:22px"><span class="chip code" style="background:rgb(18 100 255 / 12%)">$fashion-designer</span></div>
+        <div class="pin" style="left:730px; top:22px"><span class="chip code" style="background:rgb(248 202 0 / 25%)">$builder</span></div>
+        <div class="pin" style="left:1030px; top:22px"><span class="chip code" style="background:rgb(255 60 56 / 12%)">$performance-marketer</span></div>
+        <div class="pin" style="left:130px; top:-22px"><img class="face" src="/drip-team/scout-portrait.png" alt="" style="width:38px;height:38px;border-width:2.4px;border-radius:10px;box-shadow:2px 2px 0 #000" /></div>
+        <div class="pin" style="left:420px; top:-22px"><img class="face" src="/drip-team/designer-portrait.png" alt="" style="width:38px;height:38px;border-width:2.4px;border-radius:10px;box-shadow:2px 2px 0 #000" /></div>
+        <div class="pin" style="left:730px; top:-22px"><img class="face" src="/drip-team/builder-portrait.png" alt="" style="width:38px;height:38px;border-width:2.4px;border-radius:10px;box-shadow:2px 2px 0 #000" /></div>
+        <div class="pin" style="left:1030px; top:-22px"><img class="face" src="/drip-team/meta-portrait.png" alt="" style="width:38px;height:38px;border-width:2.4px;border-radius:10px;box-shadow:2px 2px 0 #000" /></div>
       </div>
 
-      <div data-step="2" class="sk r2 layer-band glow">
-        <div class="lbl-side">parallel specialists — do one job, hand back results</div>
-        <div class="band-title">Subagents</div>
-        <div class="chips">
-          <span class="chip code">x-researcher</span>
-          <span class="chip code">exa-researcher</span>
-          <span class="chip code">cap / sock / apparel-designer</span>
-          <span class="chip code">fashion-reviewer</span>
-          <span class="chip code">drop-site-builder · reviewer · deployer</span>
-          <span class="chip code">ad-copywriter · ad-operator</span>
-        </div>
+      <div data-step="2" class="lyr" style="top:158px; height:104px; border-radius:18px">
+        <span class="lyr-lbl" style="top:-26px">subagents</span>
+        <div class="pin" style="left:80px; top:6px"><span class="chip code" style="font-size:14px">x-researcher</span></div>
+        <div class="pin" style="left:200px; top:50px"><span class="chip code" style="font-size:14px">exa-researcher</span></div>
+        <div class="pin" style="left:330px; top:6px"><span class="chip code" style="font-size:14px">cap-designer</span></div>
+        <div class="pin" style="left:420px; top:50px"><span class="chip code" style="font-size:14px">sock-designer</span></div>
+        <div class="pin" style="left:510px; top:6px"><span class="chip code" style="font-size:14px">apparel-designer</span></div>
+        <div class="pin" style="left:592px; top:50px"><span class="chip code" style="font-size:14px">fashion-reviewer</span></div>
+        <div class="pin" style="left:700px; top:6px"><span class="chip code" style="font-size:14px">drop-site-builder</span></div>
+        <div class="pin" style="left:800px; top:50px"><span class="chip code" style="font-size:14px">drop-site-reviewer</span></div>
+        <div class="pin" style="left:905px; top:6px"><span class="chip code" style="font-size:14px">drop-site-deployer</span></div>
+        <div class="pin" style="left:992px; top:50px"><span class="chip code" style="font-size:14px">ad-copywriter</span></div>
+        <div class="pin" style="left:1105px; top:6px"><span class="chip code" style="font-size:14px">ad-operator</span></div>
       </div>
 
-      <div data-step="3" class="sk r3 layer-band glow" style="background:rgb(255 212 0 / 22%)">
-        <div class="lbl-side">domain-blind tools — they don't know fashion exists</div>
-        <div class="band-title">Reusable skills</div>
-        <div class="chips">
-          <span class="chip"><svg class="li" viewBox="0 0 24 24"><use href="#lg-x"/></svg><span class="code">$x-trends</span></span>
-          <span class="chip"><b style="font-size:13px">exa</b><span class="code">$exa-search</span></span>
-          <span class="chip"><svg class="li" viewBox="0 0 24 24"><use href="#lg-openai"/></svg><span class="code">$imagegen</span></span>
-          <span class="chip code">$frontend-skill</span>
-          <span class="chip code">$agent-browser</span>
-          <span class="chip"><svg class="li" viewBox="0 0 24 24"><use href="#lg-meta"/></svg><span class="code">$meta-ads-cli</span></span>
-        </div>
+      <div data-step="3" class="lyr" style="top:318px; height:56px; border-radius:18px">
+        <span class="lyr-lbl" style="top:-26px">reusable skills &amp; tools</span>
+        <div class="pin" style="left:90px; top:8px"><span class="chip sys" style="font-size:14px"><svg class="li" viewBox="0 0 24 24"><use href="#lg-x"/></svg><span class="code">$x-trends</span></span></div>
+        <div class="pin" style="left:235px; top:8px"><span class="chip sys" style="font-size:14px"><b style="font-size:12px">exa</b><span class="code">$exa-search</span></span></div>
+        <div class="pin" style="left:425px; top:8px"><span class="chip sys" style="font-size:14px"><svg class="li" viewBox="0 0 24 24"><use href="#lg-openai"/></svg><span class="code">$imagegen</span></span></div>
+        <div class="pin" style="left:597px; top:8px"><span class="chip sys code" style="font-size:14px">$frontend-skill</span></div>
+        <div class="pin" style="left:860px; top:8px"><span class="chip sys code" style="font-size:14px">$agent-browser</span></div>
+        <div class="pin" style="left:1063px; top:8px"><span class="chip sys" style="font-size:14px"><svg class="li" viewBox="0 0 24 24"><use href="#lg-meta"/></svg><span class="code">$meta-ads-cli</span></span></div>
       </div>
 
-      <div data-step="4" class="row" style="gap:12px">
-        <svg class="arr thin" width="38" height="32" viewBox="0 0 38 32"><path d="M31 28 C 26 16, 16 8, 6 4"/><path d="M15 11 L 4 3 L 17 1" transform="translate(0 2)"/></svg>
-        <div class="note" style="font-size:25px"><span class="code mark">$imagegen</span> makes the Designer's mockups <b>and</b> the Builder's site imagery — build a tool once, every teammate gets it</div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ============ 10 · SANDBOX INTERNALS ============ -->
-  <section class="slide" id="s-sandbox">
-    <div class="kick">09 · quick notes on the sandbox itself</div>
-    <h1 class="h1s">Sandbox internals</h1>
-
-    <div class="body-area" style="flex-direction:row; gap:34px; align-items:center; margin-top:8px">
-
-      <div data-step="1" class="col" style="flex:1; gap:8px">
-        <div class="cap" style="font-size:21px; color:#333">one snapshot, many forks</div>
-        <div class="sk agent glow" style="width:210px">
-          <div class="t" style="font-family:'Patrick Hand'; font-size:19px">📦 base snapshot</div>
-          <div class="d">skills · agents · CLIs baked in</div>
-        </div>
-        <svg class="arr thin" width="150" height="38" viewBox="0 0 150 38">
-          <path d="M75 3 C 60 15, 36 21, 22 30"/><path d="M34 22 L 18 32 L 37 35"/>
-          <path d="M75 3 C 90 15, 114 21, 128 30"/><path d="M116 22 L 132 32 L 113 35"/>
-        </svg>
-        <div class="row" style="gap:12px; align-items:flex-start">
-          <div class="vm mini" style="padding:18px 10px 8px"><span class="vmtab">SANDBOX</span><span class="code" style="font-size:13px">drip-drop-a1</span></div>
-          <div class="vm mini ghost" style="padding:18px 10px 8px"><span class="vmtab">SANDBOX</span><span class="code" style="font-size:13px">drip-drop-b2</span></div>
-        </div>
-        <div class="cap" style="max-width:240px">one sandbox per campaign — it <span class="mark">pauses between stages</span>, resumes where it left off</div>
-      </div>
-
-      <div class="col" style="flex:1.25; gap:10px">
-        <div data-step="2" class="vm glow" style="width:100%; padding:26px 20px 14px">
-          <span class="vmtab"><svg class="li" viewBox="0 0 24 24"><use href="#lg-vercel"/></svg>WHAT'S INSIDE</span>
-          <div class="tree">/vercel/sandbox
-├─ runner/            <i>← Codex SDK + reporter</i>
-├─ .codex/            <i>← config · agents · skills</i>
-└─ agent-workspace/   <i>← where outputs land</i>
-   └─ drops/&lt;id&gt;/runs/&lt;stage&gt;/</div>
-        </div>
-        <div data-step="3" class="col" style="gap:7px">
-          <div class="row" style="flex-wrap:wrap; gap:8px; justify-content:center">
-            <span class="chip sys" style="font-size:14px"><svg class="li" viewBox="0 0 24 24"><use href="#lg-x"/></svg>X CLI</span>
-            <span class="chip sys" style="font-size:14px"><b style="font-size:12.5px">exa</b> Exa CLI</span>
-            <span class="chip sys" style="font-size:14px"><svg class="li" viewBox="0 0 24 24"><use href="#lg-meta"/></svg>Meta Ads CLI</span>
-            <span class="chip sys" style="font-size:14px"><svg class="li" viewBox="0 0 24 24"><use href="#lg-vercel"/></svg>Vercel CLI</span>
-            <span class="chip" style="font-size:14px">Node</span>
-            <span class="chip" style="font-size:14px">Python</span>
-          </div>
-          <div class="cap">all preinstalled in the base image — zero setup per run</div>
-        </div>
-      </div>
-
-      <div data-step="4" class="col" style="flex:1; gap:6px">
-        <div class="cap" style="font-size:21px; color:#333">getting data back out</div>
-        <div class="doc sm glow" style="width:240px; padding:8px 14px 9px">
-          <div class="fname" style="font-size:15px">*-output.json + images</div>
-        </div>
-        <svg class="arr thin" width="22" height="30" viewBox="0 0 22 30"><path d="M11 2 C 8 9, 14 15, 11 22"/><path d="M4 15 L 11 26 L 18 14"/></svg>
-        <div class="cylwrap" style="width:170px; border-radius:46%/24%">
-          <svg width="170" height="104" viewBox="0 0 170 104">
-            <path d="M10 22 C 10 11, 45 5, 85 5 C 125 5, 160 11, 160 22 L 160 82 C 160 93, 125 99, 85 99 C 45 99, 10 93, 10 82 Z" fill="#fff" stroke="#000" stroke-width="2.5"/>
-            <path d="M10 22 C 10 33, 45 39, 85 39 C 125 39, 160 33, 160 22" fill="none" stroke="#000" stroke-width="2.3"/>
-          </svg>
-          <div class="cyltext" style="top:46px">
-            <div style="font-size:17px">Convex</div>
-            <div style="font-size:12.5px; color:#555">storage + DB</div>
-          </div>
-        </div>
-        <svg class="arr thin" width="22" height="30" viewBox="0 0 22 30"><path d="M11 2 C 14 9, 8 15, 11 22"/><path d="M4 15 L 11 26 L 18 14"/></svg>
-        <div class="browser" style="width:180px">
-          <div class="bbar"><span class="bdot"></span><span class="bdot"></span><span class="bdot"></span></div>
-          <div class="bpage" style="padding:6px 10px 8px; font-size:14px">UI streams it live</div>
-        </div>
-        <div class="cap" style="max-width:230px">the browser never touches the sandbox — only Convex</div>
+      <div data-step="4" class="lyr row" style="top:404px; gap:12px; padding:6px 14px">
+        <svg class="arr thin" width="34" height="28" viewBox="0 0 34 28"><path d="M28 25 C 24 14, 15 7, 6 3"/><path d="M14 10 L 4 2 L 16 0" transform="translate(0 2)"/></svg>
+        <div class="note" style="font-size:24px">the dashed line is the point — <span class="code mark">$imagegen</span> serves the Designer's lanes <b>and</b> the Builder's site imagery. Tools are domain-blind; <span class="mark">build once, every teammate gets it</span></div>
       </div>
     </div>
   </section>
 
-  <!-- ============ 11 · RECAP ============ -->
+  <!-- ============ 10 · RECAP ============ -->
   <section class="slide" id="s-recap">
-    <div class="kick">10 · that's the whole trick</div>
+    <div class="kick">09 · that's the whole trick</div>
     <h1 class="h1s">Recap</h1>
 
     <div class="body-area" style="justify-content:center; gap:26px">
-      <div data-step="1" class="row" style="gap:12px">
-        <div class="browser glow" style="width:158px">
+      <div data-step="1" class="row" style="gap:12px; padding:8px 14px">
+        <div class="browser" style="width:158px">
           <div class="bbar"><span class="bdot"></span><span class="bdot"></span><span class="bdot"></span></div>
           <div class="bpage" style="padding:7px 8px 9px; font-size:15px">Next.js UI</div>
         </div>
         <svg class="arr thin" width="42" height="24" viewBox="0 0 42 24"><path d="M3 13 C 13 10, 25 15, 35 12"/><path d="M27 5 L 37 12 L 26 18"/></svg>
-        <div class="cylwrap glow" style="width:120px; border-radius:46%/24%">
+        <div class="cylwrap" style="width:120px">
           <svg width="120" height="84" viewBox="0 0 120 84">
             <path d="M8 18 C 8 9, 32 4, 60 4 C 88 4, 112 9, 112 18 L 112 66 C 112 75, 88 80, 60 80 C 32 80, 8 75, 8 66 Z" fill="#fff" stroke="#000" stroke-width="2.4"/>
             <path d="M8 18 C 8 27, 32 32, 60 32 C 88 32, 112 27, 112 18" fill="none" stroke="#000" stroke-width="2.2"/>
@@ -1113,8 +1088,8 @@
           <div class="cyltext" style="top:36px; font-size:16px">Convex</div>
         </div>
         <svg class="arr thin" width="42" height="24" viewBox="0 0 42 24"><path d="M3 11 C 13 14, 25 9, 35 13"/><path d="M27 6 L 37 13 L 26 19"/></svg>
-        <div class="vm glow" style="width:430px; padding:24px 18px 12px">
-          <span class="vmtab" style="font-size:12px; top:-13px"><svg class="li" style="width:11px;height:11px" viewBox="0 0 24 24"><use href="#lg-vercel"/></svg>VERCEL SANDBOX</span>
+        <div class="vm" style="width:430px; padding:24px 18px 12px">
+          <span class="vmtab" style="font-size:12px; top:-13px"><svg class="li" style="width:11px;height:11px" viewBox="0 0 24 24"><use href="#lg-vercel"/></svg>VERCEL SANDBOX · forked per campaign</span>
           <div class="row" style="gap:8px; font-size:15.5px">
             <span class="chip dark" style="font-size:14px"><svg class="li" viewBox="0 0 24 24"><use href="#lg-codex"/></svg>Codex SDK</span>
             <span>→</span><span class="code" style="font-size:14px">$skill</span>
@@ -1123,14 +1098,14 @@
           </div>
         </div>
         <svg class="arr thin" width="42" height="24" viewBox="0 0 42 24"><path d="M3 13 C 13 10, 25 15, 35 12"/><path d="M27 5 L 37 12 L 26 18"/></svg>
-        <div class="doc sm glow" style="padding:7px 12px 8px"><div class="fname" style="font-size:14px">artifacts<br/>→ back to UI</div></div>
+        <div class="doc sm" style="padding:7px 12px 8px"><div class="fname" style="font-size:14px">artifacts<br/>→ back to UI</div></div>
       </div>
 
       <div data-step="1" class="note" style="text-align:center; font-size:26px">
         give the <span class="mark">Codex SDK</span> a sandbox and one line — <i>“use $scout”</i> — and it runs the whole show
       </div>
 
-      <div data-step="2" class="row" style="gap:28px">
+      <div data-step="2" class="row" style="gap:28px; padding:8px 14px">
         <div class="row" style="gap:12px">
           <span class="note" style="font-size:21px">built on</span>
           <span class="chip dark"><svg class="li" viewBox="0 0 24 24"><use href="#lg-codex"/></svg>Codex SDK</span>
@@ -1149,9 +1124,9 @@
   <div id="chrome">
     <div class="corner"><span class="mini-logo">Drip</span><span class="mini-tag">· behind the scenes</span></div>
     <div class="foot">
-      <span id="counter">1 / 11</span>
+      <span id="counter">1 / 10</span>
       <div id="bar"><i></i></div>
-      <span class="keys">→ / click / space: spotlight next · ← back</span>
+      <span class="keys">→ next highlight · click anything to spotlight it · ← back</span>
     </div>
   </div>
 
@@ -1185,9 +1160,7 @@
 
   function render() {
     slides.forEach(function (sl, i) { sl.classList.toggle('on', i === s); });
-    var sl = slides[s];
-    sl.classList.toggle('spot', k > 0);
-    sl.querySelectorAll('[data-step]').forEach(function (el) {
+    slides[s].querySelectorAll('[data-step]').forEach(function (el) {
       el.classList.toggle('now', (parseInt(el.dataset.step, 10) || 0) === k);
     });
     counter.textContent = (s + 1) + ' / ' + slides.length;
@@ -1227,7 +1200,14 @@
 
   document.addEventListener('click', function (e) {
     if (e.target.closest('a')) return;
-    if (e.clientX < window.innerWidth * 0.18) prev(); else next();
+    var hit = e.target.closest('[data-step]');
+    if (hit) {
+      var step = parseInt(hit.dataset.step, 10) || 0;
+      k = (k === step) ? 0 : step;
+      render();
+      return;
+    }
+    if (e.clientX < window.innerWidth * 0.12) prev(); else next();
   });
 
   function fit() {
