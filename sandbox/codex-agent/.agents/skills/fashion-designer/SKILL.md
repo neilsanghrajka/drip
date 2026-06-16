@@ -1,6 +1,6 @@
 ---
 name: fashion-designer
-description: Use for Drip Fashion Designer work. Fashion Designer turns approved Scout ideas into beautiful product mockups through three thin product-lane agents, lightweight curation, and fashion-designer-output.json.
+description: Use for Drip Fashion Designer work. Fashion Designer turns approved Scout ideas into polished product mockups through three thin product-lane agents, lightweight curation, and fashion-designer-output.json.
 ---
 
 # Fashion Designer
@@ -33,7 +33,14 @@ image-generation plan.
 2. If approved ideas are missing, read the input Scout artifact if available.
 3. Enforce the hard batch cap: process at most three approved ideas. If more than three ideas are provided, keep the first three by explicit user order, approval order, or Scout artifact order, omit the rest, and record omitted idea refs in `input.omittedIdeaIds` and `strategy.notes`.
 4. Treat the capped input as a batch: `approvedIdeas[] -> perIdeaBriefs[] -> 3 thin workOrders[] -> lightweight curation -> grouped output`.
-5. For each approved idea, create exactly one concise design brief: audience, product angle, category choices, fit, color palette, print placement, typography/style direction, and avoid-list.
+5. For each approved idea, create exactly one concise design brief: audience, product angle, Scout cue translation, category choices, fit, color palette, print placement, typography/style direction, and avoid-list.
+   - Extract 2-3 concrete `scoutCues` from the Scout idea's `shortTitle`,
+     `whyImportant`, `whyFashionMerch`, `visualSeeds`, `signals`, and source
+     summaries. Carry at least one cue into each work order so the mock has a
+     visible relationship to the Scout moment without becoming an event poster.
+     For example, "Brooklyn Waterfront Rave" can become waterfront-industrial
+     night color, sound-grid stitching, pier-concrete texture, or late-night
+     light cues; it should not become a literal festival flyer.
    - Prefer memorable text and mark systems when the idea benefits from instant
      readability: one short original phrase, one original logo-like emblem, and
      a clear dimensional treatment such as puff print, raised silicone, applique,
@@ -49,6 +56,7 @@ image-generation plan.
    - `productCategory`
    - `targetFinalMocks: 1`
    - `candidateTarget: 1` or at most `2`
+   - `scoutCues`
    - `assetDir`
    - `tasteConstraints`
 8. Keep generation thin and fast:
@@ -123,10 +131,14 @@ Keep responsibilities separated:
 
 ## Product Mockup Direction
 
-- Generate beautiful fashion product mockups, not websites, storefronts, landing pages, poster layouts, or ad dashboards.
+- Generate polished, wearable fashion product mockups, not websites, storefronts, landing pages, poster layouts, or ad dashboards.
 - The product should dominate the image: cap, socks, tee, hoodie, or bundle should be the clear subject.
-- Prefer premium product photography cues: clean studio lighting, tactile materials, realistic embroidery/knit/print texture, proportional product shape, and tasteful styling props only when they help.
+- Prefer clean product photography cues: studio lighting, tactile materials, realistic embroidery/knit/print texture, proportional product shape, and tasteful styling props only when they help.
 - Use simple backgrounds. Avoid UI chrome, browser windows, product-page layouts, floating CTA buttons, price badges, and ecommerce grids.
+- Make the product feel subtly tied to the approved Scout idea. Use one or two
+  concrete cues from the Scout text as color, texture, motif, material, prop, or
+  short phrase direction. Avoid generic high-energy graphics that could fit any
+  trend, but also avoid over-literal scene illustration.
 - Prefer a clear readable text anchor when it makes the cultural idea easier to understand. Keep product text short, original, high contrast, and large enough to inspect in a 1024px mock. Good defaults are 1-3 word all-caps phrases with dimensional print or embroidery.
 - Use original logo-like emblems, badges, mascots, or symbols when they help recognition, but avoid real or confusingly similar protected logos and trade dress.
 - Reviewer should reject unreadable, misspelled, tiny, or source-copying text.
@@ -233,6 +245,7 @@ Use this schema:
       "brief": {
         "audience": "Who this idea is for.",
         "productAngle": "How the cultural moment becomes fashion.",
+        "scoutCues": ["Concrete visual cue from the Scout text"],
         "productCategories": ["caps", "socks"],
         "palette": ["ink", "cream"],
         "textTreatment": "Original readable phrase plus dimensional print or embroidery direction.",

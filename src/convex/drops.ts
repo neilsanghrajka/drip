@@ -933,6 +933,7 @@ function buildStageTask({
       return [
         "Use $fashion-designer to create concepts and mock images for the approved Scout ideas in the input JSON.",
         `Input JSON: ${inputJson}`,
+        "Keep each concept subtly related to its Scout idea through concrete cues from the Scout text; do not turn it into a literal event poster.",
         `Use assetDir ${rootDir}/fashion-designer-assets.`,
         `Write the Fashion Designer artifact to ${outputPath}.`,
         "Return a short status with the artifact path.",

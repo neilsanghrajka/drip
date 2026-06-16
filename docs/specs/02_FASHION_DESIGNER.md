@@ -61,8 +61,9 @@ writing, and JSON validation.
 5. `$fashion-designer` reads approved Scout ideas or a provided Scout artifact.
 6. `$fashion-designer` treats the input as a batch:
    `approvedIdeas[] -> perIdeaBriefs[] -> 3 thin workOrders[] -> grouped output`.
-7. For each approved idea, `$fashion-designer` creates one design brief and
-   chooses one best product category from the requested options.
+7. For each approved idea, `$fashion-designer` creates one design brief,
+   extracts a few concrete Scout cues from the approved moment, and chooses one
+   best product category from the requested options.
 8. `$fashion-designer` creates one work order per approved idea with
    `targetFinalMocks: 1` and `candidateTarget: 1` by default.
 9. `$fashion-designer` spawns focused product subagents by work order, not just
@@ -97,6 +98,9 @@ writing, and JSON validation.
   topics, or a Scout artifact.
 - Fashion Designer owns visual judgment. Do not implement coded concept ranking,
   mock scoring, or product-type selection in runner, Convex, or helper scripts.
+- Each concept should visibly relate to its approved Scout idea through one or
+  two subtle cues in color, texture, motif, material, styling prop, or short
+  phrase. It should not become a literal event poster or generic unrelated merch.
 - Generate more image candidates than the final requested count, then let
   `fashion-reviewer` discard weak images and keep the best set per idea.
 - Fashion Designer processes a hard maximum of three approved ideas per run. If
