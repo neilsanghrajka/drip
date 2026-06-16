@@ -95,6 +95,13 @@ export function isCampaignStageUnlocked(
   if (!state?.drop) {
     return false;
   }
+  if (state.drop.status === "completed") {
+    return true;
+  }
+  const furthestViewableIndex = stageOrder.indexOf(stageForCampaignDrop(state));
+  if (furthestViewableIndex >= 0 && index <= furthestViewableIndex) {
+    return true;
+  }
   if (stage === "builder") {
     return isBuilderStageUnlocked(state);
   }

@@ -93,6 +93,71 @@ describe("campaign stage gating", () => {
     ).toBe("builder");
   });
 
+  it("unlocks every stage for completed campaign replay even if artifacts are sparse", () => {
+    const completedReplay: CampaignStageState = {
+      drop: {
+        status: "completed",
+        currentStage: "marketer",
+        websiteUrl: "https://example-drop.vercel.app",
+      },
+      artifacts: [{ stage: "marketer" }],
+    };
+
+    expect(stageForCampaignDrop(completedReplay)).toBe("marketer");
+    expect(isCampaignStageUnlocked("scout", completedReplay)).toBe(true);
+    expect(isCampaignStageUnlocked("designer", completedReplay)).toBe(true);
+    expect(isCampaignStageUnlocked("builder", completedReplay)).toBe(true);
+    expect(isCampaignStageUnlocked("marketer", completedReplay)).toBe(true);
+    expect(resolveCampaignActiveStage("marketer", completedReplay)).toBe(
+      "marketer",
+    );
+  });
+
+  it("keeps previous stages viewable while a later stage is running", () => {
+    const marketingInProgress: CampaignStageState = {
+      drop: {
+        status: "marketing",
+        currentStage: "marketer",
+        websiteUrl: "https://example-drop.vercel.app",
+      },
+      artifacts: [
+        { stage: "scout" },
+        { stage: "designer" },
+        { stage: "builder" },
+      ],
+    };
+
+    expect(isCampaignStageUnlocked("scout", marketingInProgress)).toBe(true);
+    expect(isCampaignStageUnlocked("designer", marketingInProgress)).toBe(true);
+    expect(isCampaignStageUnlocked("builder", marketingInProgress)).toBe(true);
+    expect(isCampaignStageUnlocked("marketer", marketingInProgress)).toBe(true);
+    expect(resolveCampaignActiveStage("builder", marketingInProgress)).toBe(
+      "builder",
+    );
+  });
+
+  it("unlocks the current stage and every previous stage even with sparse artifacts", () => {
+    const sparseBuilderRun: CampaignStageState = {
+      drop: {
+        status: "building",
+        currentStage: "builder",
+      },
+      artifacts: [],
+    };
+
+    expect(stageForCampaignDrop(sparseBuilderRun)).toBe("builder");
+    expect(isCampaignStageUnlocked("scout", sparseBuilderRun)).toBe(true);
+    expect(isCampaignStageUnlocked("designer", sparseBuilderRun)).toBe(true);
+    expect(isCampaignStageUnlocked("builder", sparseBuilderRun)).toBe(true);
+    expect(isCampaignStageUnlocked("marketer", sparseBuilderRun)).toBe(false);
+    expect(resolveCampaignActiveStage("designer", sparseBuilderRun)).toBe(
+      "designer",
+    );
+    expect(resolveCampaignActiveStage("marketer", sparseBuilderRun)).toBe(
+      "builder",
+    );
+  });
+
   it("reports collected Scout and Designer artifacts as complete at full progress", () => {
     expect(
       isCampaignStageComplete("scout", designerCompleteBeforeBuildClick),
