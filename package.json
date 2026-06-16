@@ -7,9 +7,14 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "test": "pnpm test:unit",
+    "test:unit": "vitest run",
+    "test:watch": "vitest",
+    "test:smoke": "pnpm test:smoke:sandbox",
+    "test:smoke:sandbox": "node --import tsx tests/smoke/sandbox-e2e-smoke.ts",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "e2e:sandbox": "tsx scripts/sandbox_e2e_smoke.ts",
+    "e2e:sandbox": "pnpm test:smoke:sandbox",
     "setup:base-snapshot": "tsx scripts/setup_base_snapshot.ts",
     "deploy": "vercel deploy --prod --yes",
     "deploy:convex-build": "pnpm exec convex deploy --cmd 'pnpm run build' --cmd-url-env-var-name NEXT_PUBLIC_CONVEX_URL"
@@ -41,6 +46,8 @@
     "tailwindcss": "^4",
     "tsx": "^4.22.4",
     "typescript": "^5",
-    "vercel": "^54.6.1"
+    "vercel": "^54.6.1",
+    "vite-tsconfig-paths": "^6.1.1",
+    "vitest": "^4.1.8"
   }
 }

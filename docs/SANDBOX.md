@@ -296,7 +296,7 @@ The guarded live smoke creates real paused Meta objects and is excluded from
 `--scenario all` unless live Meta creation is explicitly allowed:
 
 ```bash
-pnpm e2e:sandbox -- --scenario performance-marketer-facebook-paused --allow-meta-create
+pnpm test:smoke:sandbox -- --scenario performance-marketer-facebook-paused --allow-meta-create
 ```
 
 Never activate campaigns, ad sets, or ads from the v1 Performance Marketer
@@ -366,6 +366,16 @@ Scenario prompts should stay lean and employee-facing. They should invoke the
 skill and describe the role-specific task, but should not mention internal
 subagents, API names, model settings, or artifact paths unless those are part
 of the user-facing contract.
+
+```bash
+pnpm test:smoke:sandbox -- --scenario fashion-designer-product
+pnpm test:smoke:sandbox -- --scenario scout-cultural
+pnpm test:smoke:sandbox -- --scenario builder-drop-site
+pnpm test:smoke:sandbox -- --scenario performance-marketer-facebook-paused --allow-meta-create
+pnpm test:smoke:sandbox -- --scenario all
+```
+
+The historical compatibility alias remains available:
 
 ```bash
 pnpm e2e:sandbox -- --scenario fashion-designer-product

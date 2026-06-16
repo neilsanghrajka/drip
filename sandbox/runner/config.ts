@@ -11,7 +11,9 @@ export type RunnerConfig = {
   workingDirectory: string;
 };
 
-export function readRunnerConfig(env: NodeJS.ProcessEnv = process.env) {
+type Env = Record<string, string | undefined>;
+
+export function readRunnerConfig(env: Env = process.env) {
   return {
     codexNetworkAccessEnabled: booleanEnv(
       env,
@@ -52,7 +54,7 @@ function reasoningEffort(
   throw new Error("CODEX_REASONING_EFFORT must be minimal, low, medium, high, or xhigh.");
 }
 
-function must(env: NodeJS.ProcessEnv, name: string) {
+function must(env: Env, name: string) {
   const value = env[name];
   if (!value) {
     throw new Error(`${name} is required.`);
@@ -60,7 +62,7 @@ function must(env: NodeJS.ProcessEnv, name: string) {
   return value;
 }
 
-function numberEnv(env: NodeJS.ProcessEnv, name: string, fallback: number) {
+function numberEnv(env: Env, name: string, fallback: number) {
   const raw = env[name];
   if (!raw) {
     return fallback;
@@ -73,7 +75,7 @@ function numberEnv(env: NodeJS.ProcessEnv, name: string, fallback: number) {
   return parsed;
 }
 
-function booleanEnv(env: NodeJS.ProcessEnv, name: string, fallback: boolean) {
+function booleanEnv(env: Env, name: string, fallback: boolean) {
   const raw = env[name];
   if (!raw) {
     return fallback;

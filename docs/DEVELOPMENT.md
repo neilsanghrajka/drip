@@ -124,6 +124,7 @@ pnpm exec convex run smoke:ping '{"label":"local"}'
 For app changes:
 
 ```bash
+pnpm test
 pnpm lint
 pnpm typecheck
 pnpm build
@@ -132,6 +133,8 @@ pnpm build
 For black-box sandbox smoke tests through Convex:
 
 ```bash
+pnpm test:smoke:sandbox -- --scenario fashion-designer-product
+pnpm test:smoke:sandbox -- --scenario scout-cultural
 pnpm e2e:sandbox -- --scenario fashion-designer-product
 pnpm e2e:sandbox -- --scenario scout-cultural
 ```

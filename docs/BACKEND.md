@@ -675,15 +675,15 @@ pnpm lint
 pnpm typecheck
 pnpm build
 pnpm exec convex dev --once --typecheck disable
-pnpm e2e:sandbox -- --scenario drop-workflow-builder --timeout-ms 900000 --start-attempts 1
+pnpm test:smoke:sandbox -- --scenario drop-workflow-builder --timeout-ms 900000 --start-attempts 1
 ```
 
 Notes:
 
 - `pnpm build` required running outside the restricted sandbox because
   Turbopack needed local port binding.
-- `pnpm e2e:sandbox` required running outside the restricted sandbox because
-  `tsx` uses an IPC pipe and the smoke uses Convex/Vercel network access.
+- `pnpm test:smoke:sandbox` required running outside the restricted sandbox
+  because the smoke uses Convex/Vercel network access.
 - `.env` and `.env.local` are private ignored runtime files. Keep active local
   runtime selection in `.env`; do not copy either file's values into docs,
   commits, screenshots, or logs.
@@ -720,7 +720,7 @@ Current verification for the final integration goal is pending until this exact
 post-change command passes:
 
 ```bash
-pnpm e2e:sandbox -- --scenario drop-workflow-builder --timeout-ms 900000 --start-attempts 1 --keep-sandbox
+pnpm test:smoke:sandbox -- --scenario drop-workflow-builder --timeout-ms 900000 --start-attempts 1 --keep-sandbox
 ```
 
 Latest post-change status:
@@ -767,7 +767,7 @@ Main implementation files:
 - `src/convex/sandboxRuns.ts`
 - `src/convex/sandboxRunActions.ts`
 - `src/convex/_generated/api.d.ts`
-- `scripts/sandbox_e2e_smoke.ts`
+- `tests/smoke/sandbox-e2e-smoke.ts`
 - `.env.example`
 
 Do not edit generated Convex files by hand. Regenerate through the Convex CLI.

@@ -209,7 +209,7 @@ render a contact sheet of copied sandbox assets for visual review.
 The Convex-side black-box smoke harness is:
 
 ```bash
-pnpm e2e:sandbox -- --scenario fashion-designer-product
+pnpm test:smoke:sandbox -- --scenario fashion-designer-product
 ```
 
 It sends a lean Fashion Designer prompt through a real `sandboxRuns` record,

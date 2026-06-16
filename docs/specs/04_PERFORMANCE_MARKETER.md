@@ -120,7 +120,7 @@ The guarded black-box scenario sends a lean prompt through a real
 allowed:
 
 ```bash
-pnpm e2e:sandbox -- --scenario performance-marketer-facebook-paused --allow-meta-create
+pnpm test:smoke:sandbox -- --scenario performance-marketer-facebook-paused --allow-meta-create
 ```
 
 The scenario is excluded from `--scenario all` unless `--allow-meta-create` is

@@ -1,17 +1,17 @@
 import { createHash } from "node:crypto";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { Sandbox } from "@vercel/sandbox";
 import { ConvexHttpClient } from "convex/browser";
 
-import type { Id } from "../src/convex/_generated/dataModel";
-import { api } from "../src/convex/_generated/api";
+import type { Id } from "../../src/convex/_generated/dataModel";
+import { api } from "../../src/convex/_generated/api";
 
 const repoRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
-  "..",
+  "../..",
 );
 const privateEnvPath = path.join(repoRoot, ".env");
 const defaultArtifactRoot = path.join(repoRoot, ".sandbox-e2e");
@@ -32,7 +32,7 @@ type ScenarioName =
   | "drop-workflow-builder"
   | "performance-marketer-facebook-paused";
 
-type CliOptions = {
+export type CliOptions = {
   scenario: ScenarioName | "all";
   timeoutMs: number;
   pollMs: number;
@@ -44,7 +44,7 @@ type CliOptions = {
   allowMetaCreate: boolean;
 };
 
-type SandboxRun = {
+export type SandboxRun = {
   _id: string;
   status: string;
   task: string;
@@ -70,7 +70,7 @@ type SandboxRun = {
   };
 };
 
-type SandboxEvent = {
+export type SandboxEvent = {
   seq: number;
   type: string;
   createdAt?: number;
@@ -87,7 +87,7 @@ type RunResult = {
   samples: SmokeSample[];
 };
 
-type AssetEvidence = {
+export type AssetEvidence = {
   sandboxPath: string;
   localPath: string;
   fileName: string;
@@ -100,6 +100,8 @@ type AssetEvidence = {
     height: number;
   };
 };
+
+export type ImageHeader = AssetEvidence["image"];
 
 type SmokeSample = {
   label: string;
@@ -257,10 +259,12 @@ type DbStateEvidence = {
   terminal: RunStateEvidence;
 };
 
-main().catch((error) => {
-  console.error(error instanceof Error ? error.message : String(error));
-  process.exitCode = 1;
-});
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((error) => {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exitCode = 1;
+  });
+}
 
 async function main() {
   await loadPrivateEnv();
@@ -1213,7 +1217,7 @@ async function writeContactSheet(artifactDir: string, assets: AssetEvidence[]) {
   await writeFile(path.join(artifactDir, "contact-sheet.html"), html);
 }
 
-function validateCommonEvents(name: string, events: SandboxEvent[]) {
+export function validateCommonEvents(name: string, events: SandboxEvent[]) {
   const types = new Set(events.map((event) => event.type));
   for (const type of [
     "runner.started",
@@ -1474,7 +1478,7 @@ function validateFashionDesignerOutput(output: unknown) {
   }
 }
 
-function validateScoutOutput(output: unknown) {
+export function validateScoutOutput(output: unknown) {
   const root = asRecord(output, "Scout output");
   assert(
     root.schemaVersion === "scout.cultural-moments.v1",
@@ -1512,7 +1516,7 @@ function validateScoutOutput(output: unknown) {
   }
 }
 
-function validateBuilderOutput(output: unknown) {
+export function validateBuilderOutput(output: unknown) {
   const root = asRecord(output, "Builder output");
   assert(
     root.schemaVersion === "builder.drop-site.v1",
@@ -1573,7 +1577,7 @@ function validateBuilderOutput(output: unknown) {
   }
 }
 
-function validatePerformanceMarketerOutput(output: unknown) {
+export function validatePerformanceMarketerOutput(output: unknown) {
   const root = asRecord(output, "Performance Marketer output");
   assert(
     root.schemaVersion === "performance-marketer.facebook-campaign.v1",
@@ -2372,7 +2376,7 @@ function stripInlineEnvComment(value: string) {
   return index >= 0 ? value.slice(0, index).trimEnd() : value;
 }
 
-function parseArgs(args: string[]): CliOptions {
+export function parseArgs(args: string[]): CliOptions {
   const options: CliOptions = {
     scenario: "fashion-designer-product",
     timeoutMs: defaultTimeoutMs,
@@ -2450,12 +2454,15 @@ function parsePositiveInteger(value: string, flag: string) {
 
 function printHelp() {
   console.log(`Usage:
+  pnpm test:smoke:sandbox -- --scenario fashion-designer-product
+  pnpm test:smoke:sandbox -- --scenario scout-cultural
+  pnpm test:smoke:sandbox -- --scenario builder-drop-site
+  pnpm test:smoke:sandbox -- --scenario drop-workflow-builder
+  pnpm test:smoke:sandbox -- --scenario performance-marketer-facebook-paused --allow-meta-create
+  pnpm test:smoke:sandbox -- --scenario all
+
+Compatibility alias:
   pnpm e2e:sandbox -- --scenario fashion-designer-product
-  pnpm e2e:sandbox -- --scenario scout-cultural
-  pnpm e2e:sandbox -- --scenario builder-drop-site
-  pnpm e2e:sandbox -- --scenario drop-workflow-builder
-  pnpm e2e:sandbox -- --scenario performance-marketer-facebook-paused --allow-meta-create
-  pnpm e2e:sandbox -- --scenario all
 
 Options:
   --timeout-ms <ms>          Overall timeout per scenario. Default ${defaultTimeoutMs}
@@ -2490,7 +2497,7 @@ function assertGeneratedAtFresh(name: string, output: unknown, startedAt: number
   );
 }
 
-function collectWorkspaceImagePaths(value: unknown): string[] {
+export function collectWorkspaceImagePaths(value: unknown): string[] {
   if (typeof value === "string") {
     return value.startsWith("/vercel/sandbox/agent-workspace/") &&
       /\.(png|jpe?g|webp)$/i.test(value)
@@ -2506,7 +2513,7 @@ function collectWorkspaceImagePaths(value: unknown): string[] {
   return [];
 }
 
-function parseImageHeader(buffer: Buffer): AssetEvidence["image"] {
+export function parseImageHeader(buffer: Buffer): ImageHeader {
   const pngSignature =
     buffer.length >= 24 &&
     buffer[0] === 0x89 &&
@@ -2627,7 +2634,7 @@ function keepSandboxAfterFailure(options: CliOptions) {
   return options.keepSandbox || process.env.DRIP_E2E_KEEP_SANDBOX_ON_FAILURE === "1";
 }
 
-function isTransientSandboxStartError(error: unknown) {
+export function isTransientSandboxStartError(error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
   return /Status code (429|5\d\d) is not ok|ECONNRESET|ETIMEDOUT|fetch failed|InternalServerError|try again later/i.test(
     message,
@@ -2683,7 +2690,7 @@ function assertPausedStatus(value: unknown, label: string) {
   assert(value.toUpperCase() === "PAUSED", `${label} must be PAUSED.`);
 }
 
-function countBy(values: string[]) {
+export function countBy(values: string[]) {
   const counts: Record<string, number> = {};
   for (const value of values) {
     counts[value] = (counts[value] ?? 0) + 1;

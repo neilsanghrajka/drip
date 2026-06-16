@@ -39,7 +39,7 @@ Use this file as your operating rules and `docs/` as the directory map — the D
 ## Verifying Your Work
 - Always self-verify in a running app, not just with static checks. In a cloud VM, use the `agent-browser` skill instead of `@browser`.
 - Locally: run `pnpm lint`, `pnpm typecheck`, and `pnpm build` when code changes.
-- Always run an e2e smoke test before calling work done: 1) the app loads and login works in the browser, 2) a drop stage run completes (`pnpm e2e:sandbox` covers the sandbox path), 3) artifacts and events land in Convex. Use the Vercel and Convex plugins to map the data flow end to end.
+- Always run an e2e smoke test before calling work done: 1) the app loads and login works in the browser, 2) a drop stage run completes (`pnpm test:smoke:sandbox` covers the sandbox path; `pnpm e2e:sandbox` is a compatibility alias), 3) artifacts and events land in Convex. Use the Vercel and Convex plugins to map the data flow end to end.
 - After a production deploy, repeat the smoke test on the prod URL, not just locally.
 - Convex and production verification workflows live in `docs/CONVEX.md` and `docs/DEPLOYMENT.md`.
 
