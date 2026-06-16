@@ -54,12 +54,21 @@ Scout owns orchestration. The caller should not need to describe the research pl
    source evidence, or too many variants of one fandom, ask one focused
    follow-up from the relevant researcher. Do not run open-ended extra waves.
 8. Use Scout judgment to select up to five diverse final cultural moments.
-9. Write the final JSON file, replacing any existing file. Set `generatedAt` to
+9. Rewrite the display-facing fields so each candidate is usable as a compact
+   Scout card:
+   - `shortTitle`: 3-6 words, max 52 characters.
+   - `xSignalLine`: max 64 characters; use `Sources: N` when X is weak or absent.
+   - `whyImportant`: one sentence, max 160 characters, focused only on why the
+     cultural moment is live right now.
+   Keep `whyFashionMerch` for downstream Designer context; it is not the Scout
+   card body and may be longer than `whyImportant`.
+10. Write the final JSON file, replacing any existing file. Set `generatedAt` to
    the current wall-clock ISO timestamp at write time, for example
    `new Date().toISOString()`. Do not use midnight, the input date, or a
    source publication date for `generatedAt`.
-10. Verify the JSON parses and `generatedAt` is a fresh ISO timestamp, then
-   return a short status with the artifact path.
+11. Verify the JSON parses, `generatedAt` is a fresh ISO timestamp, and the
+   display-facing fields obey the limits above. Rewrite any oversized fields
+   before returning a short status with the artifact path.
 
 Keep responsibilities separated:
 
@@ -82,6 +91,9 @@ Keep responsibilities separated:
 - Do not turn an opaque hashtag or trend token into a final candidate unless source evidence explains it.
 - Pick diverse topics. Do not return five cricket moments, five album drops, or multiple variants of the same fandom.
 - Prefer specific named moments, places, events, movements, or behavior shifts over broad summaries like "streetwear is rising."
+- Keep Scout cards scan-friendly. `shortTitle`, `xSignalLine`, and
+  `whyImportant` are display fields, so they must be short, direct, and
+  non-redundant. Put longer product inspiration in `whyFashionMerch`.
 - Explain fashion plausibility as inspiration only. Suggest original phrases,
   original emblem directions, color cues, and print/texture directions when
   useful, but do not design products and do not suggest copying logos, team
@@ -122,14 +134,14 @@ Use this schema:
   "candidates": [
     {
       "id": "idea_01",
-      "shortTitle": "4-6 word UI title",
+      "shortTitle": "3-6 word UI title, max 52 characters",
       "event": "Moment name",
-      "xSignalLine": "X: trend/topic · count or metric note",
-      "whyImportant": "Why the moment is culturally live.",
+      "xSignalLine": "X/source line, max 64 characters",
+      "whyImportant": "One sentence, max 160 characters, why the moment is culturally live.",
       "country": "India",
       "city": "Mumbai",
       "category": "sports",
-      "whyFashionMerch": "Why this can inspire original fashion merchandise.",
+      "whyFashionMerch": "Designer-facing fashion inspiration; not shown on Scout cards.",
       "visualSeeds": {
         "phrases": ["1-3 word original phrase"],
         "emblems": ["original logo-like mark idea"],
