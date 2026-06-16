@@ -1280,11 +1280,13 @@ function StageWorkspace({
               aria-valuemax={100}
               aria-valuemin={0}
               aria-valuenow={activeProgress}
-              className="mt-1.5 h-2.5 w-full overflow-hidden rounded-full border-[2px] border-black bg-white"
+              className={`mt-1.5 h-2.5 w-full overflow-hidden rounded-full border-[2px] border-black ${
+                activeComplete ? "bg-black" : "bg-white"
+              }`}
               role="progressbar"
             >
               <div
-                className="h-full bg-black"
+                className="h-full rounded-full bg-black transition-all duration-500"
                 style={{ width: `${activeProgress}%` }}
               />
             </div>
