@@ -123,6 +123,61 @@ describe("campaign stage gating", () => {
     expect(campaignStageProgress("designer", waitingForDesignerOutput)).toBe(86);
   });
 
+  it("fills progress from live activity steps while a stage is running", () => {
+    const designerRunInProgress: CampaignStageState = {
+      drop: {
+        status: "designing",
+        currentStage: "designer",
+      },
+      artifacts: [{ stage: "scout" }],
+      activity: [
+        { stage: "designer", status: "complete" },
+        { stage: "designer", status: "complete" },
+        { stage: "designer", status: "running" },
+        { stage: "designer", status: "pending" },
+        { stage: "designer", status: "pending" },
+        { stage: "designer", status: "pending" },
+      ],
+    };
+
+    expect(campaignStageProgress("designer", designerRunInProgress)).toBe(42);
+  });
+
+  it("does not advance progress from pending-only activity placeholders", () => {
+    const designerRunQueued: CampaignStageState = {
+      drop: {
+        status: "designing",
+        currentStage: "designer",
+      },
+      artifacts: [{ stage: "scout" }],
+      activity: [
+        { stage: "designer", status: "pending" },
+        { stage: "designer", status: "pending" },
+      ],
+    };
+
+    expect(campaignStageProgress("designer", designerRunQueued)).toBe(58);
+  });
+
+  it("caps activity-derived progress below complete until the artifact is collected", () => {
+    const designerRunCollectedButNoArtifactYet: CampaignStageState = {
+      drop: {
+        status: "designing",
+        currentStage: "designer",
+      },
+      artifacts: [{ stage: "scout" }],
+      activity: [
+        { stage: "designer", status: "complete" },
+        { stage: "designer", status: "complete" },
+        { stage: "designer", status: "complete" },
+      ],
+    };
+
+    expect(
+      campaignStageProgress("designer", designerRunCollectedButNoArtifactYet),
+    ).toBe(94);
+  });
+
   it("requires completed drop status before marking Marketer complete", () => {
     const blockedMarketerOutput: CampaignStageState = {
       drop: {

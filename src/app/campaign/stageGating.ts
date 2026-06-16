@@ -32,6 +32,10 @@ export type CampaignStageState = {
   artifacts?: ReadonlyArray<{
     stage: CampaignStageKey | string;
   }> | null;
+  activity?: ReadonlyArray<{
+    stage: CampaignStageKey | string;
+    status?: "pending" | "running" | "complete" | "failed" | string;
+  }> | null;
 };
 
 const stageOrder: CampaignStageKey[] = [
@@ -124,10 +128,46 @@ export function campaignStageProgress(
   if (isCampaignStageComplete(stage, state)) {
     return 100;
   }
+  const activityProgress = campaignStageActivityProgress(stage, state);
+  if (activityProgress !== undefined) {
+    return activityProgress;
+  }
   if (state?.drop?.currentStage === stage) {
     return state.drop.status?.startsWith("awaiting") ? 86 : 58;
   }
   return 0;
+}
+
+function campaignStageActivityProgress(
+  stage: CampaignStageKey,
+  state: CampaignStageState | null | undefined,
+) {
+  const stageActivity =
+    state?.activity?.filter((item) => item.stage === stage) ?? [];
+  if (
+    stageActivity.length === 0 ||
+    !stageActivity.some((item) =>
+      ["complete", "running", "failed"].includes(item.status ?? ""),
+    )
+  ) {
+    return undefined;
+  }
+
+  const completeCount = stageActivity.filter(
+    (item) => item.status === "complete",
+  ).length;
+  const activeCount = stageActivity.some((item) =>
+    ["running", "failed"].includes(item.status ?? ""),
+  )
+    ? 0.5
+    : 0;
+  const rawProgress = ((completeCount + activeCount) / stageActivity.length) * 100;
+
+  return clampProgress(Math.round(rawProgress), 8, 94);
+}
+
+function clampProgress(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
 }
 
 function isBuilderStageUnlocked(state: CampaignStageState) {
