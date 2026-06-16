@@ -18,7 +18,7 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import type { ComponentType, CSSProperties } from "react";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { useAction, useMutation, useQuery } from "convex/react";
@@ -243,6 +243,7 @@ const stages: Stage[] = [
 ];
 
 export default function CampaignPage() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const createDrop = useAction(api.dropActions.createDrop);
   const startNextStage = useAction(api.dropActions.startNextStage);
@@ -268,7 +269,8 @@ export default function CampaignPage() {
   const [error, setError] = useState<string | null>(null);
   const [showArtifacts, setShowArtifacts] = useState(false);
   const newSessionRequested = searchParams.get("new") === "1";
-  const activeDropId = newSessionRequested ? null : dropId;
+  const requestedDropId = searchParams.get("drop") as Id<"drops"> | null;
+  const activeDropId = newSessionRequested ? null : (requestedDropId ?? dropId);
 
   const rawDropView = useQuery(
     api.drops.getDropReplay,
@@ -278,7 +280,6 @@ export default function CampaignPage() {
   const rawRecentDrops = useQuery(api.drops.listDrops, { limit: 8 });
   const recentDrops = (rawRecentDrops ?? []) as DropSummary[];
   const started = Boolean(activeDropId);
-  const requestedDropId = searchParams.get("drop") as Id<"drops"> | null;
 
   useEffect(() => {
     if (newSessionRequested) {
@@ -470,12 +471,14 @@ export default function CampaignPage() {
   function clearActiveDrop() {
     window.localStorage.removeItem(dropIdStorageKey);
     window.dispatchEvent(new Event(dropIdStorageEvent));
+    router.replace("/campaign?new=1", { scroll: false });
     setManualStage(null);
     resetSelections();
   }
 
   function openHistoricalDrop(nextDropId: Id<"drops">) {
     writeStoredDropId(nextDropId);
+    router.replace(`/campaign?drop=${nextDropId}`, { scroll: false });
     setManualStage(null);
     setError(null);
     resetSelections();

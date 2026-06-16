@@ -727,7 +727,7 @@ export default function Home() {
       writeStoredDropId(created.dropId);
       await startNextStage({ dropId: created.dropId });
       setSetupOpen(false);
-      router.push("/campaign");
+      router.push(`/campaign?drop=${created.dropId}`);
     } catch (caught) {
       setSetupError(readAuthError(caught));
     } finally {
@@ -736,10 +736,10 @@ export default function Home() {
   }
 
   function handleResumeCampaign(dropId: Id<"drops">) {
+    setSetupSubmitting(true);
     writeStoredDropId(dropId);
-    setSetupOpen(false);
     setSetupError(null);
-    router.push("/campaign");
+    router.push(`/campaign?drop=${dropId}`);
   }
 
   return (
