@@ -13,6 +13,7 @@ import {
   X,
 } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import type {
   ComponentType,
@@ -748,9 +749,9 @@ export default function Home() {
           Drip
           <Sparkle className="absolute -right-6 top-1 size-7 fill-[#ffd400] stroke-black stroke-[1.5] transition group-hover:rotate-12" />
         </a>
-        <a className="drip-button h-[52px] px-6 text-lg" href="/slides">
+        <Link className="drip-button h-[52px] px-6 text-lg" href="/slides">
           How it works
-        </a>
+        </Link>
       </header>
 
       {visibleAuthMode !== null && !isAuthenticated ? (
