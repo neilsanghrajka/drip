@@ -14,7 +14,7 @@ Accept lean user prompts. Infer reasonable defaults when omitted.
 - `city`: city name, default `Mumbai` when omitted
 - `country`: optional country name, infer from city when obvious
 - `date`: `YYYY-MM-DD`, default today
-- `window`: default `24 hours`
+- `window`: default `7 days`
 - `maxCandidates`: default `5`
 - `providedTopics`: optional existing trend/topic list to enrich only when the
   caller explicitly supplies it. Do not invent or reuse demo topics.

@@ -836,7 +836,7 @@ async function buildStageInput(
         dropName: drop.name,
         dropDate: drop.dropDate,
         city: drop.city ?? "Mumbai",
-        window: "24-72 hours",
+        window: "7 days",
       };
     case "designer":
       return {
