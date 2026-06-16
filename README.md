@@ -74,6 +74,12 @@ Real outputs from a production campaign (the Week 2 **"June Circuit"** drop). Sc
   </tr>
 </table>
 
+<p align="center">
+  <img src="docs/media/meta-ads.gif" width="340" alt="The AI-created paused Facebook ad for the June Circuit drop, previewed in Meta Ads Manager" />
+  <br/>
+  <sub>…and the paused Facebook ad Performance Marketer drafted — a Mobile Feed carousel of the drop, ready for a human to flip live.</sub>
+</p>
+
 ## How it works
 
 ```
