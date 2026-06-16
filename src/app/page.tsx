@@ -822,15 +822,15 @@ export default function Home() {
             </div>
 
             <h1 className="drip-heading max-w-[640px] text-[68px] leading-[0.96] tracking-[-0.035em] sm:text-[82px] md:text-[72px] lg:text-[84px] xl:text-[104px] 2xl:text-[112px]">
-              Your AI
+              Meet your
               <br />
-              E-Commerce
-              <br />
-              Team
+              <span>AI fashion team</span>
             </h1>
 
             <p className="mt-8 text-[28px] font-medium tracking-[-0.02em]">
-              Run an entire fashion brand by yourself
+              Run an entire fashion E-commerce store
+              <br />
+              By yourself.
             </p>
 
             <div className="mt-8 flex flex-wrap items-center gap-8">
