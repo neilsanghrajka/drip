@@ -46,14 +46,14 @@ describe("readRunnerConfig", () => {
     expect(config.workingDirectory).toBe("/workspace");
   });
 
-  it("uses Scout-specific Codex defaults when the drop stage is scout", () => {
+  it("uses Scout-specific web search with low reasoning when the drop stage is scout", () => {
     const config = readRunnerConfig({
       ...requiredEnv,
       DRIP_DROP_STAGE: "scout",
     });
 
     expect(config.dropStage).toBe("scout");
-    expect(config.codexReasoningEffort).toBe("medium");
+    expect(config.codexReasoningEffort).toBe("low");
     expect(config.codexWebSearchMode).toBe("live");
   });
 

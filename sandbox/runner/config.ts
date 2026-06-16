@@ -25,7 +25,6 @@ export function readRunnerConfig(env: Env = process.env) {
     ),
     codexReasoningEffort: reasoningEffort(
       env.CODEX_REASONING_EFFORT,
-      dropStage,
     ),
     codexWebSearchMode: webSearchMode(env.CODEX_WEB_SEARCH_MODE, dropStage),
     convexRequestTimeoutMs: numberEnv(
@@ -44,12 +43,9 @@ export function readRunnerConfig(env: Env = process.env) {
   } satisfies RunnerConfig;
 }
 
-function reasoningEffort(
-  value: string | undefined,
-  dropStage: DropStage | undefined,
-): ModelReasoningEffort {
+function reasoningEffort(value: string | undefined): ModelReasoningEffort {
   if (value === undefined) {
-    return dropStage === "scout" ? "medium" : "low";
+    return "low";
   }
   if (
     value === "minimal" ||

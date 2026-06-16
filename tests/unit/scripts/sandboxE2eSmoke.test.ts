@@ -28,6 +28,9 @@ describe("sandbox smoke helpers", () => {
       "--keep-sandbox",
       "--skip-sandbox-files",
       "--cleanup-artifacts",
+      "--identity-subject",
+      "user_prod_subject",
+      "--prod",
     ]);
 
     expect(options).toMatchObject({
@@ -38,6 +41,8 @@ describe("sandbox smoke helpers", () => {
       keepSandbox: true,
       skipSandboxFiles: true,
       cleanupArtifacts: true,
+      identitySubject: "user_prod_subject",
+      convexDeployment: "prod",
     });
     expect(options.artifactRoot).toMatch(/tmp\/evidence$/);
     expect(() => parseArgs(["--scenario", "missing"])).toThrow(
@@ -97,25 +102,23 @@ describe("sandbox smoke helpers", () => {
       validateScoutOutput({
         schemaVersion: "scout.cultural-moments.v1",
         strategy: {
-          trendBackfill: [
-            {
-              trend: "Monsoon cricket",
-              sourceLane: "x",
-              exaQueriesAttempted: ["Mumbai Monsoon cricket local culture"],
-              backed: true,
-              selectedCandidateId: "idea_01",
-              dropReason: null,
-            },
-          ],
+          marketsChecked: ["Mumbai"],
+          exaQueriesRun: 1,
+          notes: ["Source-backed local cultural signal."],
         },
         candidates: [
           {
             id: "idea_01",
             shortTitle: "Monsoon cricket",
+            xSignalLine: "Sources: 1",
             whyImportant: "Local cultural signal",
             whyFashionMerch: "Graphic cap idea",
-            signals: { source: "x" },
-            sources: [{ url: "https://example.com/source" }],
+            signals: {
+              xTrendNames: [],
+              exaEvidenceCount: 1,
+              uniqueSourceDomains: 1,
+            },
+            sources: [{ url: "https://example.com/source", sourceType: "web" }],
           },
         ],
       }),
@@ -206,85 +209,94 @@ describe("sandbox smoke helpers", () => {
     ).not.toThrow();
   });
 
-  it("rejects Scout outputs that skip trend backfill auditing", () => {
+  it("accepts X-only Scout candidates with explicit uncertainty", () => {
     expect(() =>
       validateScoutOutput({
         schemaVersion: "scout.cultural-moments.v1",
         strategy: {
           notes: [
-            "Generic Exa event results were available, but a strong social trend was not backfilled.",
+            "Exa was late, so this X-only candidate keeps uncertainty explicit.",
           ],
         },
         candidates: [
           {
             id: "idea_01",
-            shortTitle: "City weekend fair",
-            whyImportant: "A planned weekend event has current source coverage.",
-            whyFashionMerch: "Graphic system idea",
-            signals: { source: "exa" },
-            sources: [{ url: "https://example.com/event" }],
+            shortTitle: "Creator Queue Spike",
+            xSignalLine: "X: creator meet queue",
+            whyImportant: "Public X posts show a fresh local fan queue forming today.",
+            whyFashionMerch: "Queue-map graphics and original fan phrases.",
+            signals: {
+              xTrendNames: ["creator meet queue"],
+              xTweetCountMax: null,
+              xPublicMetricsSample: null,
+              xMetricsUncertainty:
+                "X counts were unavailable, so this is a directional recency signal.",
+              exaEvidenceCount: 0,
+              uniqueSourceDomains: 0,
+            },
+            sources: [],
           },
         ],
       }),
-    ).toThrow("Scout strategy.trendBackfill must be an array.");
+    ).not.toThrow();
   });
 
-  it("accepts sports and non-sports trend backfill audits without category-specific rules", () => {
+  it("rejects malformed or empty Scout candidates", () => {
     expect(() =>
       validateScoutOutput({
         schemaVersion: "scout.cultural-moments.v1",
         strategy: {
-          trendBackfill: [
-            {
-              trend: "City championship parade",
-              sourceLane: "x",
-              exaQueriesAttempted: [
-                "New York championship parade fans celebration recap",
-              ],
-              backed: true,
-              selectedCandidateId: "idea_01",
-              dropReason: null,
+          notes: ["No credible live cultural candidates returned."],
+        },
+        candidates: [],
+      }),
+    ).toThrow("Scout returned zero candidates.");
+
+    expect(() =>
+      validateScoutOutput({
+        schemaVersion: "scout.cultural-moments.v1",
+        strategy: {
+          notes: ["Malformed candidate fixture."],
+        },
+        candidates: [
+          {
+            id: "idea_01",
+            whyImportant: "Fans are gathering around a citywide celebration this week.",
+            whyFashionMerch: "Local pride graphics and color cues.",
+            signals: {
+              exaEvidenceCount: 1,
             },
-            {
-              trend: "Surprise album listening party",
-              sourceLane: "x",
-              exaQueriesAttempted: [
-                "New York surprise album listening party crowd reaction",
-              ],
-              backed: true,
-              selectedCandidateId: "idea_02",
-              dropReason: null,
-            },
-            {
-              trend: "Unverified cafe meme",
-              sourceLane: "x",
-              exaQueriesAttempted: ["New York unverified cafe meme reaction"],
-              backed: false,
-              selectedCandidateId: null,
-              dropReason: "No source-backed context after targeted Exa backfill.",
-            },
-          ],
+            sources: [{ url: "https://example.com/parade", sourceType: "web" }],
+          },
+        ],
+      }),
+    ).toThrow("Scout candidate 0 missing shortTitle.");
+  });
+
+  it("rejects Scout artifacts that include trendBackfill", () => {
+    expect(() =>
+      validateScoutOutput({
+        schemaVersion: "scout.cultural-moments.v1",
+        strategy: {
+          trendBackfill: [],
+          notes: ["Deprecated audit field should not be present."],
         },
         candidates: [
           {
             id: "idea_01",
             shortTitle: "City Parade Rush",
+            xSignalLine: "Sources: 1",
             whyImportant: "Fans are gathering around a citywide celebration this week.",
             whyFashionMerch: "Local pride graphics and color cues.",
-            signals: { source: "x" },
-            sources: [{ url: "https://example.com/parade" }],
-          },
-          {
-            id: "idea_02",
-            shortTitle: "Listening Party Line",
-            whyImportant: "A surprise music drop is pulling fans into local listening events.",
-            whyFashionMerch: "Audio-wave phrases and poster textures.",
-            signals: { source: "x" },
-            sources: [{ url: "https://example.com/listening-party" }],
+            signals: {
+              exaEvidenceCount: 1,
+              uniqueSourceDomains: 1,
+            },
+            sources: [{ url: "https://example.com/parade", sourceType: "web" }],
           },
         ],
       }),
-    ).not.toThrow();
+    ).toThrow("Scout artifact must not contain trendBackfill.");
   });
 
   it("counts values and identifies transient sandbox start failures", () => {

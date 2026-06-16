@@ -18,7 +18,6 @@ import {
   contentTypeForPath,
   isRecord,
   normalizeError,
-  normalizeSandboxProvisioningError,
   summarizeStageOutput,
 } from "./artifactLogic";
 
@@ -47,14 +46,6 @@ type StoredAsset = {
   contentType: string;
   bytes: number;
   sha256: string;
-};
-type SandboxGetOrCreateParams = NonNullable<
-  Parameters<typeof Sandbox.getOrCreate>[0]
->;
-type SnapshotSandboxParams = NonNullable<Parameters<typeof Sandbox.create>[0]> & {
-  name: string;
-  resume?: boolean;
-  onCreate?: (sandbox: Sandbox) => Promise<void>;
 };
 
 const createDropFromAction = makeFunctionReference<
@@ -86,44 +77,6 @@ const createDropFromAction = makeFunctionReference<
     winningDrop?: unknown;
   },
   CreateDropResult
->;
-
-const markDropSandboxReady = makeFunctionReference<
-  "mutation",
-  {
-    dropId: Id<"drops">;
-    sandboxName: string;
-    sandboxId: string;
-    currentSnapshotId?: string;
-  },
-  { status: string }
->("drops:markDropSandboxReady") as unknown as FunctionReference<
-  "mutation",
-  "internal",
-  {
-    dropId: Id<"drops">;
-    sandboxName: string;
-    sandboxId: string;
-    currentSnapshotId?: string;
-  },
-  { status: string }
->;
-
-const markDropSandboxFailed = makeFunctionReference<
-  "mutation",
-  {
-    dropId: Id<"drops">;
-    error: { message: string; code?: string };
-  },
-  null
->("drops:markDropSandboxFailed") as unknown as FunctionReference<
-  "mutation",
-  "internal",
-  {
-    dropId: Id<"drops">;
-    error: { message: string; code?: string };
-  },
-  null
 >;
 
 const prepareNextStageRun = makeFunctionReference<
@@ -256,7 +209,10 @@ export const createDrop = action({
   args: createDropArgs,
   handler: async (ctx, args) => {
     const created = await createDropRow(ctx, args);
-    return await prepareDropSandbox(ctx, created);
+    return {
+      ...created,
+      status: "creating" as const,
+    };
   },
 });
 
@@ -285,14 +241,7 @@ async function ensureDropSandboxReady(ctx: ActionCtx, dropId: Id<"drops">) {
   if (!drop) {
     throw new Error("Drop not found.");
   }
-  if (drop.status !== "creating") {
-    return drop;
-  }
-
-  return await prepareDropSandbox(ctx, {
-    dropId,
-    sandboxName: drop.sandboxName,
-  });
+  return drop;
 }
 
 async function createDropRow(
@@ -313,38 +262,6 @@ async function createDropRow(
     ...args,
     workspaceId,
   });
-}
-
-async function prepareDropSandbox(
-  ctx: ActionCtx,
-  created: CreateDropResult,
-) {
-  try {
-    const sandbox = await getOrCreateDropSandbox(created.sandboxName);
-    await assertSandboxReady(sandbox);
-    const stopped = await sandbox.stop().catch(() => undefined);
-    const ready = await ctx.runMutation(markDropSandboxReady, {
-      dropId: created.dropId,
-      sandboxName: created.sandboxName,
-      sandboxId: sandbox.name,
-      currentSnapshotId:
-        stopped?.snapshot?.id ?? sandbox.currentSnapshotId ?? undefined,
-    });
-    return {
-      ...created,
-      status: ready.status,
-    };
-  } catch (error) {
-    const failure = normalizeSandboxProvisioningError(
-      error,
-      "drop_sandbox_create_failed",
-    );
-    await ctx.runMutation(markDropSandboxFailed, {
-      dropId: created.dropId,
-      error: failure,
-    });
-    throw new Error(failure.message);
-  }
 }
 
 export const collectStageArtifacts = internalAction({
@@ -443,57 +360,6 @@ function workspaceIdForUser(userId: Id<"users">) {
   return `user:${userId}`;
 }
 
-async function getOrCreateDropSandbox(name: string) {
-  return await getOrCreateSnapshotSandbox({
-    name,
-    source: {
-      type: "snapshot",
-      snapshotId: requiredEnv("BASE_SANDBOX_IMAGE"),
-    },
-    persistent: true,
-    snapshotExpiration: numberEnv("DRIP_DROP_SANDBOX_SNAPSHOT_TTL_MS", 7 * 24 * 60 * 60 * 1000),
-    keepLastSnapshots: {
-      count: numberEnv("DRIP_DROP_SANDBOX_KEEP_SNAPSHOTS", 3),
-      expiration: numberEnv("DRIP_DROP_SANDBOX_SNAPSHOT_TTL_MS", 7 * 24 * 60 * 60 * 1000),
-      deleteEvicted: true,
-    },
-    timeout: numberEnv("DRIP_SANDBOX_TIMEOUT_MS", 30 * 60 * 1000),
-    resources: {
-      vcpus: numberEnv("DRIP_SANDBOX_VCPUS", 2),
-    },
-    ...vercelSandboxCredentials(),
-  });
-}
-
-async function getOrCreateSnapshotSandbox(params: SnapshotSandboxParams) {
-  // The runtime supports snapshot sources in getOrCreate; the SDK d.ts models
-  // only git/tarball sources for this method in the installed version.
-  return await Sandbox.getOrCreate(params as unknown as SandboxGetOrCreateParams);
-}
-
-async function assertSandboxReady(sandbox: Sandbox) {
-  const command = await sandbox.runCommand({
-    cmd: "node",
-    args: [
-      "-e",
-      [
-        "const fs=require('node:fs');",
-        "for (const p of ['/vercel/sandbox/runner/index.ts','/vercel/sandbox/agent-workspace/.codex','/vercel/sandbox/agent-workspace/.agents']) {",
-        "if (!fs.existsSync(p)) throw new Error(`missing ${p}`);",
-        "}",
-        "console.log('drop-sandbox-ready');",
-      ].join(" "),
-    ],
-    cwd: sandboxRunnerCwd(),
-    timeoutMs: 30_000,
-  });
-  if (command.exitCode !== 0) {
-    throw new Error(
-      `Drop sandbox sanity check failed: ${(await command.stderr()).trim()}`,
-    );
-  }
-}
-
 async function collectAssets(
   ctx: ActionCtx,
   sandbox: Sandbox,
@@ -559,30 +425,6 @@ function vercelSandboxCredentials() {
     );
   }
   return { token, teamId, projectId };
-}
-
-function requiredEnv(name: string) {
-  const value = process.env[name];
-  if (!value) {
-    throw new Error(`${name} is required.`);
-  }
-  return value;
-}
-
-function sandboxRunnerCwd() {
-  return process.env.DRIP_SANDBOX_RUNNER_CWD ?? "/vercel/sandbox/runner";
-}
-
-function numberEnv(name: string, fallback: number) {
-  const raw = process.env[name];
-  if (!raw) {
-    return fallback;
-  }
-  const parsed = Number(raw);
-  if (!Number.isFinite(parsed)) {
-    throw new Error(`${name} must be a finite number.`);
-  }
-  return parsed;
 }
 
 function sha256Hex(buffer: Buffer) {

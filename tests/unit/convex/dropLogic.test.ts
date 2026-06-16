@@ -23,6 +23,10 @@ describe("drop logic", () => {
     expect(nextStageForStatus("ready_to_market")).toBe("marketer");
     expect(nextStageForStatus("completed")).toBeNull();
 
+    expect(nextStageForDrop({ status: "creating" })).toBe("scout");
+    expect(nextStageForDrop({ status: "creating", winningDrop: { id: "win" } })).toBe(
+      "builder",
+    );
     expect(nextStageForDrop({ status: "failed", currentStage: "designer" })).toBe(
       "designer",
     );

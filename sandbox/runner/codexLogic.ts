@@ -134,7 +134,12 @@ export function isTerminalFinalResponse(
   if (!expectedOutputPath) {
     return false;
   }
-  return text.includes(expectedOutputPath);
+  if (!text.includes(expectedOutputPath)) {
+    return false;
+  }
+  return /\b(done|wrote|written|saved|created|generated|completed|finished|validated|ready)\b/i.test(
+    text,
+  );
 }
 
 export function readErrorMessage(event: ThreadEvent) {

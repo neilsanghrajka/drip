@@ -1,6 +1,6 @@
 # Sandbox
 
-Last updated: 2026-06-07
+Last updated: 2026-06-17
 
 This is the high-level map for Drip's Vercel Sandbox and Codex SDK execution
 layer. The base snapshot is a separate sandbox runtime payload, not a clone of
@@ -46,7 +46,7 @@ sequenceDiagram
   CX-->>UI: sandboxRunId
   UI->>CX: startSandboxRun(sandboxRunId)
 
-  CX->>SB: create sandbox from BASE_SANDBOX_IMAGE
+  CX->>SB: create or resume named sandbox; fresh creates use BASE_SANDBOX_IMAGE
   CX->>R: start detached runner with run env
   CX->>CX: status = running
 
@@ -172,10 +172,11 @@ flowchart LR
 | Caller | Function | Contract |
 | --- | --- | --- |
 | UI | `sandboxRuns.createSandboxRun({ workspaceId, task })` | Insert `queued`; return `{ sandboxRunId }`. |
-| UI | `sandboxRunActions.startSandboxRun({ sandboxRunId })` | Generate runner token, create Vercel Sandbox from `BASE_SANDBOX_IMAGE`, and start the runner. |
+| UI | `sandboxRunActions.startSandboxRun({ sandboxRunId })` | Generate runner token, create/resume the Vercel Sandbox, and start the runner. Fresh creates use `BASE_SANDBOX_IMAGE`; named persistent sandboxes may resume only for the same drop. |
 | UI | `sandboxRuns.getSandboxRun({ sandboxRunId })` | Return sanitized run state without `ingestTokenHash`. |
 | UI | `sandboxRuns.listSandboxRunEvents({ sandboxRunId, afterSeq? })` | Return ordered events, paged at 100. |
 | UI | `sandboxRuns.cancelSandboxRun({ sandboxRunId })` | Mark cancellation; queued runs become terminal immediately. |
+| UI | `sandboxRuns.markStaleSandboxRunsLost({ staleAfterMs?, limit? })` | Mark the signed-in user's stale `provisioning`/`running` runs as `lost`; linked stage/drop rows fail with `sandbox_run_lost`. |
 | Runner | `sandboxRuns.getSandboxRunForRunner({ sandboxRunId, ingestToken })` | Verify token and return task plus cancellation state. |
 | Runner | `sandboxRuns.ingestSandboxRunEvent({ sandboxRunId, ingestToken, seq, type, payload })` | Append the next event, accept idempotent retries, reject sequence gaps. |
 | Runner | `sandboxRuns.heartbeatSandboxRun({ sandboxRunId, ingestToken })` | Update liveness and return whether cancellation was requested. |
@@ -328,7 +329,7 @@ Never commit or print real values for these names.
 | `OPENAI_API_KEY` or `CODEX_API_KEY` | Convex action/runtime | OpenAI auth source. The action passes `OPENAI_API_KEY` into the runner command. |
 | `OPENAI_API_KEY` | Codex child process | Also forwarded to Codex so the official `$imagegen` CLI fallback can reuse the runner OpenAI key when built-in image generation is unavailable. |
 | `CODEX_MODEL` | Convex action/runtime | Runtime override; default is `gpt-5.5`. |
-| `CODEX_REASONING_EFFORT` | Convex action/runtime | Runtime override; default is `medium` for Scout stages and `low` for other stages. |
+| `CODEX_REASONING_EFFORT` | Convex action/runtime | Runtime override; default is `low` for all stages. |
 | `CODEX_WEB_SEARCH_MODE` | Convex action/runtime | Codex SDK web-search override: `disabled`, `cached`, or `live`. Default is `live` for Scout stages and `disabled` for other stages. |
 | `DRIP_CODEX_NETWORK_ACCESS_ENABLED` | Convex action/runtime | Enables Codex SDK network access for API-backed skills such as Scout; default `false`. |
 | `EXA_API_KEY` | Convex action/runtime | Exa Search API key passed only into the Codex process when present. |
@@ -338,6 +339,7 @@ Never commit or print real values for these names.
 | `META_ADS_BUSINESS_ID` | Convex action/runtime | Optional Meta business portfolio passed into the Codex process as `BUSINESS_ID` when present. |
 | `META_ADS_PAGE_ID` | Convex action/runtime | Optional Facebook Page identity passed into the Codex process as `PAGE_ID` when page-list discovery is unavailable. |
 | `DRIP_SANDBOX_RUNNER_TIMEOUT_MS` | Convex action | Detached runner command timeout. |
+| `DRIP_SANDBOX_RUN_STALE_AFTER_MS` | Convex mutation | Optional stale-run watchdog threshold; default 10 minutes. |
 | `DRIP_HEARTBEAT_MS` | Runner | Heartbeat interval. |
 
 Prototype-only env belongs to `references/sandbox-prototypes/*` and
@@ -348,6 +350,11 @@ Prototype-only env belongs to `references/sandbox-prototypes/*` and
 ```bash
 pnpm run setup:base-snapshot
 ```
+
+Runtime drop creation does not run a per-drop base-image preflight. A fresh
+named drop sandbox is created from `BASE_SANDBOX_IMAGE` when the first stage
+starts; later stages may resume that same named sandbox state for the same drop.
+Base-image validation belongs to this setup command and sandbox smoke tests.
 
 The setup command creates a fresh sandbox, copies only `sandbox/runner` and
 `sandbox/codex-agent`, installs runner dependencies, verifies runner imports and

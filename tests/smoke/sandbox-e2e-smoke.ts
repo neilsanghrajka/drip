@@ -25,9 +25,11 @@ const startRetryDelayMs = 30_000;
 const builderWorkspaceRoot = "/vercel/sandbox/agent-workspace";
 const builderDefaultSiteDir = `${builderWorkspaceRoot}/builder-site`;
 const builderStaticDirRelative = ".vercel/output/static";
+const scoutSmokeOutputPath = `${builderWorkspaceRoot}/scout-output.json`;
 const execFileAsync = promisify(execFile);
 let convexClient: ConvexHttpClient | null = null;
 let convexIdentitySubject: string | null = null;
+let convexDeploymentOverride: string | null = null;
 
 type ScenarioName =
   | "fashion-designer-product"
@@ -47,6 +49,7 @@ export type CliOptions = {
   cleanupArtifacts: boolean;
   allowMetaCreate: boolean;
   identitySubject?: string;
+  convexDeployment?: string;
 };
 
 export type SandboxRun = {
@@ -276,6 +279,7 @@ async function main() {
   await loadPrivateEnv();
   const options = parseArgs(process.argv.slice(2));
   convexIdentitySubject = options.identitySubject ?? null;
+  convexDeploymentOverride = options.convexDeployment ?? null;
   const scenarios = selectScenarios(options);
   const results: RunResult[] = [];
 
@@ -290,6 +294,7 @@ async function main() {
     JSON.stringify(
       {
         generatedAt: new Date().toISOString(),
+        convexDeployment: convexDeploymentOverride ?? "default",
         scenarios: results.map((result) => ({
           name: result.run.workspaceId,
           sandboxRunId: result.run._id,
@@ -988,12 +993,12 @@ function assertDropReadyForBuilder(created: CreatedDrop, dropView: DropView | nu
     "Created Drop sandboxName mismatch.",
   );
   assert(
-    dropView.drop.status === "ready_to_build",
-    `Created Drop should be ready_to_build, got ${dropView.drop.status}.`,
+    dropView.drop.status === "creating",
+    `Created Drop should be creating before Builder startup, got ${dropView.drop.status}.`,
   );
   assert(
-    dropView.drop.currentStage === "builder",
-    "Created Drop should point at Builder for builder-ready smoke.",
+    dropView.drop.currentStage === undefined,
+    "Created Drop should not enter a stage before startNextStage.",
   );
 }
 
@@ -1263,8 +1268,8 @@ function validateScoutEvents(run: SandboxRun, events: SandboxEvent[]) {
     : undefined;
   if (isRecord(runnerStarted)) {
     assert(
-      runnerStarted.modelReasoningEffort === "medium",
-      "Scout run did not use medium reasoning effort.",
+      runnerStarted.modelReasoningEffort === "low",
+      "Scout run did not use low reasoning effort.",
     );
     assert(
       runnerStarted.webSearchMode === "live",
@@ -1287,10 +1292,6 @@ function validateScoutEvents(run: SandboxRun, events: SandboxEvent[]) {
     "Scout final response did not mention scout-output.json.",
   );
   assert(!/\$scout unavailable/i.test(text), "Scout skill was unavailable.");
-  assert(/x-researcher|X research/i.test(text), "Scout run did not reference x-researcher/X research.");
-  assert(/exa-researcher|Exa evidence/i.test(text), "Scout run did not reference exa-researcher/Exa evidence.");
-  assert(/\$x-trends/i.test(text), "Scout run did not reference $x-trends.");
-  assert(/\$exa-search/i.test(text), "Scout run did not reference $exa-search.");
 }
 
 function validateBuilderEvents(run: SandboxRun, events: SandboxEvent[]) {
@@ -1503,6 +1504,10 @@ export function validateScoutOutput(output: unknown) {
     root.schemaVersion === "scout.cultural-moments.v1",
     "Scout schemaVersion mismatch.",
   );
+  assert(
+    !containsObjectKey(root, "trendBackfill"),
+    "Scout artifact must not contain trendBackfill.",
+  );
   const candidates = asArray(root.candidates, "Scout candidates");
   if (candidates.length < 1) {
     const strategy = isRecord(root.strategy) ? root.strategy : {};
@@ -1514,49 +1519,10 @@ export function validateScoutOutput(output: unknown) {
     );
   }
   assert(candidates.length <= 5, "Scout candidate count out of range.");
-  assert(/https?:\/\//i.test(JSON.stringify(candidates)), "Scout candidates lacked source URLs.");
   const strategy = asRecord(root.strategy, "Scout strategy");
-  const trendBackfill = asArray(
-    strategy.trendBackfill,
-    "Scout strategy.trendBackfill",
-  );
-  assert(
-    trendBackfill.length > 0,
-    "Scout strategy.trendBackfill should audit trend source backfill.",
-  );
-  for (const [index, entryValue] of trendBackfill.entries()) {
-    const entry = asRecord(entryValue, `Scout trendBackfill ${index}`);
-    assert(
-      typeof entry.trend === "string" && entry.trend.trim().length > 0,
-      `Scout trendBackfill ${index} missing trend.`,
-    );
-    assert(
-      typeof entry.sourceLane === "string" && entry.sourceLane.trim().length > 0,
-      `Scout trendBackfill ${index} missing sourceLane.`,
-    );
-    const queries = asArray(
-      entry.exaQueriesAttempted,
-      `Scout trendBackfill ${index} exaQueriesAttempted`,
-    );
-    assert(
-      queries.every((query) => typeof query === "string" && query.trim().length > 0),
-      `Scout trendBackfill ${index} exaQueriesAttempted must contain query strings.`,
-    );
-    assert(
-      typeof entry.backed === "boolean",
-      `Scout trendBackfill ${index} missing backed boolean.`,
-    );
-    const selectedCandidateId =
-      typeof entry.selectedCandidateId === "string"
-        ? entry.selectedCandidateId
-        : null;
-    if (!entry.backed || !selectedCandidateId) {
-      assert(
-        typeof entry.dropReason === "string" && entry.dropReason.trim().length > 0,
-        `Scout trendBackfill ${index} missing dropReason for omitted trend.`,
-      );
-    }
-  }
+  const strategyNotes = Array.isArray(strategy.notes)
+    ? strategy.notes.filter((note) => typeof note === "string").join(" ")
+    : "";
   for (const [index, candidateValue] of candidates.entries()) {
     const candidate = asRecord(candidateValue, `Scout candidate ${index}`);
     assert(
@@ -1573,7 +1539,20 @@ export function validateScoutOutput(output: unknown) {
     );
     assert(isRecord(candidate.signals), `Scout candidate ${index} missing signals.`);
     const sources = asArray(candidate.sources, `Scout candidate ${index} sources`);
-    assert(sources.length > 0, `Scout candidate ${index} missing source evidence.`);
+    if (isXOnlyScoutCandidate(candidate.signals, sources)) {
+      const uncertainty = candidate.signals.xMetricsUncertainty;
+      assert(
+        (typeof uncertainty === "string" && uncertainty.trim().length > 0) ||
+          /uncertain|uncertainty|limited|thin|empty|late/i.test(strategyNotes),
+        `Scout candidate ${index} X-only source evidence must carry uncertainty.`,
+      );
+    } else {
+      assert(sources.length > 0, `Scout candidate ${index} missing source evidence.`);
+      assert(
+        sources.some(hasSourceUrl),
+        `Scout candidate ${index} source evidence must include a URL.`,
+      );
+    }
   }
 }
 
@@ -2186,12 +2165,11 @@ const scenarios: Scenario[] = [
     name: "scout-cultural",
     workspaceId: "e2e-scout-cultural",
     stage: "scout",
-    outputPath: "/vercel/sandbox/agent-workspace/scout-output.json",
+    outputPath: scoutSmokeOutputPath,
     collectAssets: false,
     validateEvents: validateScoutEvents,
     validateOutput: validateScoutOutput,
-    task:
-      "Use $scout for Drip. Input JSON: { \"city\": \"Mumbai\" }. Discover what is culturally trending in this city right now. Do not use hard-coded demo topics, product categories, or streetwear style as discovery input. Use the exact Scout workflow with x-researcher using $x-trends and exa-researcher using $exa-search. Build a trend queue first, use Exa to back up promising live trend signals before dropping them, record strategy.trendBackfill, and write scout-output.json.",
+    task: buildScoutSmokeTask(scoutSmokeOutputPath),
   },
   {
     name: "builder-drop-site",
@@ -2229,6 +2207,20 @@ const scenarios: Scenario[] = [
       "Use $performance-marketer to create one paused Facebook-only Meta drop-of-week ad for the Builder website https://example.com/drip-e2e-drop and selected product images. This is an explicit sandbox smoke: create smoke input images locally before calling Meta. Selected products: idea_01 Monsoon Crease Cap; idea_02 Vada Pav Study Socks; idea_03 First Rain Playlist Tee. Use the v1 recipe: one paused traffic campaign, one paused ad set, one creative/ad using the Builder link plus the selected product image set, no multi-variant experiments, no activation, no insights readback. Budget minor units 10000, targeting country IN. Write performance-marketer-output.json with sanitized refs only.",
   },
 ];
+
+function buildScoutSmokeTask(outputPath: string) {
+  return [
+    "Use $scout for Drip.",
+    `Input JSON: ${JSON.stringify({
+      dropName: "E2E Scout Cultural Smoke",
+      dropDate: new Date().toISOString().slice(0, 10),
+      city: "Mumbai",
+      window: "7 days",
+      output: outputPath,
+    })}`,
+    `Output path: ${outputPath}`,
+  ].join("\n");
+}
 
 function builderWinningDropInput() {
   return {
@@ -2409,6 +2401,7 @@ async function convexCliRun<T>(
       "exec",
       "convex",
       "run",
+      ...convexDeploymentArgs(),
       "--identity",
       identity,
       functionName,
@@ -2420,6 +2413,16 @@ async function convexCliRun<T>(
     },
   );
   return parseConvexCliOutput(stdout) as T;
+}
+
+function convexDeploymentArgs() {
+  if (!convexDeploymentOverride) {
+    return [];
+  }
+  if (convexDeploymentOverride === "prod") {
+    return ["--prod"];
+  }
+  return ["--deployment", convexDeploymentOverride];
 }
 
 function parseConvexCliOutput(stdout: string) {
@@ -2567,6 +2570,10 @@ export function parseArgs(args: string[]): CliOptions {
       options.allowMetaCreate = true;
     } else if (arg === "--identity-subject") {
       options.identitySubject = readArgValue(args, ++index, arg);
+    } else if (arg === "--prod") {
+      options.convexDeployment = "prod";
+    } else if (arg === "--deployment") {
+      options.convexDeployment = readArgValue(args, ++index, arg);
     } else if (arg === "--help") {
       printHelp();
       process.exit(0);
@@ -2630,6 +2637,8 @@ Options:
   --cleanup-artifacts        Remove local evidence directory for each run after success.
   --allow-meta-create        Allow live Meta create scenarios that create real paused ad objects.
   --identity-subject <id>    Run Convex calls through pnpm exec convex run --identity.
+  --prod                     Run identity-backed Convex calls against production.
+  --deployment <ref>         Run identity-backed Convex calls against a specific Convex deployment.
 `);
 }
 
@@ -2652,6 +2661,48 @@ function assertGeneratedAtFresh(name: string, output: unknown, startedAt: number
     generatedAt >= startedAt - clockSkewMs && generatedAt <= endedAt + clockSkewMs,
     `${name}: generatedAt was outside the current run window.`,
   );
+}
+
+function containsObjectKey(value: unknown, key: string): boolean {
+  if (Array.isArray(value)) {
+    return value.some((entry) => containsObjectKey(entry, key));
+  }
+  if (!isRecord(value)) {
+    return false;
+  }
+  return (
+    Object.prototype.hasOwnProperty.call(value, key) ||
+    Object.values(value).some((entry) => containsObjectKey(entry, key))
+  );
+}
+
+function isXOnlyScoutCandidate(signals: Record<string, unknown>, sources: unknown[]) {
+  const exaEvidenceCount =
+    typeof signals.exaEvidenceCount === "number" ? signals.exaEvidenceCount : null;
+  if (exaEvidenceCount !== 0) {
+    return false;
+  }
+  if (sources.length === 0) {
+    return true;
+  }
+  return sources.every(isXSource);
+}
+
+function isXSource(value: unknown) {
+  const source = asRecord(value, "Scout source");
+  const sourceType =
+    typeof source.sourceType === "string" ? source.sourceType.toLowerCase() : "";
+  const url = typeof source.url === "string" ? source.url.toLowerCase() : "";
+  return (
+    sourceType === "x" ||
+    sourceType === "twitter" ||
+    /https?:\/\/(?:www\.)?(?:x|twitter)\.com\//.test(url)
+  );
+}
+
+function hasSourceUrl(value: unknown) {
+  const source = asRecord(value, "Scout source");
+  return typeof source.url === "string" && /^https?:\/\//i.test(source.url);
 }
 
 export function collectWorkspaceImagePaths(value: unknown): string[] {

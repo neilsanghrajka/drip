@@ -14,6 +14,7 @@ import {
   type MutationCtx,
   type QueryCtx,
 } from "./_generated/server";
+import { shouldMarkSandboxRunLost } from "./sandboxRunLogic";
 
 const sandboxRunnerTerminalStatus = v.union(
   v.literal("succeeded"),
@@ -239,7 +240,9 @@ export const getSandboxRunForRunner = mutation({
     return {
       task: sandboxRun.task,
       expectedOutputPath: sandboxRun.expectedOutputPath,
-      cancelRequested: sandboxRun.cancelRequestedAt !== undefined,
+      cancelRequested:
+        sandboxRun.cancelRequestedAt !== undefined ||
+        terminalStatuses.has(sandboxRun.status),
     };
   },
 });
@@ -258,6 +261,12 @@ export const ingestSandboxRunEvent = mutation({
 
     const latestSeq = await latestSandboxRunEventSeq(ctx, args.sandboxRunId);
     const expectedSeq = latestSeq + 1;
+    if (terminalStatuses.has(sandboxRun.status)) {
+      return {
+        accepted: false,
+        expectedSeq,
+      };
+    }
 
     if (args.seq <= latestSeq) {
       const existing = await sandboxRunEventBySeq(
@@ -313,6 +322,12 @@ export const heartbeatSandboxRun = mutation({
     const sandboxRun = await getSandboxRunOrThrow(ctx, args.sandboxRunId);
     await verifySandboxRunnerToken(sandboxRun, args.ingestToken);
 
+    if (terminalStatuses.has(sandboxRun.status)) {
+      return {
+        cancelRequested: true,
+      };
+    }
+
     const timestamp = now();
     await ctx.db.patch(args.sandboxRunId, {
       lastHeartbeatAt: timestamp,
@@ -342,6 +357,10 @@ export const finishSandboxRun = mutation({
     const sandboxRun = await getSandboxRunOrThrow(ctx, args.sandboxRunId);
     await verifySandboxRunnerToken(sandboxRun, args.ingestToken);
 
+    if (terminalStatuses.has(sandboxRun.status)) {
+      return { status: sandboxRun.status };
+    }
+
     const timestamp = now();
     await ctx.db.patch(args.sandboxRunId, {
       status: args.status,
@@ -365,6 +384,48 @@ export const finishSandboxRun = mutation({
     }
 
     return { status: args.status };
+  },
+});
+
+export const markStaleSandboxRunsLost = mutation({
+  args: {
+    staleAfterMs: v.optional(v.number()),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const workspaceId = await requireUserWorkspaceId(ctx);
+    const staleAfterMs = args.staleAfterMs ?? staleRunThresholdMs();
+    const staleBefore = now() - staleAfterMs;
+    const limit = Math.min(Math.max(args.limit ?? 20, 1), 100);
+    const lost: Id<"sandboxRuns">[] = [];
+
+    for (const status of ["provisioning", "running"] as const) {
+      if (lost.length >= limit) {
+        break;
+      }
+      const candidates = await ctx.db
+        .query("sandboxRuns")
+        .withIndex("by_status_updated", (q) =>
+          q.eq("status", status).lt("updatedAt", staleBefore),
+        )
+        .take(limit - lost.length);
+
+      for (const sandboxRun of candidates) {
+        if (
+          sandboxRun.workspaceId !== workspaceId ||
+          !shouldMarkSandboxRunLost(sandboxRun, staleBefore)
+        ) {
+          continue;
+        }
+        await markSandboxRunLost(ctx, sandboxRun, {
+          message: "Sandbox runner heartbeat was lost.",
+          code: "sandbox_run_lost",
+        });
+        lost.push(sandboxRun._id);
+      }
+    }
+
+    return { lostCount: lost.length, lost };
   },
 });
 
@@ -405,6 +466,13 @@ export const markSandboxRunRunningFromAction = internalMutation({
     sandboxRunId: v.id("sandboxRuns"),
     sandboxId: v.string(),
     commandId: v.string(),
+    timings: v.optional(
+      v.object({
+        callbackPreflightMs: v.number(),
+        sandboxGetOrCreateMs: v.number(),
+        runnerRunCommandMs: v.number(),
+      }),
+    ),
   },
   handler: async (ctx, args) => {
     const sandboxRun = await getSandboxRunOrThrow(ctx, args.sandboxRunId);
@@ -424,6 +492,7 @@ export const markSandboxRunRunningFromAction = internalMutation({
       await markDropStageRunning(ctx, sandboxRun, {
         sandboxId: args.sandboxId,
         commandId: args.commandId,
+        timings: args.timings,
       });
     }
 
@@ -441,6 +510,9 @@ export const markSandboxRunFailedFromAction = internalMutation({
   },
   handler: async (ctx, args) => {
     const sandboxRun = await getSandboxRunOrThrow(ctx, args.sandboxRunId);
+    if (terminalStatuses.has(sandboxRun.status)) {
+      return;
+    }
 
     await ctx.db.patch(args.sandboxRunId, {
       status: "failed",
@@ -486,7 +558,15 @@ async function markDropStageStarting(
 async function markDropStageRunning(
   ctx: MutationCtx,
   sandboxRun: Doc<"sandboxRuns">,
-  ids: { sandboxId: string; commandId: string },
+  ids: {
+    sandboxId: string;
+    commandId: string;
+    timings?: {
+      callbackPreflightMs: number;
+      sandboxGetOrCreateMs: number;
+      runnerRunCommandMs: number;
+    };
+  },
 ) {
   const timestamp = now();
   await ctx.db.patch(sandboxRun.dropStageRunId!, {
@@ -513,7 +593,57 @@ async function markDropStageRunning(
     payload: {
       sandboxId: ids.sandboxId,
       commandId: ids.commandId,
+      timings: ids.timings,
     },
+  });
+}
+
+async function markSandboxRunLost(
+  ctx: MutationCtx,
+  sandboxRun: Doc<"sandboxRuns">,
+  error: SandboxRunError,
+) {
+  if (terminalStatuses.has(sandboxRun.status)) {
+    return;
+  }
+  const timestamp = now();
+  await ctx.db.patch(sandboxRun._id, {
+    status: "lost",
+    error,
+    updatedAt: timestamp,
+  });
+
+  if (sandboxRun.dropId && sandboxRun.dropStageRunId && sandboxRun.stage) {
+    await markDropStageLost(ctx, sandboxRun, error);
+  }
+}
+
+async function markDropStageLost(
+  ctx: MutationCtx,
+  sandboxRun: Doc<"sandboxRuns">,
+  error: SandboxRunError,
+) {
+  const timestamp = now();
+  await ctx.db.patch(sandboxRun.dropStageRunId!, {
+    status: "failed",
+    error,
+    completedAt: timestamp,
+    updatedAt: timestamp,
+  });
+  await ctx.db.patch(sandboxRun.dropId!, {
+    status: "failed",
+    error,
+    updatedAt: timestamp,
+  });
+  await insertDropEvent(ctx, {
+    dropId: sandboxRun.dropId!,
+    dropStageRunId: sandboxRun.dropStageRunId,
+    sandboxRunId: sandboxRun._id,
+    stage: sandboxRun.stage,
+    type: "stage.lost",
+    message: `${stageLabel(sandboxRun.stage!)} lost contact with the sandbox runner.`,
+    visibility: "user",
+    payload: { error },
   });
 }
 
@@ -677,6 +807,15 @@ function readCodexThreadId(type: string, payload: unknown) {
 
   const threadId = (payload as Record<string, unknown>).thread_id;
   return typeof threadId === "string" ? threadId : undefined;
+}
+
+function staleRunThresholdMs() {
+  const raw = process.env.DRIP_SANDBOX_RUN_STALE_AFTER_MS;
+  if (!raw) {
+    return 10 * 60 * 1000;
+  }
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 10 * 60 * 1000;
 }
 
 export type PublicSandboxRunError = SandboxRunError;

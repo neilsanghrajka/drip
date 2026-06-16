@@ -89,6 +89,12 @@ describe("codex runner logic", () => {
     expect(isTerminalFinalResponse("Saved /workspace/output.json", "/workspace/output.json")).toBe(
       true,
     );
+    expect(
+      isTerminalFinalResponse(
+        "I’m writing `/workspace/output.json` with compact card fields.",
+        "/workspace/output.json",
+      ),
+    ).toBe(false);
     expect(isTerminalFinalResponse("Saved output", undefined)).toBe(false);
     expect(readErrorMessage({ type: "turn.failed", error: { message: "boom" } })).toBe("boom");
     expect(readEventMessage({ type: "error", message: "bad" })).toBe("bad");

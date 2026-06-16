@@ -16,6 +16,7 @@ const artifactRoot = "/vercel/sandbox/agent-workspace/drops";
 
 export function nextStageForStatus(status: DropStatus): DropStage | null {
   switch (status) {
+    case "creating":
     case "ready":
       return "scout";
     case "ready_to_design":
@@ -30,8 +31,12 @@ export function nextStageForStatus(status: DropStatus): DropStage | null {
 }
 
 export function nextStageForDrop(
-  drop: Pick<Doc<"drops">, "status" | "currentStage">,
+  drop: Pick<Doc<"drops">, "status" | "currentStage"> &
+    Partial<Pick<Doc<"drops">, "winningDrop">>,
 ): DropStage | null {
+  if (drop.status === "creating") {
+    return drop.winningDrop ? "builder" : "scout";
+  }
   if ((drop.status === "failed" || drop.status === "cancelled") && drop.currentStage) {
     return drop.currentStage;
   }

@@ -918,17 +918,17 @@ function buildStageTask({
   const rootDir = stageRoot(drop._id, stageRunId, stage);
   const inputJson = JSON.stringify(input, null, 2);
   switch (stage) {
-    case "scout":
+    case "scout": {
+      const scoutInput =
+        input && typeof input === "object" && !Array.isArray(input)
+          ? { ...(input as Record<string, unknown>), output: outputPath }
+          : { input, output: outputPath };
       return [
-        `Use $scout for Drip drop "${drop.name}" on ${drop.dropDate}.`,
-        `Input JSON: ${inputJson}`,
-        "Use the exact Scout workflow: spawn `x-researcher` for `$x-trends`, spawn `exa-researcher` for `$exa-search`, then synthesize final candidates only in Scout.",
-        "Scout discovery input is the city only. Do not use hard-coded demo topics, product categories, or streetwear style as discovery input.",
-        "Build a trend queue first, then use Exa to back up promising live trend signals before dropping them; record those checks in strategy.trendBackfill.",
-        "For each candidate, include Scout's required output fields: shortTitle, xSignalLine, whyImportant, whyFashionMerch, source evidence, signals, and visualSeeds.",
-        `Create parent directories as needed and write the Scout artifact to ${outputPath}.`,
-        "Return a short status with the artifact path.",
+        "Use $scout for Drip.",
+        `Input JSON: ${JSON.stringify(scoutInput)}`,
+        `Output path: ${outputPath}`,
       ].join("\n");
+    }
     case "designer":
       return [
         "Use $fashion-designer to create concepts and mock images for the approved Scout ideas in the input JSON.",

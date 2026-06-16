@@ -51,12 +51,30 @@ const markSandboxRunProvisioningFromAction = makeFunctionReference<
 
 const markSandboxRunRunningFromAction = makeFunctionReference<
   "mutation",
-  { sandboxRunId: Id<"sandboxRuns">; sandboxId: string; commandId: string },
+  {
+    sandboxRunId: Id<"sandboxRuns">;
+    sandboxId: string;
+    commandId: string;
+    timings?: {
+      callbackPreflightMs: number;
+      sandboxGetOrCreateMs: number;
+      runnerRunCommandMs: number;
+    };
+  },
   { status: string }
 >("sandboxRuns:markSandboxRunRunningFromAction") as unknown as FunctionReference<
   "mutation",
   "internal",
-  { sandboxRunId: Id<"sandboxRuns">; sandboxId: string; commandId: string },
+  {
+    sandboxRunId: Id<"sandboxRuns">;
+    sandboxId: string;
+    commandId: string;
+    timings?: {
+      callbackPreflightMs: number;
+      sandboxGetOrCreateMs: number;
+      runnerRunCommandMs: number;
+    };
+  },
   { status: string }
 >;
 
@@ -74,12 +92,12 @@ const markSandboxRunFailedFromAction = makeFunctionReference<
 const getSandboxRunForRunner = makeFunctionReference<
   "mutation",
   { sandboxRunId: Id<"sandboxRuns">; ingestToken: string },
-  { task: string; cancelRequested: boolean }
+  { task: string; expectedOutputPath?: string; cancelRequested: boolean }
 >("sandboxRuns:getSandboxRunForRunner") as unknown as FunctionReference<
   "mutation",
   "public",
   { sandboxRunId: Id<"sandboxRuns">; ingestToken: string },
-  { task: string; cancelRequested: boolean }
+  { task: string; expectedOutputPath?: string; cancelRequested: boolean }
 >;
 
 const ingestSandboxRunEvent = makeFunctionReference<
@@ -130,12 +148,17 @@ export const startSandboxRun = action({
 
     try {
       const convexUrl = runnerConvexUrl();
+      const callbackPreflightStart = Date.now();
       await assertRunnerCallbackReachable({
         convexUrl,
         sandboxRunId: args.sandboxRunId,
         ingestToken,
       });
+      const callbackPreflightMs = Date.now() - callbackPreflightStart;
+      const sandboxStart = Date.now();
       const sandbox = await createSandbox(sandboxRun);
+      const sandboxGetOrCreateMs = Date.now() - sandboxStart;
+      const commandStart = Date.now();
       const command = await sandbox.runCommand({
         cmd: "node",
         args: sandboxRunnerArgs(),
@@ -162,11 +185,17 @@ export const startSandboxRun = action({
         },
         timeoutMs: numberEnv("DRIP_SANDBOX_RUNNER_TIMEOUT_MS", 300_000),
       });
+      const runnerRunCommandMs = Date.now() - commandStart;
 
       await ctx.runMutation(markSandboxRunRunningFromAction, {
         sandboxRunId: args.sandboxRunId,
         sandboxId: sandbox.name,
         commandId: command.cmdId,
+        timings: {
+          callbackPreflightMs,
+          sandboxGetOrCreateMs,
+          runnerRunCommandMs,
+        },
       });
 
       return {

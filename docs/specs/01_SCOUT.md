@@ -1,7 +1,7 @@
 # Scout
 
 Scout is Drip's first AI teammate. Its job is to find live cultural moments and
-turn them into up to five source-backed candidate ideas that could inspire
+turn them into up to five evidence-informed candidate ideas that could inspire
 original fashion merchandise.
 
 Scout stops at discovery. It does not design products, run ads, post to Convex,
@@ -16,7 +16,7 @@ flowchart LR
   Scout["$scout skill<br/>planner + cultural judge"]
   XAgent["x-researcher<br/>uses $x-trends"]
   ExaAgent["exa-researcher<br/>uses $exa-search"]
-  Evidence["Compact evidence<br/>signals + URLs"]
+  Evidence["Compact evidence<br/>signals + optional URLs"]
   Output["scout-output.json"]
 
   Runner --> Codex --> Scout
@@ -51,7 +51,8 @@ the cultural moments.
 4. Codex uses `$scout`.
 5. `$scout` spawns `x-researcher` and `exa-researcher` in parallel.
 6. Researchers return compact evidence only.
-7. `$scout` uses model judgment to choose the final candidates.
+7. `$scout` begins synthesis around 2:30 and uses model judgment to choose the
+   final candidates before the 3-minute deadline.
 8. `$scout` writes `scout-output.json`.
 
 ## Responsibility Map
@@ -82,10 +83,16 @@ the cultural moments.
 - With `max_depth = 1`, Scout spawns the Codex subagents. X/Exa skills may
   recommend API-level parallel calls, but they should not spawn nested Codex
   subagents.
-- Every final candidate should include source URLs.
-- Scout should build a trend queue first, then use Exa to back up promising
-  trends before selecting final candidates. `strategy.trendBackfill` records
-  which trend signals were backed or dropped after targeted source checks.
+- Scout has a hard 3-minute wall-clock budget. It should start final synthesis
+  around 2:30 and return the best available first-pass evidence by the deadline.
+- Exa is a minor quick evidence lane: 3-5 fast queries, compact source results,
+  no follow-up wave, no targeted backfill, and no final candidate judgment.
+- Final candidates should include source URLs when available, but X-only
+  candidates are allowed when Exa is late, empty, or too thin. Those candidates
+  must carry uncertainty in `signals` and `strategy.notes`.
+- Safety/IP guardrails stay on: avoid copied logos, team marks, album art,
+  lyrics, celebrity likenesses, protected characters, protected IP, and private
+  controversy. Scout should use original phrases and non-infringing visual cues.
 
 ## Output
 
