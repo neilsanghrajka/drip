@@ -493,7 +493,6 @@ export default function CampaignPage() {
           <SessionSelect
             activeDropId={activeDropId}
             currentName={dropView?.drop.name ?? campaignName}
-            onNewDrop={clearActiveDrop}
             onOpenDrop={openHistoricalDrop}
             recentDrops={recentDrops}
           />
@@ -650,13 +649,11 @@ function writeStoredDropId(dropId: Id<"drops">) {
 function SessionSelect({
   activeDropId,
   currentName,
-  onNewDrop,
   onOpenDrop,
   recentDrops,
 }: {
   activeDropId: Id<"drops"> | null;
   currentName: string;
-  onNewDrop: () => void;
   onOpenDrop: (dropId: Id<"drops">) => void;
   recentDrops: DropSummary[];
 }) {
@@ -665,43 +662,44 @@ function SessionSelect({
     ? activeDropInList
       ? activeDropId
       : "__current__"
-    : "__create__";
+    : "__none__";
 
   return (
     <label className="flex items-center gap-3">
-      <span className="sr-only">Campaign action</span>
+      <span className="sr-only">Campaign</span>
       <select
-        aria-label="Campaign action"
+        aria-label="Campaign"
         className="h-11 min-w-[250px] rounded-[10px] border-[3px] border-black bg-white px-3 text-sm font-black outline-none focus:bg-neutral-100"
         onChange={(event) => {
-          if (event.target.value === "__create__") {
-            onNewDrop();
-            return;
-          }
-          if (event.target.value === "__current__") {
+          if (
+            event.target.value === "__current__" ||
+            event.target.value === "__none__"
+          ) {
             return;
           }
           onOpenDrop(event.target.value as Id<"drops">);
         }}
         value={value}
       >
-        <option value="__create__">Create Campaign</option>
+        {!activeDropId && recentDrops.length > 0 ? (
+          <option disabled value="__none__">
+            Select campaign
+          </option>
+        ) : null}
         {activeDropId && !activeDropInList ? (
           <option value="__current__">{currentName}</option>
         ) : null}
-        <optgroup label="View Previous Campaigns">
-          {recentDrops.length > 0 ? (
-            recentDrops.map((drop) => (
-              <option key={drop._id} value={drop._id}>
-                {drop.name}
-              </option>
-            ))
-          ) : (
-            <option disabled value="__none__">
-              No previous campaigns
+        {recentDrops.length > 0 ? (
+          recentDrops.map((drop) => (
+            <option key={drop._id} value={drop._id}>
+              {drop.name}
             </option>
-          )}
-        </optgroup>
+          ))
+        ) : (
+          <option disabled value="__none__">
+            No previous campaigns
+          </option>
+        )}
       </select>
     </label>
   );

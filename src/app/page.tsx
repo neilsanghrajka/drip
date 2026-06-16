@@ -1,6 +1,7 @@
 "use client";
 
 import { useAuthActions, useConvexAuth } from "@convex-dev/auth/react";
+import { useAction, useQuery } from "convex/react";
 import {
   BarChart3,
   Box,
@@ -21,9 +22,13 @@ import type {
 } from "react";
 import { useState } from "react";
 
+import { api } from "../convex/_generated/api";
+import type { Id } from "../convex/_generated/dataModel";
+
 type TeamKey = "scout" | "designer" | "builder" | "marketer";
 type AuthMode = "signIn" | "signUp";
 type BrandKey = "x" | "openai" | "codex" | "vercel" | "meta";
+type SetupMode = "create" | "resume";
 
 type PoweredBy = {
   brand: BrandKey;
@@ -51,6 +56,19 @@ type TeamMember = {
   poweredBy: PoweredBy[];
 };
 
+type DropSummary = {
+  _id: Id<"drops">;
+  name: string;
+  dropDate: string;
+  status: string;
+  currentStage?: TeamKey;
+  createdAt: number;
+  updatedAt: number;
+};
+
+const dropIdStorageKey = "drip.activeDropId";
+const dropIdStorageEvent = "drip-active-drop-change";
+
 const team: TeamMember[] = [
   {
     key: "scout",
@@ -60,7 +78,7 @@ const team: TeamMember[] = [
     icon: Crosshair,
     portrait: "/drip-team/scout-portrait.png",
     heroObjectPosition: "center 16%",
-    title: "Finds the latest cultural trends",
+    title: "Finds trends",
     subtitle:
       "Scans X for trending topics and fashion signals before they peak.",
     poweredBy: [{ brand: "x", label: "X" }],
@@ -73,7 +91,7 @@ const team: TeamMember[] = [
     icon: PenLine,
     portrait: "/drip-team/designer-portrait.png",
     heroObjectPosition: "center 14%",
-    title: "Creates product mockups",
+    title: "Creates mockups",
     subtitle: "Uses GPT Image 2.0 to create product mockups for approved ideas.",
     poweredBy: [{ brand: "openai", label: "GPT Image 2.0" }],
   },
@@ -85,7 +103,7 @@ const team: TeamMember[] = [
     icon: Box,
     portrait: "/drip-team/builder-portrait.png",
     heroObjectPosition: "center 18%",
-    title: "Builds a custom drop e-commerce website",
+    title: "Builds sites",
     subtitle: "Turns selected products into a one-page store for the drop.",
     poweredBy: [
       { brand: "codex", label: "Codex SDK" },
@@ -100,7 +118,7 @@ const team: TeamMember[] = [
     icon: BarChart3,
     portrait: "/drip-team/meta-portrait.png",
     heroObjectPosition: "center 15%",
-    title: "Creates a performance marketing campaign",
+    title: "Creates ads",
     subtitle: "Uses Meta Ads CLI to create the campaign for the drop.",
     poweredBy: [{ brand: "meta", label: "Meta Ads CLI" }],
   },
@@ -204,7 +222,7 @@ function BrandLogo({
 
 function PoweredByStrip({ member }: { member: TeamMember }) {
   return (
-    <div className="mt-4 flex min-w-0 items-center gap-3 border-t border-white/15 pt-3">
+    <div className="mt-2.5 flex min-w-0 items-center gap-3 border-t border-white/15 pt-2">
       <p className="shrink-0 text-[10px] font-black uppercase tracking-[0.22em] text-white/55">
         Powered by
       </p>
@@ -438,6 +456,198 @@ function AuthPanel({
   );
 }
 
+function StartDropModal({
+  campaignName,
+  error,
+  isSubmitting,
+  onCampaignNameChange,
+  onClose,
+  onCreate,
+  onResume,
+  recentDrops,
+}: {
+  campaignName: string;
+  error: string | null;
+  isSubmitting: boolean;
+  onCampaignNameChange: (value: string) => void;
+  onClose: () => void;
+  onCreate: () => void;
+  onResume: (dropId: Id<"drops">) => void;
+  recentDrops: DropSummary[];
+}) {
+  const [mode, setMode] = useState<SetupMode>("create");
+  const [selectedDropId, setSelectedDropId] = useState<string>("");
+  const selectedResumeDropId = recentDrops.some(
+    (drop) => drop._id === selectedDropId,
+  )
+    ? selectedDropId
+    : (recentDrops[0]?._id ?? "");
+  const selectedDrop = recentDrops.find(
+    (drop) => drop._id === selectedResumeDropId,
+  );
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (mode === "create") {
+      onCreate();
+      return;
+    }
+    if (selectedResumeDropId) {
+      onResume(selectedResumeDropId as Id<"drops">);
+    }
+  }
+
+  return (
+    <section
+      aria-label="Start drop campaign"
+      className="drip-dot-bg fixed inset-0 z-40 grid min-h-svh place-items-center overflow-y-auto bg-white/95 p-4 sm:p-8"
+      data-testid="start-drop-modal"
+    >
+      <div className="relative w-full max-w-[620px]">
+        <div className="absolute inset-0 translate-x-3 translate-y-3 rounded-[22px] bg-black sm:translate-x-4 sm:translate-y-4" />
+        <form
+          className="relative rounded-[22px] border-[4px] border-black bg-white p-5 shadow-[0_0_0_1px_#000] sm:p-7"
+          onSubmit={handleSubmit}
+        >
+          <div className="mb-6 flex items-start justify-between gap-4">
+            <div>
+              <p className="text-[11px] font-black uppercase tracking-[0.24em] text-neutral-500">
+                Campaign setup
+              </p>
+              <h2 className="drip-heading mt-2 text-[52px] leading-[0.9] tracking-[-0.04em] sm:text-[66px]">
+                Start scouting
+              </h2>
+              <p className="mt-3 max-w-[430px] text-[18px] font-bold leading-tight text-neutral-700">
+                Create a new drop or resume a previous campaign.
+              </p>
+            </div>
+            <button
+              aria-label="Close start scouting"
+              className="grid size-11 shrink-0 place-items-center rounded-[12px] border-[3px] border-black bg-white transition hover:bg-[#ffd400]"
+              onClick={onClose}
+              type="button"
+            >
+              <X className="size-6 stroke-[3]" />
+            </button>
+          </div>
+
+          <div className="mb-5 grid grid-cols-2 overflow-hidden rounded-[12px] border-[3px] border-black">
+            <button
+              className={`h-[52px] px-3 text-[13px] font-black uppercase tracking-[0.04em] transition ${
+                mode === "create" ? "bg-[#ffd400]" : "bg-white hover:bg-neutral-100"
+              }`}
+              onClick={() => setMode("create")}
+              type="button"
+            >
+              Create campaign
+            </button>
+            <button
+              className={`h-[52px] border-l-[3px] border-black px-3 text-[13px] font-black uppercase tracking-[0.04em] transition ${
+                mode === "resume" ? "bg-[#ffd400]" : "bg-white hover:bg-neutral-100"
+              }`}
+              onClick={() => setMode("resume")}
+              type="button"
+            >
+              View previous
+            </button>
+          </div>
+
+          {mode === "create" ? (
+            <div className="grid gap-4 rounded-[16px] border-[3px] border-black bg-white p-4 shadow-[5px_5px_0_#000]">
+              <div>
+                <p className="text-[11px] font-black uppercase tracking-[0.2em] text-neutral-500">
+                  About to create new drop
+                </p>
+                <p className="mt-1 text-sm font-bold text-neutral-600">
+                  Name the campaign, then Scout starts the first run.
+                </p>
+              </div>
+              <label className="grid gap-2 text-[12px] font-black uppercase tracking-[0.18em]">
+                Campaign name
+                <input
+                  className="h-14 rounded-[10px] border-[3px] border-black bg-white px-4 text-xl font-black outline-none transition focus:bg-neutral-100"
+                  onChange={(event) => onCampaignNameChange(event.target.value)}
+                  value={campaignName}
+                />
+              </label>
+            </div>
+          ) : (
+            <div className="grid gap-4 rounded-[16px] border-[3px] border-black bg-white p-4 shadow-[5px_5px_0_#000]">
+              <div>
+                <p className="text-[11px] font-black uppercase tracking-[0.2em] text-neutral-500">
+                  Resume drop
+                </p>
+                <p className="mt-1 text-sm font-bold text-neutral-600">
+                  Select a previous campaign and continue the team run.
+                </p>
+              </div>
+              <label className="grid gap-2 text-[12px] font-black uppercase tracking-[0.18em]">
+                Previous campaign
+                <select
+                  className="h-14 rounded-[10px] border-[3px] border-black bg-white px-4 text-base font-black outline-none transition focus:bg-neutral-100"
+                  disabled={recentDrops.length === 0}
+                  onChange={(event) => setSelectedDropId(event.target.value)}
+                  value={selectedResumeDropId}
+                >
+                  {recentDrops.length > 0 ? (
+                    recentDrops.map((drop) => (
+                      <option key={drop._id} value={drop._id}>
+                        {drop.name}
+                      </option>
+                    ))
+                  ) : (
+                    <option>No previous campaigns</option>
+                  )}
+                </select>
+              </label>
+              {selectedDrop ? (
+                <div className="rounded-[12px] border-[2px] border-black bg-neutral-50 px-3 py-2">
+                  <p className="text-[11px] font-black uppercase tracking-[0.16em] text-neutral-500">
+                    Last status
+                  </p>
+                  <p className="mt-1 text-sm font-black">
+                    {selectedDrop.status.replaceAll("_", " ")}
+                  </p>
+                </div>
+              ) : null}
+            </div>
+          )}
+
+          {error ? (
+            <p className="mt-4 rounded-[10px] border-[3px] border-[#ff3c38] bg-[#ffefee] px-4 py-3 text-sm font-black text-[#b31310]">
+              {error}
+            </p>
+          ) : null}
+
+          <div className="mt-5 flex flex-wrap items-center gap-3">
+            <button
+              className="drip-button min-h-14 flex-1 px-7 text-lg disabled:translate-x-0 disabled:translate-y-0 disabled:cursor-wait disabled:opacity-70"
+              disabled={
+                isSubmitting ||
+                (mode === "create" && campaignName.trim().length === 0) ||
+                (mode === "resume" && !selectedResumeDropId)
+              }
+              type="submit"
+            >
+              {isSubmitting ? (
+                <Loader2 className="mr-2 size-5 animate-spin stroke-[3]" />
+              ) : null}
+              {mode === "create" ? "Create campaign" : "Resume campaign"}
+            </button>
+            <button
+              className="min-h-14 rounded-[12px] border-[3px] border-black bg-white px-5 text-sm font-black uppercase transition hover:bg-neutral-100"
+              onClick={onClose}
+              type="button"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </section>
+  );
+}
+
 function readAuthError(caught: unknown) {
   const message =
     caught instanceof Error ? caught.message : "Could not authenticate.";
@@ -455,13 +665,29 @@ function clearAuthQueryParam() {
   }
 }
 
+function writeStoredDropId(dropId: Id<"drops">) {
+  window.localStorage.setItem(dropIdStorageKey, dropId);
+  window.dispatchEvent(new Event(dropIdStorageEvent));
+}
+
 export default function Home() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isAuthenticated, isLoading } = useConvexAuth();
+  const createDrop = useAction(api.dropActions.createDrop);
+  const startNextStage = useAction(api.dropActions.startNextStage);
+  const rawRecentDrops = useQuery(
+    api.drops.listDrops,
+    isAuthenticated ? { limit: 8 } : "skip",
+  );
+  const recentDrops = (rawRecentDrops ?? []) as DropSummary[];
   const [activeKey, setActiveKey] = useState<TeamKey>("designer");
   const [authMode, setAuthMode] = useState<AuthMode | null>(null);
   const [startAfterLogin, setStartAfterLogin] = useState(false);
+  const [setupOpen, setSetupOpen] = useState(false);
+  const [campaignName, setCampaignName] = useState("Week 52 Drop");
+  const [setupError, setSetupError] = useState<string | null>(null);
+  const [setupSubmitting, setSetupSubmitting] = useState(false);
   const visibleAuthMode =
     authMode ?? (searchParams.get("auth") === "login" ? "signIn" : null);
   const active = team.find((member) => member.key === activeKey) ?? team[1];
@@ -476,12 +702,43 @@ export default function Home() {
       return;
     }
     if (isAuthenticated) {
-      router.push("/campaign?new=1");
+      setSetupError(null);
+      setSetupOpen(true);
       return;
     }
     setStartAfterLogin(true);
     window.history.pushState(null, "", "/?auth=login");
     openAuth("signIn");
+  }
+
+  async function handleCreateCampaign() {
+    setSetupSubmitting(true);
+    setSetupError(null);
+    try {
+      const created = await createDrop({
+        name: campaignName.trim(),
+        dropDate: "This Week Sunday",
+        startingMode: "weekly-scout",
+        topics: ["Mumbai streetwear", "cricket finals", "late monsoon utility"],
+        productCategories: ["caps", "socks", "tees", "hoodies"],
+        tasteConstraints: ["premium streetwear", "collectible weekly drop"],
+      });
+      writeStoredDropId(created.dropId);
+      await startNextStage({ dropId: created.dropId });
+      setSetupOpen(false);
+      router.push("/campaign");
+    } catch (caught) {
+      setSetupError(readAuthError(caught));
+    } finally {
+      setSetupSubmitting(false);
+    }
+  }
+
+  function handleResumeCampaign(dropId: Id<"drops">) {
+    writeStoredDropId(dropId);
+    setSetupOpen(false);
+    setSetupError(null);
+    router.push("/campaign");
   }
 
   return (
@@ -505,9 +762,29 @@ export default function Home() {
           onSuccess={() => {
             setAuthMode(null);
             clearAuthQueryParam();
-            router.push(startAfterLogin ? "/campaign?new=1" : "/campaign");
+            if (startAfterLogin) {
+              setSetupOpen(true);
+            } else {
+              router.push("/campaign");
+            }
             setStartAfterLogin(false);
           }}
+        />
+      ) : null}
+
+      {setupOpen && isAuthenticated ? (
+        <StartDropModal
+          campaignName={campaignName}
+          error={setupError}
+          isSubmitting={setupSubmitting}
+          onCampaignNameChange={setCampaignName}
+          onClose={() => {
+            setSetupOpen(false);
+            setSetupError(null);
+          }}
+          onCreate={handleCreateCampaign}
+          onResume={handleResumeCampaign}
+          recentDrops={recentDrops}
         />
       ) : null}
 
@@ -598,8 +875,8 @@ export default function Home() {
                   unoptimized
                 />
               </div>
-              <div className="px-7 py-6 text-white sm:px-8 sm:py-7">
-                <h3 className="text-[30px] font-black leading-[0.98] tracking-[-0.04em] sm:text-[34px] xl:text-[38px]">
+              <div className="px-7 pb-3 pt-6 text-white sm:px-8 sm:pb-3 sm:pt-7">
+                <h3 className="whitespace-nowrap text-[30px] font-black leading-[0.98] tracking-[-0.04em] sm:text-[34px] xl:text-[38px]">
                   {active.title}
                 </h3>
                 <p className="mt-3 max-w-[520px] text-[20px] font-medium leading-tight sm:text-[23px]">
