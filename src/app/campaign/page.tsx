@@ -1447,9 +1447,6 @@ function ScoutFocus({
                   <p className="mt-1.5 text-[11px] font-bold leading-tight">
                     {idea.signal}
                   </p>
-                  <p className="mt-2 text-[10px] leading-tight text-neutral-600">
-                    {idea.angle}
-                  </p>
                 </button>
               );
             })
