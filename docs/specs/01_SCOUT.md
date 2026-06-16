@@ -83,6 +83,9 @@ the cultural moments.
   recommend API-level parallel calls, but they should not spawn nested Codex
   subagents.
 - Every final candidate should include source URLs.
+- Scout should build a trend queue first, then use Exa to back up promising
+  trends before selecting final candidates. `strategy.trendBackfill` records
+  which trend signals were backed or dropped after targeted source checks.
 
 ## Output
 

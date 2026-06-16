@@ -31,12 +31,12 @@ Scout owns orchestration. The caller should not need to describe the research pl
    topics. Do not assume rain, cricket, monsoon, Mumbai streetwear, quick
    commerce, or any earlier demo topic unless it appears in live evidence.
 3. Build a city-specific research brief for what is culturally live right now
-   across these lanes: restaurants, cafes, bars, street food, concerts, touring
-   artists, nightlife, festivals, exhibitions, galleries, design events,
-   neighborhoods, public places, malls, markets, transit rituals, weather,
-   sports, creator culture, screen fandom, gaming, youth subcultures,
-   nostalgia, local rituals, style shifts, and visible socio-economic or
-   lifestyle changes.
+   across these lanes: sports wins and fan celebrations, album drops, screen
+   fandom, memes, creator spikes, product launches, gaming, restaurants, cafes,
+   bars, street food, concerts, touring artists, nightlife, festivals,
+   exhibitions, galleries, design events, neighborhoods, public places, malls,
+   markets, transit rituals, weather, youth subcultures, nostalgia, local
+   rituals, style shifts, and visible socio-economic or lifestyle changes.
 4. Spawn exactly these source subagents in parallel:
    - `x-researcher`, instructed to use `$x-trends`.
    - `exa-researcher`, instructed to use `$exa-search`.
@@ -47,14 +47,29 @@ Scout owns orchestration. The caller should not need to describe the research pl
    city-specific recent-search queries. If WOEID support or tweet counts are
    unavailable, it must return recent-search public metrics when available and
    preserve uncertainty.
-6. Ask `exa-researcher` for source-backed web context only, using query
-   variations across the culture lanes above. It must return URLs, source
-   titles, dates, and compact factual summaries.
-7. If the first pass returns opaque trend names, spammy reseller chatter, weak
-   source evidence, or too many variants of one fandom, ask one focused
-   follow-up from the relevant researcher. Do not run open-ended extra waves.
-8. Use Scout judgment to select up to five diverse final cultural moments.
-9. Rewrite the display-facing fields so each candidate is usable as a compact
+6. Ask `exa-researcher` for source-backed web context only. The first pass may
+   run broad city culture queries, but Exa's main job is to back up promising
+   trend signals, not to hand Scout a generic local-events slate. It must return
+   URLs, source titles, dates, compact factual summaries, and the query or trend
+   each source supports.
+7. Build a trend queue before final selection. The queue should merge named
+   live signals from X, Exa's broad scan, and explicitly provided topics. Treat
+   event listings as one possible trend source, not as the default winner.
+8. For every promising queue item that is strong on X or other live attention
+   but lacks source-backed context, ask `exa-researcher` for a targeted backfill
+   using the exact trend name, entities, city, date window, and adjacent words
+   like reaction, celebration, launch, drop, crowd, fans, meme, review, opening,
+   or recap. If query discovery is thin, use live web search as a fallback to
+   shape better Exa queries, then prefer Exa-backed URLs in the artifact.
+9. Do not discard a strong trend for missing web evidence until targeted Exa
+   backfill has been attempted. Record each attempted backfill in
+   `strategy.trendBackfill`, including whether it was backed and why an
+   unbacked trend was dropped.
+10. Use Scout judgment to select up to five diverse final cultural moments. Do
+   not return a slate of only planned event/calendar items unless stronger live
+   trends were backfilled and could not be supported; explain that in
+   `strategy.notes`.
+11. Rewrite the display-facing fields so each candidate is usable as a compact
    Scout card:
    - `shortTitle`: 3-6 words, max 52 characters.
    - `xSignalLine`: max 64 characters; use `Sources: N` when X is weak or absent.
@@ -62,11 +77,11 @@ Scout owns orchestration. The caller should not need to describe the research pl
      cultural moment is live right now.
    Keep `whyFashionMerch` for downstream Designer context; it is not the Scout
    card body and may be longer than `whyImportant`.
-10. Write the final JSON file, replacing any existing file. Set `generatedAt` to
+12. Write the final JSON file, replacing any existing file. Set `generatedAt` to
    the current wall-clock ISO timestamp at write time, for example
    `new Date().toISOString()`. Do not use midnight, the input date, or a
    source publication date for `generatedAt`.
-11. Verify the JSON parses, `generatedAt` is a fresh ISO timestamp, and the
+13. Verify the JSON parses, `generatedAt` is a fresh ISO timestamp, and the
    display-facing fields obey the limits above. Rewrite any oversized fields
    before returning a short status with the artifact path.
 
@@ -74,7 +89,7 @@ Keep responsibilities separated:
 
 - `x-researcher`: X trend and recent-post signals only. It must use `$x-trends`.
 - `exa-researcher`: source-backed web evidence only. It must use `$exa-search`.
-- Scout: final synthesis, diversity, fashion plausibility, safety/IP judgment, and artifact writing.
+- Scout: final synthesis, diversity, fashion plausibility, trend judgment, and artifact writing.
 
 ## Judgment Rules
 
@@ -86,7 +101,8 @@ Keep responsibilities separated:
 - Avoid enforcement-only, compliance-only, or bureaucratic crackdown stories
   unless the evidence also shows a visible positive cultural behavior,
   gathering, ritual, style shift, or local lifestyle change.
-- Require source evidence from Exa/web context for every final candidate.
+- Require source evidence from Exa/web context for every final candidate, and
+  use Exa to back up strong trend signals before dropping them.
 - Use X as recency and attention signal, not as final truth.
 - Do not turn an opaque hashtag or trend token into a final candidate unless source evidence explains it.
 - Pick diverse topics. Do not return five cricket moments, five album drops, or multiple variants of the same fandom.
@@ -95,10 +111,8 @@ Keep responsibilities separated:
   `whyImportant` are display fields, so they must be short, direct, and
   non-redundant. Put longer product inspiration in `whyFashionMerch`.
 - Explain fashion plausibility as inspiration only. Suggest original phrases,
-  original emblem directions, color cues, and print/texture directions when
-  useful, but do not design products and do not suggest copying logos, team
-  marks, album art, lyrics, celebrity likenesses, protected IP, or private
-  controversy.
+  emblem directions, color cues, and print/texture directions when useful, but
+  do not design products.
 - If fewer than five candidates are usable, return fewer and explain why in `strategy.notes`.
 
 Do not use deterministic code to rank, score, or select final candidates. Cultural relevance, diversity, merchability, and final rationale are Scout's model judgment.
@@ -129,6 +143,16 @@ Use this schema:
   "strategy": {
     "marketsChecked": [],
     "exaQueriesRun": 0,
+    "trendBackfill": [
+      {
+        "trend": "Named trend or live signal checked",
+        "sourceLane": "x",
+        "exaQueriesAttempted": ["query text"],
+        "backed": true,
+        "selectedCandidateId": "idea_01",
+        "dropReason": null
+      }
+    ],
     "notes": []
   },
   "candidates": [
@@ -144,7 +168,7 @@ Use this schema:
       "whyFashionMerch": "Designer-facing fashion inspiration; not shown on Scout cards.",
       "visualSeeds": {
         "phrases": ["1-3 word original phrase"],
-        "emblems": ["original logo-like mark idea"],
+        "emblems": ["original emblem idea"],
         "palette": ["color cue"],
         "textures": ["print, embroidery, or material cue"]
       },

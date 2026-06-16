@@ -64,9 +64,11 @@ export async function runCodexSdk({
     await emit("runner.started", {
       codexEnvPresence: envPresence(env),
       cwd: config.workingDirectory,
+      modelReasoningEffort: config.codexReasoningEffort,
       networkAccessEnabled: config.codexNetworkAccessEnabled,
       nodeVersion: process.version,
       runnerEnvPresence: envPresence(process.env),
+      webSearchMode: config.codexWebSearchMode,
     });
     await maybeHeartbeat(true);
 
@@ -82,7 +84,7 @@ export async function runCodexSdk({
       networkAccessEnabled: config.codexNetworkAccessEnabled,
       sandboxMode: "danger-full-access",
       skipGitRepoCheck: true,
-      webSearchMode: "disabled",
+      webSearchMode: config.codexWebSearchMode,
       workingDirectory: config.workingDirectory,
     });
     const { events } = await thread.runStreamed(sandboxRun.task, {

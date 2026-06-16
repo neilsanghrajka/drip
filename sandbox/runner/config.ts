@@ -1,8 +1,10 @@
 export type RunnerConfig = {
   codexReasoningEffort: ModelReasoningEffort;
   codexNetworkAccessEnabled: boolean;
+  codexWebSearchMode: WebSearchMode;
   convexRequestTimeoutMs: number;
   convexUrl: string;
+  dropStage?: DropStage;
   heartbeatMs: number;
   ingestToken: string;
   model: string;
@@ -14,19 +16,25 @@ export type RunnerConfig = {
 type Env = Record<string, string | undefined>;
 
 export function readRunnerConfig(env: Env = process.env) {
+  const dropStage = readDropStage(env.DRIP_DROP_STAGE);
   return {
     codexNetworkAccessEnabled: booleanEnv(
       env,
       "DRIP_CODEX_NETWORK_ACCESS_ENABLED",
       false,
     ),
-    codexReasoningEffort: reasoningEffort(env.CODEX_REASONING_EFFORT),
+    codexReasoningEffort: reasoningEffort(
+      env.CODEX_REASONING_EFFORT,
+      dropStage,
+    ),
+    codexWebSearchMode: webSearchMode(env.CODEX_WEB_SEARCH_MODE, dropStage),
     convexRequestTimeoutMs: numberEnv(
       env,
       "DRIP_RUNNER_CONVEX_REQUEST_TIMEOUT_MS",
       20_000,
     ),
     convexUrl: must(env, "CONVEX_URL"),
+    ...(dropStage ? { dropStage } : {}),
     heartbeatMs: numberEnv(env, "DRIP_HEARTBEAT_MS", 5000),
     ingestToken: must(env, "INGEST_TOKEN"),
     model: env.CODEX_MODEL ?? "gpt-5.5",
@@ -38,9 +46,10 @@ export function readRunnerConfig(env: Env = process.env) {
 
 function reasoningEffort(
   value: string | undefined,
+  dropStage: DropStage | undefined,
 ): ModelReasoningEffort {
   if (value === undefined) {
-    return "low";
+    return dropStage === "scout" ? "medium" : "low";
   }
   if (
     value === "minimal" ||
@@ -52,6 +61,19 @@ function reasoningEffort(
     return value;
   }
   throw new Error("CODEX_REASONING_EFFORT must be minimal, low, medium, high, or xhigh.");
+}
+
+function webSearchMode(
+  value: string | undefined,
+  dropStage: DropStage | undefined,
+): WebSearchMode {
+  if (value === undefined) {
+    return dropStage === "scout" ? "live" : "disabled";
+  }
+  if (value === "disabled" || value === "cached" || value === "live") {
+    return value;
+  }
+  throw new Error("CODEX_WEB_SEARCH_MODE must be disabled, cached, or live.");
 }
 
 function must(env: Env, name: string) {
@@ -90,3 +112,17 @@ function booleanEnv(env: Env, name: string, fallback: boolean) {
 }
 
 type ModelReasoningEffort = "minimal" | "low" | "medium" | "high" | "xhigh";
+type WebSearchMode = "disabled" | "cached" | "live";
+type DropStage = "scout" | "designer" | "marketer" | "builder";
+
+function readDropStage(value: string | undefined): DropStage | undefined {
+  if (
+    value === "scout" ||
+    value === "designer" ||
+    value === "marketer" ||
+    value === "builder"
+  ) {
+    return value;
+  }
+  return undefined;
+}

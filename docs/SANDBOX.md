@@ -328,7 +328,8 @@ Never commit or print real values for these names.
 | `OPENAI_API_KEY` or `CODEX_API_KEY` | Convex action/runtime | OpenAI auth source. The action passes `OPENAI_API_KEY` into the runner command. |
 | `OPENAI_API_KEY` | Codex child process | Also forwarded to Codex so the official `$imagegen` CLI fallback can reuse the runner OpenAI key when built-in image generation is unavailable. |
 | `CODEX_MODEL` | Convex action/runtime | Runtime override; default is `gpt-5.5`. |
-| `CODEX_REASONING_EFFORT` | Convex action/runtime | Runtime override; default is `low`. |
+| `CODEX_REASONING_EFFORT` | Convex action/runtime | Runtime override; default is `medium` for Scout stages and `low` for other stages. |
+| `CODEX_WEB_SEARCH_MODE` | Convex action/runtime | Codex SDK web-search override: `disabled`, `cached`, or `live`. Default is `live` for Scout stages and `disabled` for other stages. |
 | `DRIP_CODEX_NETWORK_ACCESS_ENABLED` | Convex action/runtime | Enables Codex SDK network access for API-backed skills such as Scout; default `false`. |
 | `EXA_API_KEY` | Convex action/runtime | Exa Search API key passed only into the Codex process when present. |
 | `X_BEARER_TOKEN` or `TWITTER_BEARER_TOKEN` | Convex action/runtime | X API app-only bearer token passed only into the Codex process when present. |

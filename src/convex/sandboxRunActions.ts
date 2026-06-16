@@ -147,10 +147,10 @@ export const startSandboxRun = action({
           OPENAI_API_KEY: openAiApiKey(),
           SANDBOX_RUN_ID: args.sandboxRunId,
           CODEX_MODEL: process.env.CODEX_MODEL ?? "gpt-5.5",
-          CODEX_REASONING_EFFORT:
-            process.env.CODEX_REASONING_EFFORT ?? "low",
           DRIP_CODEX_NETWORK_ACCESS_ENABLED:
             process.env.DRIP_CODEX_NETWORK_ACCESS_ENABLED ?? "false",
+          ...optionalEnv("CODEX_REASONING_EFFORT"),
+          ...optionalEnv("CODEX_WEB_SEARCH_MODE"),
           ...optionalEnv("DRIP_RUNNER_CONVEX_REQUEST_TIMEOUT_MS"),
           ...optionalDropSitesEnv(),
           ...optionalEnv("EXA_API_KEY"),

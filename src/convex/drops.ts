@@ -924,6 +924,7 @@ function buildStageTask({
         `Input JSON: ${inputJson}`,
         "Use the exact Scout workflow: spawn `x-researcher` for `$x-trends`, spawn `exa-researcher` for `$exa-search`, then synthesize final candidates only in Scout.",
         "Scout discovery input is the city only. Do not use hard-coded demo topics, product categories, or streetwear style as discovery input.",
+        "Build a trend queue first, then use Exa to back up promising live trend signals before dropping them; record those checks in strategy.trendBackfill.",
         "For each candidate, include Scout's required output fields: shortTitle, xSignalLine, whyImportant, whyFashionMerch, source evidence, signals, and visualSeeds.",
         `Create parent directories as needed and write the Scout artifact to ${outputPath}.`,
         "Return a short status with the artifact path.",

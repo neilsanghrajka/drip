@@ -469,8 +469,9 @@ sandbox to remain live for historical display.
 
 Stage inputs are built from the Drop and previous selections:
 
-- Scout input uses Drop metadata: name, date, topics, product categories, taste
-  constraints.
+- Scout input uses Drop metadata: name, date, city, and the current research
+  window. Scout treats product categories and style guidance as downstream
+  Designer context, not discovery input.
 - Designer input uses `approvedIdeas`.
 - Builder input uses `selectedMocks` in the normal flow.
 - Performance Marketer input uses the Builder artifact, Builder website URL,
@@ -542,6 +543,7 @@ The generic runner still receives its existing env:
 - `SANDBOX_RUN_ID`
 - `CODEX_MODEL`
 - `CODEX_REASONING_EFFORT`
+- `CODEX_WEB_SEARCH_MODE`
 - `DRIP_CODEX_NETWORK_ACCESS_ENABLED`
 - optional Scout, Builder, and Performance Marketer credentials
 - `WORKING_DIRECTORY`

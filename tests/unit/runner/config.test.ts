@@ -16,6 +16,7 @@ describe("readRunnerConfig", () => {
     expect(config).toMatchObject({
       codexNetworkAccessEnabled: false,
       codexReasoningEffort: "low",
+      codexWebSearchMode: "disabled",
       convexRequestTimeoutMs: 20_000,
       heartbeatMs: 5000,
       model: "gpt-5.5",
@@ -37,6 +38,7 @@ describe("readRunnerConfig", () => {
 
     expect(config.codexNetworkAccessEnabled).toBe(true);
     expect(config.codexReasoningEffort).toBe("xhigh");
+    expect(config.codexWebSearchMode).toBe("disabled");
     expect(config.convexRequestTimeoutMs).toBe(1234);
     expect(config.heartbeatMs).toBe(750);
     expect(config.model).toBe("gpt-5.5-mini");
@@ -44,7 +46,41 @@ describe("readRunnerConfig", () => {
     expect(config.workingDirectory).toBe("/workspace");
   });
 
-  it("rejects malformed booleans, numbers, and reasoning effort", () => {
+  it("uses Scout-specific Codex defaults when the drop stage is scout", () => {
+    const config = readRunnerConfig({
+      ...requiredEnv,
+      DRIP_DROP_STAGE: "scout",
+    });
+
+    expect(config.dropStage).toBe("scout");
+    expect(config.codexReasoningEffort).toBe("medium");
+    expect(config.codexWebSearchMode).toBe("live");
+  });
+
+  it("keeps non-Scout drop stages on conservative Codex defaults", () => {
+    const config = readRunnerConfig({
+      ...requiredEnv,
+      DRIP_DROP_STAGE: "designer",
+    });
+
+    expect(config.dropStage).toBe("designer");
+    expect(config.codexReasoningEffort).toBe("low");
+    expect(config.codexWebSearchMode).toBe("disabled");
+  });
+
+  it("lets explicit Codex web search and reasoning env override stage defaults", () => {
+    const config = readRunnerConfig({
+      ...requiredEnv,
+      CODEX_REASONING_EFFORT: "high",
+      CODEX_WEB_SEARCH_MODE: "cached",
+      DRIP_DROP_STAGE: "scout",
+    });
+
+    expect(config.codexReasoningEffort).toBe("high");
+    expect(config.codexWebSearchMode).toBe("cached");
+  });
+
+  it("rejects malformed booleans, numbers, reasoning effort, and web search mode", () => {
     expect(() =>
       readRunnerConfig({
         ...requiredEnv,
@@ -65,5 +101,12 @@ describe("readRunnerConfig", () => {
         CODEX_REASONING_EFFORT: "maximum",
       }),
     ).toThrow("CODEX_REASONING_EFFORT must be minimal, low, medium, high, or xhigh.");
+
+    expect(() =>
+      readRunnerConfig({
+        ...requiredEnv,
+        CODEX_WEB_SEARCH_MODE: "always",
+      }),
+    ).toThrow("CODEX_WEB_SEARCH_MODE must be disabled, cached, or live.");
   });
 });

@@ -96,8 +96,21 @@ describe("sandbox smoke helpers", () => {
     expect(() =>
       validateScoutOutput({
         schemaVersion: "scout.cultural-moments.v1",
+        strategy: {
+          trendBackfill: [
+            {
+              trend: "Monsoon cricket",
+              sourceLane: "x",
+              exaQueriesAttempted: ["Mumbai Monsoon cricket local culture"],
+              backed: true,
+              selectedCandidateId: "idea_01",
+              dropReason: null,
+            },
+          ],
+        },
         candidates: [
           {
+            id: "idea_01",
             shortTitle: "Monsoon cricket",
             whyImportant: "Local cultural signal",
             whyFashionMerch: "Graphic cap idea",
@@ -189,6 +202,87 @@ describe("sandbox smoke helpers", () => {
           pausedObjectCount: 3,
           issues: [],
         },
+      }),
+    ).not.toThrow();
+  });
+
+  it("rejects Scout outputs that skip trend backfill auditing", () => {
+    expect(() =>
+      validateScoutOutput({
+        schemaVersion: "scout.cultural-moments.v1",
+        strategy: {
+          notes: [
+            "Generic Exa event results were available, but a strong social trend was not backfilled.",
+          ],
+        },
+        candidates: [
+          {
+            id: "idea_01",
+            shortTitle: "City weekend fair",
+            whyImportant: "A planned weekend event has current source coverage.",
+            whyFashionMerch: "Graphic system idea",
+            signals: { source: "exa" },
+            sources: [{ url: "https://example.com/event" }],
+          },
+        ],
+      }),
+    ).toThrow("Scout strategy.trendBackfill must be an array.");
+  });
+
+  it("accepts sports and non-sports trend backfill audits without category-specific rules", () => {
+    expect(() =>
+      validateScoutOutput({
+        schemaVersion: "scout.cultural-moments.v1",
+        strategy: {
+          trendBackfill: [
+            {
+              trend: "City championship parade",
+              sourceLane: "x",
+              exaQueriesAttempted: [
+                "New York championship parade fans celebration recap",
+              ],
+              backed: true,
+              selectedCandidateId: "idea_01",
+              dropReason: null,
+            },
+            {
+              trend: "Surprise album listening party",
+              sourceLane: "x",
+              exaQueriesAttempted: [
+                "New York surprise album listening party crowd reaction",
+              ],
+              backed: true,
+              selectedCandidateId: "idea_02",
+              dropReason: null,
+            },
+            {
+              trend: "Unverified cafe meme",
+              sourceLane: "x",
+              exaQueriesAttempted: ["New York unverified cafe meme reaction"],
+              backed: false,
+              selectedCandidateId: null,
+              dropReason: "No source-backed context after targeted Exa backfill.",
+            },
+          ],
+        },
+        candidates: [
+          {
+            id: "idea_01",
+            shortTitle: "City Parade Rush",
+            whyImportant: "Fans are gathering around a citywide celebration this week.",
+            whyFashionMerch: "Local pride graphics and color cues.",
+            signals: { source: "x" },
+            sources: [{ url: "https://example.com/parade" }],
+          },
+          {
+            id: "idea_02",
+            shortTitle: "Listening Party Line",
+            whyImportant: "A surprise music drop is pulling fans into local listening events.",
+            whyFashionMerch: "Audio-wave phrases and poster textures.",
+            signals: { source: "x" },
+            sources: [{ url: "https://example.com/listening-party" }],
+          },
+        ],
       }),
     ).not.toThrow();
   });

@@ -1,7 +1,9 @@
+import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { promisify } from "node:util";
 
 import { Sandbox } from "@vercel/sandbox";
 import { ConvexHttpClient } from "convex/browser";
@@ -23,7 +25,9 @@ const startRetryDelayMs = 30_000;
 const builderWorkspaceRoot = "/vercel/sandbox/agent-workspace";
 const builderDefaultSiteDir = `${builderWorkspaceRoot}/builder-site`;
 const builderStaticDirRelative = ".vercel/output/static";
+const execFileAsync = promisify(execFile);
 let convexClient: ConvexHttpClient | null = null;
+let convexIdentitySubject: string | null = null;
 
 type ScenarioName =
   | "fashion-designer-product"
@@ -42,6 +46,7 @@ export type CliOptions = {
   skipSandboxFiles: boolean;
   cleanupArtifacts: boolean;
   allowMetaCreate: boolean;
+  identitySubject?: string;
 };
 
 export type SandboxRun = {
@@ -122,6 +127,7 @@ type Scenario = {
   name: ScenarioName;
   workspaceId: string;
   task: string;
+  stage?: DropStage;
   outputPath: string;
   collectAssets: boolean;
   validateEvents: (run: SandboxRun, events: SandboxEvent[]) => void;
@@ -269,6 +275,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
 async function main() {
   await loadPrivateEnv();
   const options = parseArgs(process.argv.slice(2));
+  convexIdentitySubject = options.identitySubject ?? null;
   const scenarios = selectScenarios(options);
   const results: RunResult[] = [];
 
@@ -647,12 +654,14 @@ async function createSandboxRun(scenario: Scenario): Promise<CreatedRun> {
     {
       workspaceId,
       task: scenario.task,
+      ...(scenario.stage ? { stage: scenario.stage } : {}),
+      expectedOutputPath: scenario.outputPath,
     },
   );
   return {
     sandboxRunId: response.sandboxRunId,
     task: scenario.task,
-    workspaceId,
+    workspaceId: expectedWorkspaceId(workspaceId),
   };
 }
 
@@ -679,7 +688,7 @@ async function createDropForBuilderScenario(
   });
   return {
     ...response,
-    workspaceId,
+    workspaceId: expectedWorkspaceId(workspaceId),
     name,
     dropDate,
   };
@@ -1252,6 +1261,16 @@ function validateScoutEvents(run: SandboxRun, events: SandboxEvent[]) {
   const codexEnvPresence = isRecord(runnerStarted)
     ? runnerStarted.codexEnvPresence
     : undefined;
+  if (isRecord(runnerStarted)) {
+    assert(
+      runnerStarted.modelReasoningEffort === "medium",
+      "Scout run did not use medium reasoning effort.",
+    );
+    assert(
+      runnerStarted.webSearchMode === "live",
+      "Scout run did not enable live web search mode.",
+    );
+  }
   if (isRecord(codexEnvPresence)) {
     assert(
       codexEnvPresence.EXA_API_KEY === true,
@@ -1496,6 +1515,48 @@ export function validateScoutOutput(output: unknown) {
   }
   assert(candidates.length <= 5, "Scout candidate count out of range.");
   assert(/https?:\/\//i.test(JSON.stringify(candidates)), "Scout candidates lacked source URLs.");
+  const strategy = asRecord(root.strategy, "Scout strategy");
+  const trendBackfill = asArray(
+    strategy.trendBackfill,
+    "Scout strategy.trendBackfill",
+  );
+  assert(
+    trendBackfill.length > 0,
+    "Scout strategy.trendBackfill should audit trend source backfill.",
+  );
+  for (const [index, entryValue] of trendBackfill.entries()) {
+    const entry = asRecord(entryValue, `Scout trendBackfill ${index}`);
+    assert(
+      typeof entry.trend === "string" && entry.trend.trim().length > 0,
+      `Scout trendBackfill ${index} missing trend.`,
+    );
+    assert(
+      typeof entry.sourceLane === "string" && entry.sourceLane.trim().length > 0,
+      `Scout trendBackfill ${index} missing sourceLane.`,
+    );
+    const queries = asArray(
+      entry.exaQueriesAttempted,
+      `Scout trendBackfill ${index} exaQueriesAttempted`,
+    );
+    assert(
+      queries.every((query) => typeof query === "string" && query.trim().length > 0),
+      `Scout trendBackfill ${index} exaQueriesAttempted must contain query strings.`,
+    );
+    assert(
+      typeof entry.backed === "boolean",
+      `Scout trendBackfill ${index} missing backed boolean.`,
+    );
+    const selectedCandidateId =
+      typeof entry.selectedCandidateId === "string"
+        ? entry.selectedCandidateId
+        : null;
+    if (!entry.backed || !selectedCandidateId) {
+      assert(
+        typeof entry.dropReason === "string" && entry.dropReason.trim().length > 0,
+        `Scout trendBackfill ${index} missing dropReason for omitted trend.`,
+      );
+    }
+  }
   for (const [index, candidateValue] of candidates.entries()) {
     const candidate = asRecord(candidateValue, `Scout candidate ${index}`);
     assert(
@@ -2113,6 +2174,7 @@ const scenarios: Scenario[] = [
   {
     name: "fashion-designer-product",
     workspaceId: "e2e-fashion-designer-product",
+    stage: "designer",
     outputPath: "/vercel/sandbox/agent-workspace/fashion-designer-output.json",
     collectAssets: true,
     validateEvents: validateFashionDesignerEvents,
@@ -2123,16 +2185,18 @@ const scenarios: Scenario[] = [
   {
     name: "scout-cultural",
     workspaceId: "e2e-scout-cultural",
+    stage: "scout",
     outputPath: "/vercel/sandbox/agent-workspace/scout-output.json",
     collectAssets: false,
     validateEvents: validateScoutEvents,
     validateOutput: validateScoutOutput,
     task:
-      "Use $scout for Drip. Input JSON: { \"city\": \"Mumbai\" }. Discover what is culturally trending in this city right now. Do not use hard-coded demo topics, product categories, or streetwear style as discovery input. Use the exact Scout workflow with x-researcher using $x-trends and exa-researcher using $exa-search. Write scout-output.json.",
+      "Use $scout for Drip. Input JSON: { \"city\": \"Mumbai\" }. Discover what is culturally trending in this city right now. Do not use hard-coded demo topics, product categories, or streetwear style as discovery input. Use the exact Scout workflow with x-researcher using $x-trends and exa-researcher using $exa-search. Build a trend queue first, use Exa to back up promising live trend signals before dropping them, record strategy.trendBackfill, and write scout-output.json.",
   },
   {
     name: "builder-drop-site",
     workspaceId: "e2e-builder-drop-site",
+    stage: "builder",
     outputPath: "/vercel/sandbox/agent-workspace/builder-output.json",
     collectAssets: false,
     validateEvents: validateBuilderEvents,
@@ -2144,6 +2208,7 @@ const scenarios: Scenario[] = [
   {
     name: "drop-workflow-builder",
     workspaceId: "e2e-drop-workflow-builder",
+    stage: "builder",
     outputPath: "/vercel/sandbox/agent-workspace/drop-builder-output-placeholder.json",
     collectAssets: false,
     validateEvents: validateBuilderEvents,
@@ -2155,6 +2220,7 @@ const scenarios: Scenario[] = [
   {
     name: "performance-marketer-facebook-paused",
     workspaceId: "e2e-performance-marketer-facebook-paused",
+    stage: "marketer",
     outputPath: "/vercel/sandbox/agent-workspace/performance-marketer-output.json",
     collectAssets: false,
     validateEvents: validatePerformanceMarketerEvents,
@@ -2208,38 +2274,62 @@ async function convexRun<T = unknown>(
   functionName: string,
   args: Record<string, unknown>,
 ): Promise<T> {
-  const client = getConvexClient();
-
   if (functionName === "sandboxRuns:createSandboxRun") {
-    return (await client.mutation(api.sandboxRuns.createSandboxRun, {
+    const normalizedArgs = {
       workspaceId: requireString(args.workspaceId, "workspaceId"),
       task: requireString(args.task, "task"),
-    })) as T;
+      ...(args.stage === undefined
+        ? {}
+        : { stage: requireDropStage(args.stage, "stage") }),
+      ...(args.expectedOutputPath === undefined
+        ? {}
+        : {
+            expectedOutputPath: requireString(
+              args.expectedOutputPath,
+              "expectedOutputPath",
+            ),
+          }),
+    };
+    return await runConvex(functionName, normalizedArgs, async (client) =>
+      client.mutation(api.sandboxRuns.createSandboxRun, normalizedArgs),
+    );
   }
   if (functionName === "sandboxRunActions:startSandboxRun") {
-    return (await client.action(api.sandboxRunActions.startSandboxRun, {
+    const normalizedArgs = {
       sandboxRunId: requireSandboxRunId(args.sandboxRunId),
-    })) as T;
+    };
+    return await runConvex(functionName, normalizedArgs, async (client) =>
+      client.action(api.sandboxRunActions.startSandboxRun, normalizedArgs),
+    );
   }
   if (functionName === "sandboxRuns:getSandboxRun") {
-    return (await client.query(api.sandboxRuns.getSandboxRun, {
+    const normalizedArgs = {
       sandboxRunId: requireSandboxRunId(args.sandboxRunId),
-    })) as T;
+    };
+    return await runConvex(functionName, normalizedArgs, async (client) =>
+      client.query(api.sandboxRuns.getSandboxRun, normalizedArgs),
+    );
   }
   if (functionName === "sandboxRuns:listSandboxRunEvents") {
     const afterSeq = args.afterSeq;
-    return (await client.query(api.sandboxRuns.listSandboxRunEvents, {
+    const normalizedArgs = {
       sandboxRunId: requireSandboxRunId(args.sandboxRunId),
       ...(typeof afterSeq === "number" ? { afterSeq } : {}),
-    })) as T;
+    };
+    return await runConvex(functionName, normalizedArgs, async (client) =>
+      client.query(api.sandboxRuns.listSandboxRunEvents, normalizedArgs),
+    );
   }
   if (functionName === "sandboxRuns:cancelSandboxRun") {
-    return (await client.mutation(api.sandboxRuns.cancelSandboxRun, {
+    const normalizedArgs = {
       sandboxRunId: requireSandboxRunId(args.sandboxRunId),
-    })) as T;
+    };
+    return await runConvex(functionName, normalizedArgs, async (client) =>
+      client.mutation(api.sandboxRuns.cancelSandboxRun, normalizedArgs),
+    );
   }
   if (functionName === "dropActions:createDrop") {
-    return (await client.action(api.dropActions.createDrop, {
+    const normalizedArgs = {
       name: requireString(args.name, "name"),
       dropDate: requireString(args.dropDate, "dropDate"),
       startingMode: requireString(args.startingMode, "startingMode"),
@@ -2263,25 +2353,89 @@ async function convexRun<T = unknown>(
             ),
           }),
       ...(args.winningDrop === undefined ? {} : { winningDrop: args.winningDrop }),
-    })) as T;
+    };
+    return await runConvex(functionName, normalizedArgs, async (client) =>
+      client.action(api.dropActions.createDrop, normalizedArgs),
+    );
   }
   if (functionName === "dropActions:startNextStage") {
-    return (await client.action(api.dropActions.startNextStage, {
+    const normalizedArgs = {
       dropId: requireDropId(args.dropId),
-    })) as T;
+    };
+    return await runConvex(functionName, normalizedArgs, async (client) =>
+      client.action(api.dropActions.startNextStage, normalizedArgs),
+    );
   }
   if (functionName === "drops:getDrop") {
-    return (await client.query(api.drops.getDrop, {
+    const normalizedArgs = {
       dropId: requireDropId(args.dropId),
-    })) as T;
+    };
+    return await runConvex(functionName, normalizedArgs, async (client) =>
+      client.query(api.drops.getDrop, normalizedArgs),
+    );
   }
   if (functionName === "drops:listDropEvents") {
-    return (await client.query(api.drops.listDropEvents, {
+    const normalizedArgs = {
       dropId: requireDropId(args.dropId),
-    })) as T;
+    };
+    return await runConvex(functionName, normalizedArgs, async (client) =>
+      client.query(api.drops.listDropEvents, normalizedArgs),
+    );
   }
 
   throw new Error(`Unsupported Convex function in smoke harness: ${functionName}`);
+}
+
+async function runConvex<T>(
+  functionName: string,
+  args: Record<string, unknown>,
+  clientCall: (client: ConvexHttpClient) => Promise<unknown>,
+): Promise<T> {
+  if (convexIdentitySubject) {
+    return await convexCliRun<T>(functionName, args);
+  }
+  return (await clientCall(getConvexClient())) as T;
+}
+
+async function convexCliRun<T>(
+  functionName: string,
+  args: Record<string, unknown>,
+): Promise<T> {
+  assert(convexIdentitySubject, "Convex identity subject was not configured.");
+  const identity = JSON.stringify({ subject: convexIdentitySubject });
+  const { stdout } = await execFileAsync(
+    "pnpm",
+    [
+      "exec",
+      "convex",
+      "run",
+      "--identity",
+      identity,
+      functionName,
+      JSON.stringify(args),
+    ],
+    {
+      cwd: repoRoot,
+      maxBuffer: 10 * 1024 * 1024,
+    },
+  );
+  return parseConvexCliOutput(stdout) as T;
+}
+
+function parseConvexCliOutput(stdout: string) {
+  const lines = stdout.split(/\r?\n/).map((line) => line.trimEnd());
+  for (let index = 0; index < lines.length; index += 1) {
+    const candidate = lines.slice(index).join("\n").trim();
+    if (!candidate) {
+      continue;
+    }
+    try {
+      return JSON.parse(candidate) as unknown;
+    } catch {
+      continue;
+    }
+  }
+  throw new Error("Convex CLI output did not end with JSON.");
 }
 
 function getConvexClient() {
@@ -2411,6 +2565,8 @@ export function parseArgs(args: string[]): CliOptions {
       options.cleanupArtifacts = true;
     } else if (arg === "--allow-meta-create") {
       options.allowMetaCreate = true;
+    } else if (arg === "--identity-subject") {
+      options.identitySubject = readArgValue(args, ++index, arg);
     } else if (arg === "--help") {
       printHelp();
       process.exit(0);
@@ -2473,6 +2629,7 @@ Options:
   --skip-sandbox-files       Validate Convex events only; do not read files from Vercel Sandbox.
   --cleanup-artifacts        Remove local evidence directory for each run after success.
   --allow-meta-create        Allow live Meta create scenarios that create real paused ad objects.
+  --identity-subject <id>    Run Convex calls through pnpm exec convex run --identity.
 `);
 }
 
@@ -2634,6 +2791,12 @@ function keepSandboxAfterFailure(options: CliOptions) {
   return options.keepSandbox || process.env.DRIP_E2E_KEEP_SANDBOX_ON_FAILURE === "1";
 }
 
+function expectedWorkspaceId(requestedWorkspaceId: string) {
+  return convexIdentitySubject
+    ? `user:${convexIdentitySubject}`
+    : requestedWorkspaceId;
+}
+
 export function isTransientSandboxStartError(error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
   return /Status code (429|5\d\d) is not ok|ECONNRESET|ETIMEDOUT|fetch failed|InternalServerError|try again later/i.test(
@@ -2675,6 +2838,19 @@ function requireSandboxRunId(value: unknown) {
 
 function requireDropId(value: unknown) {
   return requireString(value, "dropId") as Id<"drops">;
+}
+
+function requireDropStage(value: unknown, label: string): DropStage {
+  const stage = requireString(value, label);
+  if (
+    stage === "scout" ||
+    stage === "designer" ||
+    stage === "marketer" ||
+    stage === "builder"
+  ) {
+    return stage;
+  }
+  throw new Error(`${label} must be scout, designer, marketer, or builder.`);
 }
 
 function requireStringArray(value: unknown, label: string) {
