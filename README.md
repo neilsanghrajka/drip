@@ -30,6 +30,10 @@
 
 ---
 
+## Why this exists
+
+One person + an AI team = a working e-commerce business. The fashion team is just the implementation — the point is that a single operator can spot a cultural moment, design products, ship a storefront, and validate demand with ads, all in about ten minutes. Tie up with a local supplier who prints on demand, and the drop is real.
+
 **New here? Three ways to understand Drip:**
 
 1. 🎬 **Watch** — the [20-second product walkthrough](#quick-product-walkthrough) just below
