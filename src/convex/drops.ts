@@ -922,17 +922,17 @@ function buildStageTask({
       ].join("\n");
     case "marketer":
       return [
-        "Use $performance-marketer to create one paused Facebook-only Meta drop-of-week ad for the generated Builder website in the input JSON.",
+        "Use $performance-marketer to create one Facebook-only Meta drop-of-week ad for the generated Builder website in the input JSON.",
         `Input JSON: ${inputJson}`,
         `Use assetDir ${rootDir}/performance-marketer-assets.`,
         `Write the Performance Marketer artifact to ${outputPath}.`,
-        "The user clicked Create paused ad, so this is explicit authorization to create real paused Meta objects when Meta credentials are present.",
+        "The user clicked Create ad, so this is explicit authorization to create real Meta objects when Meta credentials are present.",
         "Before running the Meta operator, verify `python3 -c \"import requests\"`; if requests is missing in this persistent sandbox, install it with `python3 -m pip install --user requests` and retry the import once.",
-        "Use the Builder destination URL and selected product images. Create exactly one paused traffic campaign, one paused ad set, one creative/ad using those images, and one paused ad.",
+        "Use the Builder destination URL and selected product images. Create exactly one traffic campaign, one ad set, one creative/ad using those images, and one ad.",
         "Use budget minor units 10000 for Meta API validity, but keep every campaign/ad set/ad delivery object configured PAUSED so no spend can occur.",
         "Do not activate delivery, do not spend money, do not run insights readback, and do not create A/B or multi-variant experiments.",
         "Persist sanitized refs/evidence only; never write raw Meta IDs, access tokens, account IDs, business IDs, or secrets into the artifact.",
-        "Return a short status with the artifact path and sanitized paused-object evidence.",
+        "Return a short status with the artifact path and sanitized ad evidence.",
       ].join("\n");
     case "builder":
       return [
@@ -1049,13 +1049,13 @@ function stageArtifactIssue(stage: DropStage, data: unknown) {
     return "Performance Marketer artifact contains raw Meta identifiers and was not accepted.";
   }
   if (!allCreatedPaused) {
-    return "Performance Marketer did not verify every created delivery object as paused.";
+    return "Performance Marketer did not verify every created delivery object status.";
   }
   if (issues.length > 0) {
     return "Performance Marketer saved a blocked Meta artifact. Retry is required.";
   }
   if (campaignCount < 1 || adSetCount < 1 || adCount < 1) {
-    return "Performance Marketer did not create the required paused campaign, ad set, and ad.";
+    return "Performance Marketer did not create the required campaign, ad set, and ad.";
   }
   return null;
 }
@@ -1335,12 +1335,12 @@ function activitySteps(stage: DropStage) {
           detail: "Drafting product-safe drop-of-week creative.",
         },
         {
-          label: "Create paused campaign/ad set/ad",
-          detail: "Creating paused Meta objects without spend.",
+          label: "Create ad",
+          detail: "Creating the campaign, ad set, and ad.",
         },
         {
-          label: "Verify paused status",
-          detail: "Confirming nothing is active or spending.",
+          label: "Verify status",
+          detail: "Confirming delivery status before saving evidence.",
         },
         {
           label: "Save sanitized ad artifact",

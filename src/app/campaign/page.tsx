@@ -53,6 +53,7 @@ type Stage = {
   portrait: string;
   focusImage: string;
   title: string;
+  estimate: string;
   line: string;
 };
 
@@ -195,6 +196,7 @@ const stages: Stage[] = [
     portrait: "/drip-team/scout-portrait.png",
     focusImage: "/drip-campaign/scout-focus.png",
     title: "Finds the moment",
+    estimate: "Est. 2-3 min",
     line: "Turns live signals into merchable drop ideas.",
   },
   {
@@ -207,6 +209,7 @@ const stages: Stage[] = [
     portrait: "/drip-team/designer-portrait.png",
     focusImage: "/drip-campaign/designer-focus.png",
     title: "Creates the mocks",
+    estimate: "Est. 2-3 min",
     line: "Converts approved ideas into fashion concepts and images.",
   },
   {
@@ -219,6 +222,7 @@ const stages: Stage[] = [
     portrait: "/drip-team/builder-portrait.png",
     focusImage: "/drip-campaign/builder-focus.png",
     title: "Builds the drop",
+    estimate: "Est. 1-2 min",
     line: "Turns selected products into a one-page limited-drop site.",
   },
   {
@@ -231,7 +235,8 @@ const stages: Stage[] = [
     portrait: "/drip-team/meta-portrait.png",
     focusImage: "/drip-campaign/marketer-focus.png",
     title: "Drafts the ad",
-    line: "Creates one paused Facebook ad from the site link and images.",
+    estimate: "Est. 1-2 min",
+    line: "Creates one Facebook ad from the site link and images.",
   },
 ];
 
@@ -1169,8 +1174,11 @@ function StageWorkspace({
             </div>
           </div>
           <div>
-            <h3 className="text-[24px] font-black tracking-[-0.04em]">
-              {active.title}
+            <h3 className="flex flex-wrap items-baseline gap-2 text-[24px] font-black tracking-[-0.04em]">
+              <span>{active.title}</span>
+              <span className="rounded-full border-[2px] border-white/70 bg-white/15 px-2 py-0.5 text-[11px] font-black uppercase tracking-[0.12em] text-white/85">
+                {active.estimate}
+              </span>
             </h3>
             <p className="mt-1 max-w-[660px] text-[16px] leading-tight">
               {active.line}
@@ -1768,15 +1776,15 @@ function MarketerFocus({
       metaBlocked);
   const actionLabel =
     metaReady
-      ? "Paused ad ready"
+      ? "Ad ready"
       : dropStatus === "ready_to_market" && !metaBlocked
-        ? "Create paused ad"
-        : "Retry paused ad";
+        ? "Create ad"
+        : "Retry ad";
   const previewStatus = metaReady
-    ? "Paused ad ready · no spend"
+    ? "Ad ready · no spend"
     : metaBlocked
-      ? "Paused draft blocked"
-      : "Paused draft · no spend";
+      ? "Ad draft blocked"
+      : "Ad draft · no spend";
   const previewProducts = designerMocks.filter((mock) => selectedMocks.includes(mock.id));
   const heroProduct = previewProducts.find((mock) => mock.imageUrl) ?? previewProducts[0];
   const previewCard = (
@@ -1869,7 +1877,7 @@ function MarketerFocus({
               Meta blocked
             </p>
             <p className="mt-1 text-sm font-black leading-tight">
-              {issue || "Meta did not return created paused objects. Nothing is spending."}
+              {issue || "Meta did not return created ad objects. Retry is required."}
             </p>
           </div>
         ) : null}
@@ -2297,18 +2305,18 @@ function firstVerificationIssue(verification: Record<string, unknown>) {
   }
   const first = issues[0];
   if (typeof first === "string") {
-    return "Meta paused-ad setup stopped before any objects were created. Nothing is spending.";
+    return "Meta ad setup stopped before any objects were created.";
   }
   const issue = asRecord(first);
   const stage = readString(issue.stage, "");
   const message = readString(
     issue.errorMessage ?? issue.redactedErrorMessage,
-    "Meta rejected the paused object request.",
+    "Meta rejected the ad request.",
   );
   if (message.toLowerCase().includes("unknown error")) {
-    return "Meta rejected campaign creation before any paused objects were created. Nothing is spending.";
+    return "Meta rejected campaign creation before any ad objects were created.";
   }
   return stage
-    ? `Meta paused-ad setup stopped at ${stage}. Nothing is spending.`
-    : "Meta paused-ad setup stopped before any objects were created. Nothing is spending.";
+    ? `Meta ad setup stopped at ${stage}.`
+    : "Meta ad setup stopped before any objects were created.";
 }

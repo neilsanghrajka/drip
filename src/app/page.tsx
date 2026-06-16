@@ -89,7 +89,7 @@ const team: TeamMember[] = [
     portrait: "/drip-team/meta-portrait.png",
     title: "Drafts ads",
     subtitle: "Promotes the drop page with selected product images.",
-    bullets: ["One paused Facebook ad", "Website link", "No experiments"],
+    bullets: ["One Facebook ad", "Website link", "No experiments"],
   },
 ];
 
