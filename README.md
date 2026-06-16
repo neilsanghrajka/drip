@@ -34,11 +34,12 @@
 
 One person + an AI team = a working e-commerce business. The fashion team is just the implementation — the point is that a single operator can spot a cultural moment, design products, ship a storefront, and validate demand with ads, all in about ten minutes. Tie up with a local supplier who prints on demand, and the drop is real.
 
-**New here? Three ways to understand Drip:**
+**New here? Four ways to understand Drip:**
 
-1. 🎬 **Watch** — the [20-second product walkthrough](#quick-product-walkthrough) just below
-2. 📕 **Read** — the product goals and campaign flow: [`docs/PRD.md`](docs/PRD.md)
-3. 🖼️ **Browse** — slides on how the whole thing is built: [dripbycodex.vercel.app/slides](https://dripbycodex.vercel.app/slides)
+1. 🛒 **Experience** — the live product: [dripbycodex.vercel.app](https://dripbycodex.vercel.app)
+2. 🎬 **Watch** — the [20-second product walkthrough](#quick-product-walkthrough) just below
+3. 📕 **Read** — the product goals and campaign flow: [`docs/PRD.md`](docs/PRD.md)
+4. 🖼️ **Browse** — slides on how the whole thing is built: [dripbycodex.vercel.app/slides](https://dripbycodex.vercel.app/slides)
 
 ## Quick product walkthrough
 
