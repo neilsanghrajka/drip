@@ -10,6 +10,7 @@ import {
   Circle,
   Crosshair,
   ExternalLink,
+  Info,
   Loader2,
   Maximize2,
   PenLine,
@@ -184,6 +185,7 @@ type ImagePreview = {
 
 const dropIdStorageKey = "drip.activeDropId";
 const dropIdStorageEvent = "drip-active-drop-change";
+const metaAdsManagerUrl = "https://adsmanager.facebook.com/adsmanager/manage/ads";
 
 const stages: Stage[] = [
   {
@@ -228,7 +230,7 @@ const stages: Stage[] = [
   {
     key: "marketer",
     step: "04",
-    name: "Performance Marketer",
+    name: "Marketer",
     shortName: "Marketer",
     color: "#ff3c38",
     icon: BarChart3,
@@ -265,29 +267,37 @@ export default function CampaignPage() {
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showArtifacts, setShowArtifacts] = useState(false);
+  const newSessionRequested = searchParams.get("new") === "1";
+  const activeDropId = newSessionRequested ? null : dropId;
 
   const rawDropView = useQuery(
     api.drops.getDropReplay,
-    dropId ? { dropId } : "skip",
+    activeDropId ? { dropId: activeDropId } : "skip",
   );
   const dropView = rawDropView as DropView | null | undefined;
   const rawRecentDrops = useQuery(api.drops.listDrops, { limit: 8 });
   const recentDrops = (rawRecentDrops ?? []) as DropSummary[];
-  const started = Boolean(dropId);
+  const started = Boolean(activeDropId);
   const requestedDropId = searchParams.get("drop") as Id<"drops"> | null;
 
   useEffect(() => {
+    if (newSessionRequested) {
+      window.localStorage.removeItem(dropIdStorageKey);
+      window.dispatchEvent(new Event(dropIdStorageEvent));
+      window.history.replaceState(null, "", "/campaign");
+      return;
+    }
     if (requestedDropId && requestedDropId !== dropId) {
       writeStoredDropId(requestedDropId);
     }
-  }, [dropId, requestedDropId]);
+  }, [dropId, newSessionRequested, requestedDropId]);
 
   useEffect(() => {
-    if (dropId && rawDropView === null) {
+    if (activeDropId && rawDropView === null) {
       window.localStorage.removeItem(dropIdStorageKey);
       window.dispatchEvent(new Event(dropIdStorageEvent));
     }
-  }, [dropId, rawDropView]);
+  }, [activeDropId, rawDropView]);
 
   const artifacts = useMemo(
     () => ({
@@ -481,7 +491,7 @@ export default function CampaignPage() {
 
         <div className="hidden flex-1 items-center justify-end gap-4 md:flex">
           <SessionSelect
-            activeDropId={dropId}
+            activeDropId={activeDropId}
             currentName={dropView?.drop.name ?? campaignName}
             onNewDrop={clearActiveDrop}
             onOpenDrop={openHistoricalDrop}
@@ -651,16 +661,20 @@ function SessionSelect({
   recentDrops: DropSummary[];
 }) {
   const activeDropInList = recentDrops.some((drop) => drop._id === activeDropId);
-  const value = activeDropId && activeDropInList ? activeDropId : "__current__";
+  const value = activeDropId
+    ? activeDropInList
+      ? activeDropId
+      : "__current__"
+    : "__create__";
 
   return (
     <label className="flex items-center gap-3">
-      <span className="sr-only">Campaign session</span>
+      <span className="sr-only">Campaign action</span>
       <select
-        aria-label="Campaign session"
+        aria-label="Campaign action"
         className="h-11 min-w-[250px] rounded-[10px] border-[3px] border-black bg-white px-3 text-sm font-black outline-none focus:bg-neutral-100"
         onChange={(event) => {
-          if (event.target.value === "__new__") {
+          if (event.target.value === "__create__") {
             onNewDrop();
             return;
           }
@@ -671,16 +685,23 @@ function SessionSelect({
         }}
         value={value}
       >
+        <option value="__create__">Create Campaign</option>
         {activeDropId && !activeDropInList ? (
           <option value="__current__">{currentName}</option>
         ) : null}
-        {!activeDropId ? <option value="__current__">{currentName}</option> : null}
-        {recentDrops.map((drop) => (
-          <option key={drop._id} value={drop._id}>
-            {drop.name}
-          </option>
-        ))}
-        <option value="__new__">Clear session</option>
+        <optgroup label="View Previous Campaigns">
+          {recentDrops.length > 0 ? (
+            recentDrops.map((drop) => (
+              <option key={drop._id} value={drop._id}>
+                {drop.name}
+              </option>
+            ))
+          ) : (
+            <option disabled value="__none__">
+              No previous campaigns
+            </option>
+          )}
+        </optgroup>
       </select>
     </label>
   );
@@ -1124,7 +1145,6 @@ function StageWorkspace({
       />
     ) : (
       <MarketerFocus
-        builderUrl={builderUrl}
         designerMocks={designerMocks}
         dropView={dropView}
         isPending={isPending}
@@ -1368,7 +1388,7 @@ function ScoutFocus({
   return (
     <div className="grid h-full min-h-0 gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
       <section className="flex min-h-0 min-w-0 flex-col">
-        <div className="grid min-h-0 flex-1 gap-2 overflow-hidden md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid min-h-0 flex-1 content-start gap-2 overflow-y-auto pr-1 md:grid-cols-2 lg:grid-cols-3">
           {waiting ? (
             <LoadingTiles label="Scout" />
           ) : (
@@ -1376,7 +1396,7 @@ function ScoutFocus({
               const selected = selectedIdeas.includes(idea.id);
               return (
                 <button
-                  className={`rounded-[14px] border-[3px] border-black p-2 text-left transition hover:-translate-y-1 ${
+                  className={`min-h-[178px] rounded-[14px] border-[3px] border-black p-2.5 text-left transition hover:-translate-y-1 ${
                     selected
                       ? "bg-[#eaffdf] shadow-[5px_5px_0_#55d12c]"
                       : "bg-white shadow-[4px_4px_0_#000]"
@@ -1386,7 +1406,7 @@ function ScoutFocus({
                   type="button"
                 >
                   <div className="flex items-start justify-between gap-3">
-                    <h4 className="drip-clamp-2 text-[16px] font-black leading-[0.95] tracking-[-0.04em]">
+                    <h4 className="text-[16px] font-black leading-none tracking-[-0.04em]">
                       {idea.title}
                     </h4>
                     <span
@@ -1397,14 +1417,11 @@ function ScoutFocus({
                       {selected ? <Check className="size-3.5 stroke-[4]" /> : null}
                     </span>
                   </div>
-                  <p className="drip-clamp-2 mt-2 text-[11px] font-bold leading-tight">
+                  <p className="mt-2 text-[11px] font-bold leading-tight">
                     {idea.signal}
                   </p>
-                  <p className="drip-clamp-1 mt-2 text-[10px] leading-tight text-neutral-600">
+                  <p className="mt-2 text-[10px] leading-tight text-neutral-600">
                     {idea.angle}
-                  </p>
-                  <p className="mt-1 inline-flex rounded-full bg-black px-2.5 py-0.5 text-[9px] font-black uppercase text-white">
-                    {idea.urgency}
                   </p>
                 </button>
               );
@@ -1420,13 +1437,19 @@ function ScoutFocus({
         <h4 className="mt-2 text-[24px] font-black leading-none tracking-[-0.05em]">
           {selectedIdeas.length} ideas selected
         </h4>
-        <div className="mt-3 grid min-h-0 flex-1 content-start gap-2 overflow-hidden">
+        <div className="mt-3 grid min-h-0 flex-1 content-start gap-2 overflow-y-auto pr-1">
           {scoutIdeas
             .filter((idea) => selectedIdeas.includes(idea.id))
             .map((idea) => (
-              <div className="rounded-[12px] border border-white/20 p-2" key={idea.id}>
-                <p className="drip-clamp-1 text-sm font-black">{idea.title}</p>
-                <p className="mt-0.5 text-xs text-white/70">{idea.urgency}</p>
+              <div
+                className="group rounded-[12px] border border-white/20 p-2 outline-none transition hover:border-[#55d12c] hover:bg-white/10 focus-visible:border-[#55d12c] focus-visible:bg-white/10"
+                key={idea.id}
+                tabIndex={0}
+                title={idea.title}
+              >
+                <p className="drip-clamp-1 text-sm font-black leading-tight group-hover:block group-hover:overflow-visible group-hover:[-webkit-line-clamp:unset] group-focus-visible:block group-focus-visible:overflow-visible group-focus-visible:[-webkit-line-clamp:unset]">
+                  {idea.title}
+                </p>
               </div>
             ))}
         </div>
@@ -1726,7 +1749,6 @@ function BuilderFocus({
 }
 
 function MarketerFocus({
-  builderUrl,
   designerMocks,
   dropView,
   isPending,
@@ -1735,7 +1757,6 @@ function MarketerFocus({
   onOpenImage,
   selectedMocks,
 }: {
-  builderUrl?: string;
   designerMocks: DesignerMock[];
   dropView?: DropView | null;
   isPending: boolean;
@@ -1785,11 +1806,29 @@ function MarketerFocus({
     : metaBlocked
       ? "Ad draft blocked"
       : "Ad draft · no spend";
+  const adReviewUrl = metaReady ? metaAdsManagerUrl : null;
+  const metaSetupRows = [
+    {
+      count: campaignCount,
+      detail: "Campaign: the Meta container for this drop promotion.",
+      title: "Campaign shell",
+    },
+    {
+      count: adSetCount,
+      detail: "Ad set: the audience and delivery setup inside the campaign.",
+      title: "Audience setup",
+    },
+    {
+      count: adCount,
+      detail: "Ad: the selected product images and website link buyers see.",
+      title: "Ad creative",
+    },
+  ];
   const previewProducts = designerMocks.filter((mock) => selectedMocks.includes(mock.id));
   const heroProduct = previewProducts.find((mock) => mock.imageUrl) ?? previewProducts[0];
   const previewCard = (
     <div className="mt-1.5 overflow-hidden rounded-[14px] border-[3px] border-white/30 bg-white text-black">
-      <div className="relative grid h-[76px] place-items-center overflow-hidden bg-[#ff3c38]">
+      <div className="relative grid h-[132px] place-items-center overflow-hidden bg-[#ff3c38]">
         {heroProduct?.imageUrl ? (
           <button
             aria-label={`Preview ${heroProduct.name}`}
@@ -1833,7 +1872,7 @@ function MarketerFocus({
               aria-label={
                 mock.imageUrl ? `Preview ${mock.name}` : `${mock.name} preview`
               }
-              className="h-8 overflow-hidden rounded-[8px] border-[2px] border-black bg-neutral-100"
+              className="h-10 overflow-hidden rounded-[8px] border-[2px] border-black bg-neutral-100"
               disabled={!mock.imageUrl}
               key={mock.id}
               onClick={() => {
@@ -1881,61 +1920,90 @@ function MarketerFocus({
             </p>
           </div>
         ) : null}
-        <div className="grid grid-cols-[minmax(0,1fr)_92px_46px] border-b-[3px] border-black bg-neutral-50 px-3 py-2.5 text-[11px] font-black uppercase text-neutral-500">
-          <span>Artifact</span>
-          <span>Status</span>
-          <span>Count</span>
+        <div className="border-b-[3px] border-black bg-neutral-50 px-3 py-2.5">
+          <p className="text-[11px] font-black uppercase tracking-[0.2em] text-neutral-500">
+            Meta setup
+          </p>
+          <p className="mt-1 text-sm font-black leading-tight text-black">
+            Campaign, audience, and ad creative are prepared in Meta.
+          </p>
         </div>
-        {[
-          ["Campaign", readString(campaign.name, "Drop of the week"), readString(campaign.configuredStatus, metaBlocked ? "NOT CREATED" : "PAUSED"), String(campaignCount)],
-          ["Ad set", "Drop audience", metaBlocked && adSetCount === 0 ? "NOT CREATED" : "PAUSED", String(adSetCount)],
-          ["Ad", "Website + selected images", metaBlocked && adCount === 0 ? "NOT CREATED" : "PAUSED", String(adCount)],
-        ].map(([kind, name, status, count]) => (
+        {metaSetupRows.map((row) => {
+          const created = row.count > 0;
+          return (
           <div
-            className="grid grid-cols-[minmax(0,1fr)_92px_46px] items-center border-b border-black/10 px-3 py-2.5 text-xs"
-            key={kind}
+            className="grid grid-cols-[minmax(0,1fr)_104px] gap-3 border-b border-black/10 px-3 py-3 text-xs"
+            key={row.title}
           >
             <span className="min-w-0">
-              <span className="font-black">{kind}</span>
-              <span className="ml-2 inline-block max-w-[70%] truncate align-bottom text-neutral-500">
-                {name}
+              <span className="block text-[15px] font-black leading-tight">
+                {row.title}
+              </span>
+              <span className="mt-0.5 block max-w-[560px] text-[12px] font-bold leading-snug text-neutral-500">
+                {row.detail}
               </span>
             </span>
-            <span className="font-bold text-[#ff3c38]">{status}</span>
-            <span className="font-black">{count}</span>
+            <span className="justify-self-end text-right">
+              <span
+                className={`inline-flex rounded-full border-[2px] border-black px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] ${
+                  created
+                    ? "bg-[#eaffdf] text-black"
+                    : "bg-white text-neutral-500"
+                }`}
+              >
+                {created ? "Created" : "Pending"}
+              </span>
+              <span className="mt-1 block text-[10px] font-black uppercase tracking-[0.12em] text-neutral-400">
+                {row.count} item{row.count === 1 ? "" : "s"}
+              </span>
+            </span>
           </div>
-        ))}
+          );
+        })}
       </section>
 
       <aside className="flex h-full min-h-0 flex-col overflow-hidden rounded-[18px] border-[3px] border-black bg-black p-2.5 text-white shadow-[5px_5px_0_#ff3c38]">
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#ff3c38]">
-            Ad preview
-          </p>
-          {builderUrl ? (
+        <div>
+          {adReviewUrl ? (
             <a
-              aria-label="Open drop site from ad preview"
-              className="grid size-7 place-items-center rounded-[8px] border-[2px] border-white/30 text-white transition hover:bg-white hover:text-black"
-              href={builderUrl}
+              aria-label="Open Meta Ads Manager for ad preview"
+              className="group flex w-full items-center justify-between gap-3 text-left"
+              href={adReviewUrl}
               rel="noreferrer"
               target="_blank"
             >
-              <ExternalLink className="size-3.5 stroke-[3]" />
+              <span className="text-[11px] font-black uppercase tracking-[0.2em] text-[#ff3c38]">
+                Ad preview
+              </span>
+              <span className="grid size-7 place-items-center rounded-[8px] border-[2px] border-white/30 text-white transition group-hover:bg-white group-hover:text-black">
+                <ExternalLink className="size-3.5 stroke-[3]" />
+              </span>
             </a>
-          ) : null}
+          ) : (
+            <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#ff3c38]">
+              Ad preview
+            </p>
+          )}
         </div>
         {previewCard}
         <div className="mt-1.5 grid grid-cols-3 gap-1.5 text-center">
           {[
             ["Spend", "0"],
-            ["Status", "Paused"],
-            ["Link", builderUrl ? "Site" : "Pending"],
+            ["Delivery", "Paused"],
+            ["Link", adReviewUrl ? "Ads Manager" : "Pending"],
           ].map(([label, value]) => (
             <div className="rounded-[10px] border border-white/20 p-1" key={label}>
               <p className="text-[9px] font-black uppercase text-white/60">{label}</p>
               <p className="mt-0.5 text-sm font-black">{value}</p>
             </div>
           ))}
+        </div>
+        <div className="mt-2 flex gap-2 rounded-[12px] border border-white/20 bg-white/5 p-2 text-white/80">
+          <Info className="mt-0.5 size-3.5 shrink-0 stroke-[3] text-[#ff3c38]" />
+          <p className="text-[11px] font-bold leading-snug">
+            Created ads stay paused. Log in to Meta Business to review and start
+            delivery.
+          </p>
         </div>
         <button
           className="drip-button mt-1.5 w-full px-4 py-1.5 text-xs disabled:cursor-wait disabled:opacity-70"
@@ -2219,7 +2287,13 @@ function readScoutIdeas(data: unknown): ScoutIdea[] {
     const sources = Array.isArray(item.sources) ? item.sources : [];
     return {
       id: readString(item.id, readString(item.ideaRef, `idea_${index + 1}`)),
-      title: readString(item.event, readString(item.title, `Idea ${index + 1}`)),
+      title: readString(
+        item.shortTitle,
+        readString(
+          item.shortEvent,
+          readString(item.event, readString(item.title, `Idea ${index + 1}`)),
+        ),
+      ),
       signal: readString(
         item.whyImportant,
         `${readString(signals.xTrendNames, "Live signal")} · ${sources.length} sources`,

@@ -834,11 +834,11 @@ async function buildStageInput(
     case "marketer": {
       const builderArtifact = await latestArtifact(ctx, drop._id, "builder");
       if (!builderArtifact) {
-        throw new Error("Missing Builder artifact for Performance Marketer.");
+        throw new Error("Missing Builder artifact for Marketer.");
       }
       const destinationUrl = drop.websiteUrl ?? readBuilderUrl(builderArtifact.data);
       if (!destinationUrl) {
-        throw new Error("Missing Builder website URL for Performance Marketer.");
+        throw new Error("Missing Builder website URL for Marketer.");
       }
       return {
         selectedMocks: await selectionValue(ctx, drop._id, "selectedMocks"),
@@ -909,6 +909,7 @@ function buildStageTask({
       return [
         `Use $scout for Drip drop "${drop.name}" on ${drop.dropDate}.`,
         `Input JSON: ${inputJson}`,
+        "For each candidate, include a shortTitle field that is 4-6 words and fits a compact UI card. Keep the full context in whyImportant and whyFashionMerch.",
         `Create parent directories as needed and write the Scout artifact to ${outputPath}.`,
         "Return a short status with the artifact path.",
       ].join("\n");
@@ -925,7 +926,7 @@ function buildStageTask({
         "Use $performance-marketer to create one Facebook-only Meta drop-of-week ad for the generated Builder website in the input JSON.",
         `Input JSON: ${inputJson}`,
         `Use assetDir ${rootDir}/performance-marketer-assets.`,
-        `Write the Performance Marketer artifact to ${outputPath}.`,
+        `Write the Marketer artifact to ${outputPath}.`,
         "The user clicked Create ad, so this is explicit authorization to create real Meta objects when Meta credentials are present.",
         "Before running the Meta operator, verify `python3 -c \"import requests\"`; if requests is missing in this persistent sandbox, install it with `python3 -m pip install --user requests` and retry the import once.",
         "Use the Builder destination URL and selected product images. Create exactly one traffic campaign, one ad set, one creative/ad using those images, and one ad.",
@@ -1046,16 +1047,16 @@ function stageArtifactIssue(stage: DropStage, data: unknown) {
   const rawMetaIdsPersisted = safety.rawMetaIdsPersisted === true;
 
   if (rawMetaIdsPersisted) {
-    return "Performance Marketer artifact contains raw Meta identifiers and was not accepted.";
+    return "Marketer artifact contains raw Meta identifiers and was not accepted.";
   }
   if (!allCreatedPaused) {
-    return "Performance Marketer did not verify every created delivery object status.";
+    return "Marketer did not verify every created delivery object status.";
   }
   if (issues.length > 0) {
-    return "Performance Marketer saved a blocked Meta artifact. Retry is required.";
+    return "Marketer saved a blocked Meta artifact. Retry is required.";
   }
   if (campaignCount < 1 || adSetCount < 1 || adCount < 1) {
-    return "Performance Marketer did not create the required campaign, ad set, and ad.";
+    return "Marketer did not create the required campaign, ad set, and ad.";
   }
   return null;
 }
@@ -1153,7 +1154,7 @@ function stageLabel(stage: DropStage) {
     case "designer":
       return "Designer";
     case "marketer":
-      return "Performance Marketer";
+      return "Marketer";
     case "builder":
       return "Builder";
   }

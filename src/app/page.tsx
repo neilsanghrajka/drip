@@ -4,7 +4,6 @@ import { useAuthActions, useConvexAuth } from "@convex-dev/auth/react";
 import {
   BarChart3,
   Box,
-  Check,
   Crosshair,
   Loader2,
   PenLine,
@@ -24,6 +23,20 @@ import { useState } from "react";
 
 type TeamKey = "scout" | "designer" | "builder" | "marketer";
 type AuthMode = "signIn" | "signUp";
+type BrandKey = "x" | "openai" | "codex" | "vercel" | "meta";
+
+type PoweredBy = {
+  brand: BrandKey;
+  label: string;
+};
+
+const brandColors: Record<BrandKey, string> = {
+  codex: "#111111",
+  meta: "#0866ff",
+  openai: "#10a37f",
+  vercel: "#000000",
+  x: "#000000",
+};
 
 type TeamMember = {
   key: TeamKey;
@@ -32,9 +45,10 @@ type TeamMember = {
   bg: string;
   icon: ComponentType<{ className?: string; style?: CSSProperties }>;
   portrait: string;
+  heroObjectPosition: string;
   title: string;
   subtitle: string;
-  bullets: string[];
+  poweredBy: PoweredBy[];
 };
 
 const team: TeamMember[] = [
@@ -45,14 +59,11 @@ const team: TeamMember[] = [
     bg: "bg-[#55d12c]",
     icon: Crosshair,
     portrait: "/drip-team/scout-portrait.png",
-    title: "Finds signals",
-    subtitle: "Cultural moments before they peak.",
-    bullets: [
-      "Trending topics",
-      "Cultural moments",
-      "Audience pull",
-      "Urgency window",
-    ],
+    heroObjectPosition: "center 16%",
+    title: "Finds the latest cultural trends",
+    subtitle:
+      "Scans X for trending topics and fashion signals before they peak.",
+    poweredBy: [{ brand: "x", label: "X" }],
   },
   {
     key: "designer",
@@ -61,13 +72,10 @@ const team: TeamMember[] = [
     bg: "bg-[#1264ff]",
     icon: PenLine,
     portrait: "/drip-team/designer-portrait.png",
-    title: "Creates mock images",
-    subtitle: "Approved ideas in, fashion concepts out.",
-    bullets: [
-      "Original fashion mockups",
-      "Graphics, fits, and variants",
-      "Ready-to-test concepts",
-    ],
+    heroObjectPosition: "center 14%",
+    title: "Creates product mockups",
+    subtitle: "Uses GPT Image 2.0 to create product mockups for approved ideas.",
+    poweredBy: [{ brand: "openai", label: "GPT Image 2.0" }],
   },
   {
     key: "builder",
@@ -76,22 +84,151 @@ const team: TeamMember[] = [
     bg: "bg-[#f8ca00]",
     icon: Box,
     portrait: "/drip-team/builder-portrait.png",
-    title: "Builds pages",
-    subtitle: "Turns selected products into a limited drop page.",
-    bullets: ["Drop website preview", "Product carousel", "Dummy buy CTA"],
+    heroObjectPosition: "center 18%",
+    title: "Builds a custom drop e-commerce website",
+    subtitle: "Turns selected products into a one-page store for the drop.",
+    poweredBy: [
+      { brand: "codex", label: "Codex SDK" },
+      { brand: "vercel", label: "Vercel Agent Browser" },
+    ],
   },
   {
     key: "marketer",
-    name: "Performance Marketer",
+    name: "Marketer",
     color: "#ff3c38",
     bg: "bg-[#ff3c38]",
     icon: BarChart3,
     portrait: "/drip-team/meta-portrait.png",
-    title: "Drafts ads",
-    subtitle: "Promotes the drop page with selected product images.",
-    bullets: ["One Facebook ad", "Website link", "No experiments"],
+    heroObjectPosition: "center 15%",
+    title: "Creates a performance marketing campaign",
+    subtitle: "Uses Meta Ads CLI to create the campaign for the drop.",
+    poweredBy: [{ brand: "meta", label: "Meta Ads CLI" }],
   },
 ];
+
+function BrandLogo({
+  brand,
+  className,
+}: {
+  brand: BrandKey;
+  className?: string;
+}) {
+  if (brand === "x") {
+    return (
+      <svg
+        aria-hidden="true"
+        className={className}
+        viewBox="0 0 24 24"
+        fill="currentColor"
+      >
+        <path d="M13.95 10.32 21.68 1.5h-1.83l-6.72 7.66L7.78 1.5H1.6l8.1 11.58-8.1 9.42h1.83l7.08-8.24 5.66 8.24h6.18l-8.4-12.18Zm-2.51 2.93-.82-1.15L4.1 2.86h2.8l5.27 7.47.82 1.15 6.86 9.71h-2.8l-5.61-7.94Z" />
+      </svg>
+    );
+  }
+
+  if (brand === "openai") {
+    return (
+      <svg
+        aria-hidden="true"
+        className={className}
+        viewBox="0 0 24 24"
+        fill="none"
+      >
+        <path
+          d="M12 3.2c1.6 0 2.8.7 3.6 1.8 1.3-.1 2.6.4 3.5 1.6.8 1.1 1 2.5.6 3.8.8 1 .9 2.5.3 3.9-.7 1.3-1.9 2.2-3.3 2.4-.6 1.2-1.8 2.1-3.3 2.3-1.4.2-2.7-.3-3.6-1.2-1.4.1-2.8-.5-3.6-1.7-.8-1.1-1-2.5-.6-3.8-.8-1.1-.9-2.6-.2-3.9.6-1.2 1.8-2 3.2-2.2.6-1.6 1.9-3 3.4-3Z"
+          stroke="currentColor"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="1.7"
+        />
+        <path
+          d="m8.6 6.2 6.6 3.8v7M19.7 10.4 13 14.2l-6.8-3.9M9.8 17.8v-7.6l5.8-3.4"
+          stroke="currentColor"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="1.7"
+        />
+      </svg>
+    );
+  }
+
+  if (brand === "codex") {
+    return (
+      <svg
+        aria-hidden="true"
+        className={className}
+        viewBox="0 0 24 24"
+        fill="none"
+      >
+        <path
+          d="m9.2 7.8-4.1 4.1 4.1 4.1M14.8 7.8l4.1 4.1-4.1 4.1M13.2 5.7l-2.4 12.6"
+          stroke="currentColor"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="2.4"
+        />
+      </svg>
+    );
+  }
+
+  if (brand === "vercel") {
+    return (
+      <svg
+        aria-hidden="true"
+        className={className}
+        viewBox="0 0 24 24"
+        fill="currentColor"
+      >
+        <path d="M12 3 22 20H2L12 3Z" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg
+      aria-hidden="true"
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+    >
+      <path
+        d="M2.7 12.2c0-3.1 1.8-6.2 4.4-6.2 2.1 0 3.5 2 4.9 4.3C13.4 8 14.8 6 16.9 6c2.6 0 4.4 3.1 4.4 6.2 0 2.3-1.2 4-3.2 4-2.1 0-3.6-1.8-6.1-5.9-2.5 4.1-4 5.9-6.1 5.9-2 0-3.2-1.7-3.2-4Z"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2.1"
+      />
+    </svg>
+  );
+}
+
+function PoweredByStrip({ member }: { member: TeamMember }) {
+  return (
+    <div className="mt-4 flex min-w-0 items-center gap-3 border-t border-white/15 pt-3">
+      <p className="shrink-0 text-[10px] font-black uppercase tracking-[0.22em] text-white/55">
+        Powered by
+      </p>
+      <div className="flex min-w-0 flex-nowrap items-center gap-2">
+        {member.poweredBy.map((item) => (
+          <div
+            className="flex h-8 shrink-0 items-center gap-1.5 rounded-[9px] border-[2px] border-black bg-white px-2.5 text-black shadow-[2px_2px_0_rgba(255,255,255,0.16)]"
+            key={`${item.brand}-${item.label}`}
+          >
+            <span
+              className="grid size-5 shrink-0 place-items-center rounded-[6px] text-white"
+              style={{ backgroundColor: brandColors[item.brand] }}
+            >
+              <BrandLogo brand={item.brand} className="size-3.5" />
+            </span>
+            <span className="whitespace-nowrap text-[11px] font-black leading-none">
+              {item.label}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function TeamCard({
   member,
@@ -324,10 +461,10 @@ export default function Home() {
   const { isAuthenticated, isLoading } = useConvexAuth();
   const [activeKey, setActiveKey] = useState<TeamKey>("designer");
   const [authMode, setAuthMode] = useState<AuthMode | null>(null);
+  const [startAfterLogin, setStartAfterLogin] = useState(false);
   const visibleAuthMode =
     authMode ?? (searchParams.get("auth") === "login" ? "signIn" : null);
   const active = team.find((member) => member.key === activeKey) ?? team[1];
-  const ActiveIcon = active.icon;
 
   function openAuth(mode: AuthMode) {
     setAuthMode(mode);
@@ -339,9 +476,10 @@ export default function Home() {
       return;
     }
     if (isAuthenticated) {
-      router.push("/campaign");
+      router.push("/campaign?new=1");
       return;
     }
+    setStartAfterLogin(true);
     window.history.pushState(null, "", "/?auth=login");
     openAuth("signIn");
   }
@@ -360,19 +498,21 @@ export default function Home() {
           mode={visibleAuthMode}
           onClose={() => {
             setAuthMode(null);
+            setStartAfterLogin(false);
             clearAuthQueryParam();
           }}
           onModeChange={setAuthMode}
           onSuccess={() => {
             setAuthMode(null);
             clearAuthQueryParam();
-            router.push("/campaign");
+            router.push(startAfterLogin ? "/campaign?new=1" : "/campaign");
+            setStartAfterLogin(false);
           }}
         />
       ) : null}
 
       <section className="drip-dot-bg overflow-hidden px-8 pb-0 pt-10 lg:px-12 lg:pt-14">
-        <div className="mx-auto grid max-w-[1720px] gap-8 min-[900px]:grid-cols-[minmax(300px,0.9fr)_minmax(165px,0.45fr)_minmax(250px,0.68fr)] min-[900px]:items-center xl:grid-cols-[0.83fr_0.52fr_0.76fr] xl:gap-9">
+        <div className="mx-auto grid max-w-[1720px] gap-8 min-[900px]:grid-cols-[minmax(300px,0.86fr)_minmax(165px,0.42fr)_minmax(330px,0.86fr)] min-[900px]:items-center xl:grid-cols-[0.78fr_0.45fr_0.88fr] xl:gap-9">
           <section className="min-w-0">
             <div className="mb-6 ml-2 flex gap-1">
               <span className="block h-4 w-1 rotate-[-30deg] rounded-full bg-black" />
@@ -430,7 +570,7 @@ export default function Home() {
             ))}
           </section>
 
-          <section className="grid min-w-0 gap-5 2xl:grid-cols-[minmax(330px,520px)_minmax(230px,280px)] 2xl:items-center">
+          <section className="grid min-w-0 min-[900px]:w-full min-[900px]:max-w-[520px] min-[900px]:justify-self-start">
             <article className="overflow-hidden rounded-[24px] border-[4px] border-black bg-black shadow-[8px_8px_0_#000]">
               <div
                 className="flex h-16 items-center justify-between px-7 text-white"
@@ -445,55 +585,29 @@ export default function Home() {
                 </span>
               </div>
               <div
-                className="relative aspect-[1/0.82]"
+                className="relative aspect-[1/0.60]"
                 style={{ backgroundColor: active.color }}
               >
                 <Image
                   alt={`${active.name} dominant portrait`}
-                  className="h-full w-full object-cover object-center"
+                  className="h-full w-full object-cover"
                   fill
-                  sizes="520px"
+                  sizes="680px"
                   src={active.portrait}
+                  style={{ objectPosition: active.heroObjectPosition }}
                   unoptimized
                 />
               </div>
-              <div className="px-8 py-7 text-white">
-                <h3 className="text-[34px] font-black tracking-[-0.04em]">
+              <div className="px-7 py-6 text-white sm:px-8 sm:py-7">
+                <h3 className="text-[30px] font-black leading-[0.98] tracking-[-0.04em] sm:text-[34px] xl:text-[38px]">
                   {active.title}
                 </h3>
-                <p className="mt-3 max-w-[380px] text-[24px] font-medium leading-tight">
+                <p className="mt-3 max-w-[520px] text-[20px] font-medium leading-tight sm:text-[23px]">
                   {active.subtitle}
                 </p>
+                <PoweredByStrip member={active} />
               </div>
             </article>
-
-            <aside
-              className="hidden rounded-[20px] border-[4px] bg-white p-7 shadow-[7px_7px_0_#000] 2xl:block"
-              style={{ borderColor: active.color }}
-            >
-              <div className="mb-7 grid size-16 place-items-center rounded-[12px] border-[3px] border-black">
-                <ActiveIcon
-                  className="size-9"
-                  style={{ color: active.color }}
-                />
-              </div>
-              <ul className="space-y-5">
-                {active.bullets.map((bullet) => (
-                  <li
-                    className="flex gap-3 text-[16px] leading-tight"
-                    key={bullet}
-                  >
-                    <span
-                      className="grid size-6 shrink-0 place-items-center rounded-full text-white"
-                      style={{ backgroundColor: active.color }}
-                    >
-                      <Check className="size-4 stroke-[4]" />
-                    </span>
-                    <span>{bullet}</span>
-                  </li>
-                ))}
-              </ul>
-            </aside>
           </section>
         </div>
 
