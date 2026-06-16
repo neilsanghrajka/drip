@@ -25,6 +25,13 @@ import { useAction, useMutation, useQuery } from "convex/react";
 
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
+import {
+  campaignStageProgress,
+  isCampaignStageComplete,
+  isCampaignStageUnlocked,
+  resolveCampaignActiveStage,
+  stageForCampaignDrop,
+} from "./stageGating";
 
 type StageKey = "scout" | "designer" | "builder" | "marketer";
 type DropStatus =
@@ -329,7 +336,8 @@ export default function CampaignPage() {
     selectedIdeasOverride ?? scoutIdeas.slice(0, 3).map((idea) => idea.id);
   const selectedMocks =
     selectedMocksOverride ?? designerMocks.slice(0, 3).map((mock) => mock.id);
-  const activeKey = manualStage ?? stageForDrop(dropView);
+  const requestedActiveKey = manualStage ?? stageForCampaignDrop(dropView);
+  const activeKey = resolveCampaignActiveStage(requestedActiveKey, dropView);
   const activeIndex = Math.max(
     0,
     stages.findIndex((stage) => stage.key === activeKey),
@@ -609,12 +617,12 @@ export default function CampaignPage() {
                 {stages.map((stage) => (
                   <StageRailCard
                     active={stage.key === active.key}
-                    completed={isStageComplete(stage.key, dropView)}
+                    completed={isCampaignStageComplete(stage.key, dropView)}
                     key={stage.key}
                     onActivate={() => setManualStage(stage.key)}
-                    progress={stageProgress(stage.key, dropView)}
+                    progress={campaignStageProgress(stage.key, dropView)}
                     stage={stage}
-                    unlocked={isStageUnlocked(stage.key, dropView)}
+                    unlocked={isCampaignStageUnlocked(stage.key, dropView)}
                   />
                 ))}
               </div>
@@ -1164,6 +1172,8 @@ function StageWorkspace({
   const canRetry =
     (dropView?.drop.status === "failed" || dropView?.drop.status === "cancelled") &&
     dropView.drop.currentStage === active.key;
+  const activeComplete = isCampaignStageComplete(active.key, dropView);
+  const activeProgress = campaignStageProgress(active.key, dropView);
   const body =
     active.key === "scout" ? (
       <ScoutFocus
@@ -1241,11 +1251,15 @@ function StageWorkspace({
               <ActivityStreamBar
                 active={active}
                 activityItems={activityItems}
-                progress={stageProgress(active.key, dropView)}
+                progress={activeProgress}
               />
             </div>
             <div className="grid size-14 shrink-0 place-items-center rounded-[14px] border-[4px] border-black bg-white text-black">
-              <Icon className="size-8" style={{ color: active.color }} />
+              {activeComplete ? (
+                <Check className="size-8 stroke-[4]" style={{ color: active.color }} />
+              ) : (
+                <Icon className="size-8" style={{ color: active.color }} />
+              )}
             </div>
           </div>
           <div>
@@ -1258,10 +1272,20 @@ function StageWorkspace({
             <p className="mt-1 max-w-[660px] text-[16px] leading-tight">
               {active.line}
             </p>
-            <div className="mt-3 h-2.5 max-w-[560px] overflow-hidden rounded-full border-[2px] border-black bg-white">
+            <div className="mt-3 flex items-center justify-between gap-3 text-[11px] font-black uppercase tracking-[0.12em] text-white/85">
+              <span>{activeComplete ? "Complete" : "In progress"}</span>
+              <span>{activeProgress}%</span>
+            </div>
+            <div
+              aria-valuemax={100}
+              aria-valuemin={0}
+              aria-valuenow={activeProgress}
+              className="mt-1.5 h-2.5 w-full overflow-hidden rounded-full border-[2px] border-black bg-white"
+              role="progressbar"
+            >
               <div
                 className="h-full bg-black"
-                style={{ width: `${stageProgress(active.key, dropView)}%` }}
+                style={{ width: `${activeProgress}%` }}
               />
             </div>
           </div>
@@ -1294,7 +1318,7 @@ function StageWorkspace({
               key={stage.key}
               style={{ color: index === activeIndex ? stage.color : undefined }}
             >
-              {isStageComplete(stage.key, dropView) ? (
+              {isCampaignStageComplete(stage.key, dropView) ? (
                 <CheckCircle2 className="size-5" />
               ) : (
                 <Circle className="size-5" />
@@ -1947,7 +1971,8 @@ function BuilderFocus({
     !builderUrl &&
     (isPending || building || stageHasActiveRun(dropView, "builder"));
   const canGoToMarket =
-    isStageUnlocked("marketer", dropView) && !isStageComplete("marketer", dropView);
+    isCampaignStageUnlocked("marketer", dropView) &&
+    !isCampaignStageComplete("marketer", dropView);
 
   if (showLiveProgress) {
     return (
@@ -2561,70 +2586,6 @@ function formatArtifactPreview(artifact: DropArtifact) {
   } catch {
     return "Artifact preview unavailable.";
   }
-}
-
-function stageForDrop(dropView: DropView | null | undefined): StageKey {
-  const status = dropView?.drop.status;
-  if (!status) {
-    return "scout";
-  }
-  if (status === "completed" && dropView?.drop.currentStage) {
-    return dropView.drop.currentStage;
-  }
-  if (status === "failed" && dropView?.drop.currentStage) {
-    return dropView.drop.currentStage;
-  }
-  if (status === "cancelled" && dropView?.drop.currentStage) {
-    return dropView.drop.currentStage;
-  }
-  if (status === "ready_to_market" || status === "marketing" || status === "completed") {
-    return "marketer";
-  }
-  if (status === "ready_to_build" || status === "building") {
-    return "builder";
-  }
-  if (status === "ready_to_design" || status === "designing" || status === "awaiting_mock_selection") {
-    return "designer";
-  }
-  return "scout";
-}
-
-function isStageComplete(stage: StageKey, dropView: DropView | null | undefined) {
-  if (!dropView) {
-    return false;
-  }
-  if (stage === "marketer") {
-    return dropView.drop.status === "completed";
-  }
-  return dropView.artifacts.some((artifact) => artifact.stage === stage);
-}
-
-function isStageUnlocked(stage: StageKey, dropView: DropView | null | undefined) {
-  const index = stages.findIndex((item) => item.key === stage);
-  if (index <= 0) {
-    return true;
-  }
-  if (!dropView) {
-    return false;
-  }
-  if (isStageComplete(stage, dropView)) {
-    return true;
-  }
-  if (dropView.drop.currentStage === stage || stageForDrop(dropView) === stage) {
-    return true;
-  }
-  const previousStage = stages[index - 1];
-  return previousStage ? isStageComplete(previousStage.key, dropView) : false;
-}
-
-function stageProgress(stage: StageKey, dropView: DropView | null | undefined) {
-  if (isStageComplete(stage, dropView)) {
-    return 100;
-  }
-  if (dropView?.drop.currentStage === stage) {
-    return dropView.drop.status.startsWith("awaiting") ? 86 : 58;
-  }
-  return 0;
 }
 
 function cleanActionError(error: unknown) {

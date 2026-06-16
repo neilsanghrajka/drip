@@ -8,8 +8,11 @@
  * @module
  */
 
+import type * as artifactLogic from "../artifactLogic.js";
 import type * as auth from "../auth.js";
+import type * as authLogic from "../authLogic.js";
 import type * as dropActions from "../dropActions.js";
+import type * as dropLogic from "../dropLogic.js";
 import type * as drops from "../drops.js";
 import type * as http from "../http.js";
 import type * as sandboxPrototype from "../sandboxPrototype.js";
@@ -25,8 +28,11 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  artifactLogic: typeof artifactLogic;
   auth: typeof auth;
+  authLogic: typeof authLogic;
   dropActions: typeof dropActions;
+  dropLogic: typeof dropLogic;
   drops: typeof drops;
   http: typeof http;
   sandboxPrototype: typeof sandboxPrototype;
