@@ -2048,56 +2048,92 @@ function BuilderFocus({
       <section className="overflow-hidden rounded-[18px] border-[4px] border-black bg-black text-white shadow-[7px_7px_0_#f8ca00]">
         <div className="flex items-center justify-between border-b border-white/15 px-6 py-4">
           <p className="font-black uppercase tracking-[0.18em]">Drop preview</p>
-          <ArrowUpRight className="size-6" />
+          {builderUrl ? (
+            <a
+              aria-label="Open full drop site"
+              className="grid size-8 place-items-center rounded-[10px] border border-white/20 text-white transition hover:bg-white hover:text-black"
+              href={builderUrl}
+              rel="noreferrer"
+              target="_blank"
+            >
+              <ArrowUpRight className="size-5" />
+            </a>
+          ) : (
+            <ArrowUpRight className="size-6" />
+          )}
         </div>
-        <div className="grid h-full min-h-0 gap-5 p-5 md:grid-cols-[1fr_0.78fr] md:items-center">
-          <div>
-            <p className="text-sm font-black uppercase text-[#f8ca00]">
-              24 hours left
-            </p>
-            <h4 className="mt-2 text-[46px] font-black leading-[0.9] tracking-[-0.07em]">
-              Drop
-              <br />
-              Of Week
-            </h4>
-            <p className="mt-4 max-w-[300px] text-base leading-tight text-white/75">
-              Selected images become the limited carousel and buy link.
-            </p>
-            <div className="mt-5 inline-flex rounded-[10px] bg-[#f8ca00] px-6 py-3 text-base font-black text-black">
-              Buy now
+        {builderUrl ? (
+          <MiniDropSitePreview builderUrl={builderUrl} />
+        ) : (
+          <div className="grid h-full min-h-0 gap-5 p-5 md:grid-cols-[1fr_0.78fr] md:items-center">
+            <div>
+              <p className="text-sm font-black uppercase text-[#f8ca00]">
+                24 hours left
+              </p>
+              <h4 className="mt-2 text-[46px] font-black leading-[0.9] tracking-[-0.07em]">
+                Drop
+                <br />
+                Of Week
+              </h4>
+              <p className="mt-4 max-w-[300px] text-base leading-tight text-white/75">
+                Selected images become the limited carousel and buy link.
+              </p>
+              <div className="mt-5 inline-flex rounded-[10px] bg-[#f8ca00] px-6 py-3 text-base font-black text-black">
+                Buy now
+              </div>
+            </div>
+            <div className="grid aspect-square place-items-center overflow-hidden rounded-[24px] bg-neutral-900">
+              {heroMock?.imageUrl ? (
+                <button
+                  aria-label={`Preview ${heroMock.name}`}
+                  className="group relative h-full w-full cursor-zoom-in outline-none focus-visible:ring-4 focus-visible:ring-[#f8ca00]/70"
+                  onClick={() =>
+                    onOpenImage({
+                      alt: heroMock.name,
+                      color: "#f8ca00",
+                      detail: heroMock.idea,
+                      src: heroMock.imageUrl!,
+                      title: heroMock.name,
+                    })
+                  }
+                  type="button"
+                >
+                  <img
+                    alt={heroMock.name}
+                    className="h-full w-full object-cover transition duration-200 group-hover:scale-[1.03]"
+                    src={heroMock.imageUrl}
+                  />
+                  <span className="absolute right-3 top-3 grid size-9 place-items-center rounded-[10px] border-[3px] border-black bg-white text-black opacity-0 shadow-[2px_2px_0_#000] transition group-hover:opacity-100 group-focus-visible:opacity-100">
+                    <Maximize2 className="size-4 stroke-[3]" />
+                  </span>
+                </button>
+              ) : (
+                <div className="size-48 rounded-[28px] border-[4px] border-white/25 bg-neutral-800 shadow-[0_0_80px_rgb(248_202_0_/_35%)]" />
+              )}
             </div>
           </div>
-          <div className="grid aspect-square place-items-center overflow-hidden rounded-[24px] bg-neutral-900">
-            {heroMock?.imageUrl ? (
-              <button
-                aria-label={`Preview ${heroMock.name}`}
-                className="group relative h-full w-full cursor-zoom-in outline-none focus-visible:ring-4 focus-visible:ring-[#f8ca00]/70"
-                onClick={() =>
-                  onOpenImage({
-                    alt: heroMock.name,
-                    color: "#f8ca00",
-                    detail: heroMock.idea,
-                    src: heroMock.imageUrl!,
-                    title: heroMock.name,
-                  })
-                }
-                type="button"
-              >
-                <img
-                  alt={heroMock.name}
-                  className="h-full w-full object-cover transition duration-200 group-hover:scale-[1.03]"
-                  src={heroMock.imageUrl}
-                />
-                <span className="absolute right-3 top-3 grid size-9 place-items-center rounded-[10px] border-[3px] border-black bg-white text-black opacity-0 shadow-[2px_2px_0_#000] transition group-hover:opacity-100 group-focus-visible:opacity-100">
-                  <Maximize2 className="size-4 stroke-[3]" />
-                </span>
-              </button>
-            ) : (
-              <div className="size-48 rounded-[28px] border-[4px] border-white/25 bg-neutral-800 shadow-[0_0_80px_rgb(248_202_0_/_35%)]" />
-            )}
-          </div>
-        </div>
+        )}
       </section>
+    </div>
+  );
+}
+
+function MiniDropSitePreview({ builderUrl }: { builderUrl: string }) {
+  return (
+    <div className="h-full min-h-[360px] p-4">
+      <div className="relative h-full min-h-[360px] overflow-hidden rounded-[16px] border-[3px] border-white/15 bg-[#f7f2e8] shadow-[inset_0_0_0_1px_rgb(255_255_255_/_12%)]">
+        <div className="pointer-events-none absolute left-1/2 top-1/2 h-[760px] w-[1180px] origin-center -translate-x-1/2 -translate-y-1/2 scale-[0.28] sm:scale-[0.36] lg:scale-[0.45] 2xl:scale-[0.52]">
+          <iframe
+            className="h-full w-full border-0 bg-white"
+            loading="lazy"
+            referrerPolicy="no-referrer"
+            sandbox="allow-popups allow-same-origin allow-scripts"
+            src={builderUrl}
+            title="Generated drop site mini preview"
+          />
+        </div>
+        <div className="pointer-events-none absolute inset-0 rounded-[16px] ring-1 ring-white/10" />
+      </div>
     </div>
   );
 }
