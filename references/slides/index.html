@@ -450,11 +450,10 @@
     </div>
   </section>
 
-  <!-- ============ 3 · A TEAMMATE IS THE CODEX SDK ============ -->
+  <!-- ============ 3 · A TEAMMATE = CODEX SDK + SKILLS + SUBAGENTS ============ -->
   <section class="slide" id="s-teammate">
     <div class="kick"><span class="sq"></span><b>01</b> · an AI teammate</div>
-    <h1 class="h1">A teammate is the Codex SDK <span class="spark">✦</span></h1>
-    <div class="sub" style="margin-top:6px">Every teammate is the same thing underneath — the Codex SDK running a prompt, with a few skills and subagents, inside a sandbox.</div>
+    <h1 class="h1">A teammate = Codex SDK + skills + subagents</h1>
 
     <div class="body center">
       <div class="row center" style="gap:22px; width:100%">
@@ -469,11 +468,11 @@
 
         <div data-step="1" style="font-size:40px;font-weight:300;color:var(--faint)">=</div>
 
-        <div data-step="2" class="panel" style="flex:1; padding:34px 26px 26px">
+        <div class="panel" style="flex:1; padding:34px 26px 26px">
           <span class="plbl"><svg class="li" viewBox="0 0 24 24"><use href="#lg-vercel"/></svg>Vercel Sandbox</span>
-          <div class="row center" style="gap:15px">
+          <div class="row center" style="gap:16px">
 
-            <div class="card ink center" style="padding:16px 18px; gap:9px; min-width:206px">
+            <div data-step="2" class="card ink center" style="padding:16px 20px; gap:9px; min-width:222px">
               <span class="chip dark"><svg class="li" viewBox="0 0 24 24"><use href="#lg-codex"/></svg>Codex SDK</span>
               <div class="row" style="gap:6px">
                 <span class="chip sm">gpt-5.5</span>
@@ -484,17 +483,18 @@
 
             <div style="font-size:26px;font-weight:300;color:var(--faint)">+</div>
 
-            <div class="card center" style="padding:16px 18px; gap:8px; min-width:150px">
-              <span class="tag">a prompt</span>
-              <div class="mono" style="font-size:12.5px;color:#16181d">"use $scout · Mumbai"</div>
-              <div class="cap" style="text-align:center">what to do</div>
+            <div data-step="3" class="card center" style="padding:16px 20px; gap:7px; min-width:158px">
+              <div style="font-size:16px;font-weight:700">skills</div>
+              <span class="tag skill">markdown</span>
+              <div class="cap" style="text-align:center">what it can do</div>
             </div>
 
             <div style="font-size:26px;font-weight:300;color:var(--faint)">+</div>
 
-            <div data-step="3" class="col" style="gap:8px; min-width:168px">
-              <div class="card unit lead-c" style="--c:var(--scout)"><div class="row" style="justify-content:space-between"><span class="ut" style="font-size:13.5px">skills</span><span class="tag skill">md</span></div><div class="ud">what it can do</div></div>
-              <div class="card unit lead-c" style="--c:var(--scout)"><div class="row" style="justify-content:space-between"><span class="ut" style="font-size:13.5px">subagents</span><span class="tag sub">toml</span></div><div class="ud">helpers it spawns</div></div>
+            <div data-step="3" class="card center" style="padding:16px 20px; gap:7px; min-width:158px">
+              <div style="font-size:16px;font-weight:700">subagents</div>
+              <span class="tag sub">toml</span>
+              <div class="cap" style="text-align:center">helpers it spawns</div>
             </div>
           </div>
         </div>
@@ -506,7 +506,7 @@
 
   <!-- ============ 4 · MEET SCOUT (PURPOSE) ============ -->
   <section class="slide" id="s-scout">
-    <div class="kick"><span class="sq"></span><b>01</b> · an AI teammate</div>
+    <div class="kick"><span class="sq"></span><b>Teammate 1</b> · Scout</div>
 
     <div class="body center">
       <div class="row" style="gap:46px">
@@ -656,7 +656,7 @@ run ads.
           <div class="role"><span class="dotc"></span>your picked ideas → product mockups</div>
         </div>
       </div>
-      <div class="kick"><b>01</b> · same shape, different craft</div>
+      <div class="kick"><b>Teammate 2</b> · Fashion Designer</div>
     </div>
 
     <div class="body" style="margin-top:10px">
@@ -708,34 +708,25 @@ run ads, or build sites.
 
         <svg class="ar" width="30" height="20" viewBox="0 0 30 20" style="align-self:center"><path d="M2 10h24"/><path d="M20 4l7 6-7 6"/></svg>
 
-        <!-- RIGHT: each subagent → the tool it uses -->
-        <div class="col" style="flex:1; gap:13px; justify-content:center">
-          <div class="row" style="justify-content:space-between; padding:0 2px">
-            <span class="alabel">it orchestrates — subagents</span>
-            <span class="alabel" style="width:188px;text-align:left">they reach for — tools</span>
-          </div>
+        <!-- MIDDLE: subagents -->
+        <div data-step="2" class="col" style="width:300px; gap:9px; justify-content:center">
+          <div class="alabel" style="text-align:center">it orchestrates — subagents</div>
+          <div class="card unit lead-c" style="--c:var(--designer)"><div class="row" style="justify-content:space-between"><span class="ut" style="font-size:13.5px">🧢 cap-designer</span><span class="tag sub">subagent</span></div></div>
+          <div class="card unit lead-c" style="--c:var(--designer)"><div class="row" style="justify-content:space-between"><span class="ut" style="font-size:13.5px">🧦 sock-designer</span><span class="tag sub">subagent</span></div></div>
+          <div class="card unit lead-c" style="--c:var(--designer)"><div class="row" style="justify-content:space-between"><span class="ut" style="font-size:13.5px">👕 apparel-designer</span><span class="tag sub">subagent</span></div></div>
+          <div class="card unit" style="border-style:dashed"><div class="row" style="justify-content:space-between"><span class="ut" style="font-size:13.5px">🔍 fashion-reviewer</span><span class="tag sub">subagent</span></div><div class="ud">weak mocks → regenerate</div></div>
+        </div>
 
-          <div data-step="2" class="row" style="gap:0; align-items:center">
-            <div class="col" style="flex:1; gap:8px">
-              <div class="card unit lead-c" style="--c:var(--designer)"><div class="row" style="justify-content:space-between"><span class="ut" style="font-size:13.5px">🧢 cap-designer</span><span class="tag sub">subagent</span></div></div>
-              <div class="card unit lead-c" style="--c:var(--designer)"><div class="row" style="justify-content:space-between"><span class="ut" style="font-size:13.5px">🧦 sock-designer</span><span class="tag sub">subagent</span></div></div>
-              <div class="card unit lead-c" style="--c:var(--designer)"><div class="row" style="justify-content:space-between"><span class="ut" style="font-size:13.5px">👕 apparel-designer</span><span class="tag sub">subagent</span></div></div>
-            </div>
-            <svg class="ar" width="44" height="132" viewBox="0 0 44 132" style="flex:none"><path d="M2 20H40"/><path d="M2 66H40"/><path d="M2 112H40"/><path d="M34 60l8 6-8 6"/></svg>
-            <div class="tbox" style="width:188px">
-              <div class="tbh"><svg class="li" viewBox="0 0 24 24"><use href="#lg-openai"/></svg>Image gen</div>
-              <div class="tbr"><span class="mono">$imagegen</span><span class="tag skill">skill</span></div>
-            </div>
-          </div>
+        <svg class="ar" width="30" height="20" viewBox="0 0 30 20" style="align-self:center"><path d="M2 10h24"/><path d="M20 4l7 6-7 6"/></svg>
 
-          <div data-step="3" class="row" style="gap:11px; align-items:center">
-            <div class="card unit" style="flex:1; border-style:dashed"><div class="row" style="justify-content:space-between"><span class="ut" style="font-size:13.5px">🔍 fashion-reviewer</span><span class="tag sub">subagent</span></div><div class="ud">weak mocks → regenerate</div></div>
-            <span class="tag" style="width:188px;text-align:center">no tool — reviews only</span>
+        <!-- RIGHT: tools -->
+        <div data-step="3" class="col" style="width:236px; gap:8px; justify-content:center">
+          <div class="alabel" style="text-align:center">they reach for — tools</div>
+          <div class="tbox">
+            <div class="tbh"><svg class="li" viewBox="0 0 24 24"><use href="#lg-openai"/></svg>Image gen</div>
+            <div class="tbr"><span class="mono">$imagegen</span><span class="tag skill">skill</span></div>
           </div>
-
-          <div class="row" style="justify-content:flex-end; padding:0 2px">
-            <span class="cap" style="width:188px;text-align:center">a skill — also used by Builder</span>
-          </div>
+          <div class="cap" style="text-align:center">a skill — also used by Builder</div>
         </div>
       </div>
 
@@ -760,7 +751,7 @@ run ads, or build sites.
           <div class="role"><span class="dotc"></span>winning mockups → a live drop site</div>
         </div>
       </div>
-      <div class="kick"><b>01</b> · this one runs as a relay</div>
+      <div class="kick"><b>Teammate 3</b> · Builder</div>
     </div>
 
     <div class="body" style="margin-top:8px">
@@ -871,7 +862,7 @@ design, or run ads.
           <div class="role"><span class="dotc"></span>live site → ads ready to launch</div>
         </div>
       </div>
-      <div class="kick"><b>01</b> · same shape · last leg</div>
+      <div class="kick"><b>Teammate 4</b> · Performance Marketer</div>
     </div>
 
     <div class="body" style="margin-top:10px">
@@ -922,26 +913,22 @@ read insights, or optimize.
 
         <svg class="ar" width="30" height="20" viewBox="0 0 30 20" style="align-self:center"><path d="M2 10h24"/><path d="M20 4l7 6-7 6"/></svg>
 
-        <!-- RIGHT: each subagent → the tool it uses -->
-        <div class="col" style="flex:1; gap:13px; justify-content:center">
-          <div class="row" style="justify-content:space-between; padding:0 2px">
-            <span class="alabel">it orchestrates — subagents</span>
-            <span class="alabel" style="width:196px;text-align:left">they reach for — tools</span>
-          </div>
+        <!-- MIDDLE: subagents -->
+        <div data-step="2" class="col" style="width:300px; gap:10px; justify-content:center">
+          <div class="alabel" style="text-align:center">it orchestrates — subagents</div>
+          <div class="card unit lead-c" style="--c:var(--marketer)"><div class="row" style="gap:8px"><span class="num">1</span><span class="ut" style="font-size:13px">facebook-ad-copywriter</span><span class="tag sub" style="margin-left:auto">subagent</span></div><div class="ud">names + copy in the drop's voice</div></div>
+          <div class="card unit lead-c" style="--c:var(--marketer)"><div class="row" style="gap:8px"><span class="num">2</span><span class="ut" style="font-size:13px">facebook-ad-operator</span><span class="tag sub" style="margin-left:auto">subagent</span></div><div class="ud">builds the real campaign objects</div></div>
+        </div>
 
-          <div data-step="2" class="row" style="gap:11px; align-items:center">
-            <div class="card unit lead-c" style="--c:var(--marketer); flex:1"><div class="row" style="gap:8px"><span class="num">1</span><span class="ut" style="font-size:13px">facebook-ad-copywriter</span><span class="tag sub" style="margin-left:auto">subagent</span></div><div class="ud">names + copy in the drop's voice</div></div>
-            <span class="tag" style="width:196px;text-align:center">no tool — writes copy</span>
-          </div>
+        <svg class="ar" width="30" height="20" viewBox="0 0 30 20" style="align-self:center"><path d="M2 10h24"/><path d="M20 4l7 6-7 6"/></svg>
 
-          <div data-step="3" class="row" style="gap:11px; align-items:center">
-            <div class="card unit lead-c" style="--c:var(--marketer); flex:1"><div class="row" style="gap:8px"><span class="num">2</span><span class="ut" style="font-size:13px">facebook-ad-operator</span><span class="tag sub" style="margin-left:auto">subagent</span></div><div class="ud">builds the real campaign objects</div></div>
-            <svg class="ar" width="30" height="20" viewBox="0 0 30 20"><path d="M2 10h24"/><path d="M20 4l7 6-7 6"/></svg>
-            <div class="tbox" style="width:196px">
-              <div class="tbh"><svg class="li" viewBox="0 0 24 24"><use href="#lg-meta"/></svg>Meta Ads</div>
-              <div class="tbr"><span class="mono">$meta-ads-cli</span><span class="tag skill">skill</span></div>
-              <div class="tbr"><span class="mono">meta</span><span class="tag cli">cli</span></div>
-            </div>
+        <!-- RIGHT: tools -->
+        <div data-step="3" class="col" style="width:236px; gap:8px; justify-content:center">
+          <div class="alabel" style="text-align:center">they reach for — tools</div>
+          <div class="tbox">
+            <div class="tbh"><svg class="li" viewBox="0 0 24 24"><use href="#lg-meta"/></svg>Meta Ads</div>
+            <div class="tbr"><span class="mono">$meta-ads-cli</span><span class="tag skill">skill</span></div>
+            <div class="tbr"><span class="mono">meta</span><span class="tag cli">cli</span></div>
           </div>
         </div>
       </div>
