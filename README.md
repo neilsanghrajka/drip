@@ -2,7 +2,14 @@
   <img src="references/uimocks/team-banner.png" alt="Drip's four AI teammates: Scout, Fashion Designer, Builder, Performance Marketer" width="100%" />
 </p>
 
-<h1 align="center">Drip — meet your AI e-commerce team</h1>
+<h1 align="center">Drip — meet your AI e-commerce team, powered by the OpenAI Codex SDK</h1>
+
+<p align="center">
+  <a href="https://developers.openai.com/codex"><img src="https://img.shields.io/badge/built%20with-OpenAI%20Codex%20SDK-0b0b0c?logo=openai&logoColor=white" alt="Built with the OpenAI Codex SDK" /></a>
+  <a href="https://vercel.com/docs/vercel-sandbox"><img src="https://img.shields.io/badge/runs%20on-Vercel%20Sandbox-0b0b0c?logo=vercel&logoColor=white" alt="Runs on Vercel Sandbox" /></a>
+  <a href="https://convex.dev"><img src="https://img.shields.io/badge/realtime-Convex-EE342F" alt="Convex" /></a>
+  <img src="https://img.shields.io/badge/app-Next.js%2016-0b0b0c?logo=nextdotjs&logoColor=white" alt="Next.js 16" />
+</p>
 
 <p align="center">
   <a href="references/docs/specs/01_SCOUT.md"><b>Scout</b></a>
