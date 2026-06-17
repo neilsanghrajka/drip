@@ -64,21 +64,24 @@ Real outputs from a production campaign (the Week 2 **"June Circuit"** drop). Sc
     <td align="center"><img src="references/uimocks/products/product-cap.png" width="220" alt="Wankhede Nights cap mock" /></td>
     <td align="center"><img src="references/uimocks/products/product-hoodie.jpg" width="220" alt="June Circuit hoodie mock" /></td>
     <td align="center"><img src="references/uimocks/products/product-socks.png" width="220" alt="Café-motif socks mock" /></td>
-    <td align="center"><a href="https://drip-websites-h97phbjsc-neil-sanghrajkas-projects.vercel.app/"><img src="references/uimocks/drop-site.png" width="320" alt="Generated June Circuit drop website" /></a></td>
   </tr>
   <tr>
     <td align="center"><sub>Mock: cap</sub></td>
     <td align="center"><sub>Mock: hoodie</sub></td>
     <td align="center"><sub>Mock: socks</sub></td>
-    <td align="center"><sub>The live drop site Builder deployed → <a href="https://drip-websites-h97phbjsc-neil-sanghrajkas-projects.vercel.app/">open it</a></sub></td>
   </tr>
 </table>
 
-<p align="center">
-  <img src="references/uimocks/meta-ads.gif" width="340" alt="The AI-created paused Facebook ad for the June Circuit drop, previewed in Meta Ads Manager" />
-  <br/>
-  <sub>…and the paused Facebook ad Performance Marketer drafted — a Mobile Feed carousel of the drop, ready for a human to flip live.</sub>
-</p>
+<table>
+  <tr>
+    <td align="center" valign="top"><a href="https://drip-websites-h97phbjsc-neil-sanghrajkas-projects.vercel.app/"><img src="references/uimocks/drop-site.png" width="460" alt="Generated June Circuit drop website" /></a></td>
+    <td align="center" valign="top"><img src="references/uimocks/meta-ads.gif" width="240" alt="Generated paused Facebook ad for the June Circuit drop" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Live drop site, deployed → <a href="https://drip-websites-h97phbjsc-neil-sanghrajkas-projects.vercel.app/">open it</a></sub></td>
+    <td align="center"><sub>Generated Facebook ad</sub></td>
+  </tr>
+</table>
 
 ## How it works
 
@@ -208,9 +211,3 @@ references/             Docs, design assets, and read-only external checkouts
   codex-sdk/            Read-only OpenAI Codex SDK checkout
   sandbox-prototypes/   Early sandbox execution prototypes
 ```
-
----
-
-<p align="center">
-  <sub>Built for the OpenAI hackathon — four AI teammates, one drop a week. <a href="https://dripbycodex.vercel.app">dripbycodex.vercel.app</a></sub>
-</p>
