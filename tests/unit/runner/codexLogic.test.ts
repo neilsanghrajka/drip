@@ -8,7 +8,7 @@ import {
   normalizeError,
   readErrorMessage,
   readEventMessage,
-} from "../../../sandbox/runner/codexLogic";
+} from "../../../agent/runner/codexLogic";
 
 describe("codex runner logic", () => {
   it("aliases X/Twitter and Meta env names for the Codex child process", () => {

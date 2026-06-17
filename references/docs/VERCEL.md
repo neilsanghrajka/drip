@@ -11,8 +11,8 @@ env ownership, and Vercel CLI/plugin usage.
 When Vercel setup changes:
 
 1. Update this document if a durable Vercel rule changes.
-2. Update `docs/DEVELOPMENT.md` if the local workflow changes.
-3. Update `docs/DEPLOYMENT.md` if the production deploy or verification flow
+2. Update `references/docs/DEVELOPMENT.md` if the local workflow changes.
+3. Update `references/docs/DEPLOYMENT.md` if the production deploy or verification flow
    changes.
 4. Update `.env.example` in the same change if any env var is added, renamed,
    removed, or moved.
@@ -26,10 +26,10 @@ Vercel hosts the production Next.js app. It does not provide a local
 development environment for Drip.
 
 Local development is `localhost` Next.js plus Convex dev deployments. See
-`docs/DEVELOPMENT.md`.
+`references/docs/DEVELOPMENT.md`.
 
 Production deployment is Vercel Production plus Convex Production after a push
-to `master`. See `docs/DEPLOYMENT.md`.
+to `master`. See `references/docs/DEPLOYMENT.md`.
 
 ## Git Auto-Deploy Policy
 
@@ -47,8 +47,8 @@ to `master`. See `docs/DEPLOYMENT.md`.
 ```
 
 Do not add Vercel Preview, Vercel Development, or staging environments unless
-the decision is first captured in `docs/DEVELOPMENT.md` and
-`docs/DEPLOYMENT.md`.
+the decision is first captured in `references/docs/DEVELOPMENT.md` and
+`references/docs/DEPLOYMENT.md`.
 
 ## Project Link
 
@@ -116,8 +116,8 @@ For hackathon simplicity, keep only one active base snapshot pointer. The setup
 command creates a new snapshot, points both Convex environments at it, and then
 deletes the previous snapshot.
 
-The base snapshot is prepared from the repo's top-level `sandbox/` payload:
-`sandbox/runner` becomes the runner process directory, and `sandbox/codex-agent`
+The base snapshot is prepared from the repo's top-level `agent/` payload:
+`agent/runner` becomes the runner process directory, and `agent/codex-agent`
 becomes the Codex agent workspace template.
 
 Convex product sandbox actions run outside Vercel's OIDC context, so their
@@ -129,7 +129,7 @@ Do not commit real snapshot IDs, Vercel project/team IDs, sandbox URLs, or
 OpenAI credentials. Keep real values in local `.env` and private platform env
 configuration.
 
-See `docs/SANDBOX.md` for the base image update flow.
+See `references/docs/SANDBOX.md` for the base image update flow.
 
 ## CLI and Plugin Usage
 
@@ -155,8 +155,8 @@ remain forbidden.
 
 ## References
 
-- `docs/DEVELOPMENT.md`: local development and worktree model.
-- `docs/CONVEX.md`: Convex-specific deploy wrapper and CLI guidance.
-- `docs/DEPLOYMENT.md`: production deploy and verification workflow.
-- `docs/SANDBOX.md`: local Vercel Sandbox base-image update flow for Codex
+- `references/docs/DEVELOPMENT.md`: local development and worktree model.
+- `references/docs/CONVEX.md`: Convex-specific deploy wrapper and CLI guidance.
+- `references/docs/DEPLOYMENT.md`: production deploy and verification workflow.
+- `references/docs/SANDBOX.md`: local Vercel Sandbox base-image update flow for Codex
   SDK-powered Builder runs.

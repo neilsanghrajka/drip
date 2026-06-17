@@ -61,12 +61,12 @@ real paused Meta object creation is explicitly requested.
 
 | Layer | File | Responsibility |
 | --- | --- | --- |
-| Performance Marketer skill | `sandbox/codex-agent/.agents/skills/performance-marketer/SKILL.md` | Drip-specific ad orchestration, paused-only safety, output contract. |
-| Meta Ads CLI skill | `sandbox/codex-agent/.agents/skills/meta-ads-cli/SKILL.md` | Exact Drip Meta command recipe, env mapping, preflight, redaction, and paused creation rules. |
-| Copywriter subagent | `sandbox/codex-agent/.codex/agents/facebook-ad-copywriter.toml` | Schema-only campaign/ad set/ad names and Facebook copy. |
-| Operator subagent | `sandbox/codex-agent/.codex/agents/facebook-ad-operator.toml` | Runs the exact `$meta-ads-cli` paused Facebook recipe when allowed and returns sanitized evidence. |
-| Runner | `sandbox/runner/codex.ts` | Passes Meta env into Codex; remains generic. |
-| Sandbox guide | `docs/SANDBOX.md` | Runtime, env, and base snapshot map. |
+| Performance Marketer skill | `agent/codex-agent/.agents/skills/performance-marketer/SKILL.md` | Drip-specific ad orchestration, paused-only safety, output contract. |
+| Meta Ads CLI skill | `agent/codex-agent/.agents/skills/meta-ads-cli/SKILL.md` | Exact Drip Meta command recipe, env mapping, preflight, redaction, and paused creation rules. |
+| Copywriter subagent | `agent/codex-agent/.codex/agents/facebook-ad-copywriter.toml` | Schema-only campaign/ad set/ad names and Facebook copy. |
+| Operator subagent | `agent/codex-agent/.codex/agents/facebook-ad-operator.toml` | Runs the exact `$meta-ads-cli` paused Facebook recipe when allowed and returns sanitized evidence. |
+| Runner | `agent/runner/codex.ts` | Passes Meta env into Codex; remains generic. |
+| Sandbox guide | `references/docs/SANDBOX.md` | Runtime, env, and base snapshot map. |
 
 ## Important Boundaries
 
@@ -142,7 +142,7 @@ Expected proof:
 ## Updating The Base Image
 
 Performance Marketer lives inside the sandbox agent payload. After changing
-files under `sandbox/codex-agent/` or `sandbox/runner/`, recreate the base image
+files under `agent/codex-agent/` or `agent/runner/`, recreate the base image
 before black-box sandbox testing:
 
 ```bash

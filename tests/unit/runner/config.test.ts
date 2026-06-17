@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { readRunnerConfig } from "../../../sandbox/runner/config";
+import { readRunnerConfig } from "../../../agent/runner/config";
 
 const requiredEnv = {
   CONVEX_URL: "https://example.convex.cloud",

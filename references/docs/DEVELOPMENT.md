@@ -12,8 +12,8 @@ When local development changes:
 
 1. Update this document if local setup, local testing, worktree behavior, or
    local env ownership changes.
-2. Update `docs/CONVEX.md` for Convex-specific backend rules.
-3. Update `docs/VERCEL.md` for Vercel-specific platform rules.
+2. Update `references/docs/CONVEX.md` for Convex-specific backend rules.
+3. Update `references/docs/VERCEL.md` for Vercel-specific platform rules.
 4. Update `.env.example` in the same change if any local env var changes.
 5. Keep real env values, deployment URLs, dashboard links, project IDs, and
    deploy keys out of committed files.
@@ -109,7 +109,7 @@ Frontend-only worktrees can temporarily share a Convex dev deployment, but the
 default for serious parallel work is one Convex dev deployment per lane.
 
 For sandbox work, run `pnpm run setup:base-snapshot` after changing
-`sandbox/`. It creates a new base snapshot and syncs `BASE_SANDBOX_IMAGE` into
+`agent/`. It creates a new base snapshot and syncs `BASE_SANDBOX_IMAGE` into
 local `.env`, the selected Convex deployment, and prod Convex.
 
 ## Local Verification
@@ -144,10 +144,10 @@ For browser verification, run `pnpm dev`, open the local app, and verify
 
 ## References
 
-- `docs/CONVEX.md`: Convex source layout, dev deployment rules, CLI commands,
+- `references/docs/CONVEX.md`: Convex source layout, dev deployment rules, CLI commands,
   and Convex plugin usage.
-- `docs/VERCEL.md`: Vercel project link, production env ownership, CLI
+- `references/docs/VERCEL.md`: Vercel project link, production env ownership, CLI
   commands, and Vercel plugin usage.
-- `docs/DEPLOYMENT.md`: production deploy and verification workflow.
-- `docs/SANDBOX.md`: local `pnpm run setup:base-snapshot` flow for refreshing
+- `references/docs/DEPLOYMENT.md`: production deploy and verification workflow.
+- `references/docs/SANDBOX.md`: local `pnpm run setup:base-snapshot` flow for refreshing
   the Codex SDK Vercel Sandbox base image.

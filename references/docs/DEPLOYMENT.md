@@ -12,8 +12,8 @@ When deployment changes:
 
 1. Update this document if the production deploy path, auto-deploy policy,
    production env ownership, or production verification changes.
-2. Update `docs/CONVEX.md` for Convex-specific backend rules.
-3. Update `docs/VERCEL.md` for Vercel-specific platform rules.
+2. Update `references/docs/CONVEX.md` for Convex-specific backend rules.
+3. Update `references/docs/VERCEL.md` for Vercel-specific platform rules.
 4. Update `.env.example` in the same change if any production env var changes.
 5. Keep deployment IDs, dashboard links, project IDs, team IDs, and deploy keys
    out of committed files. Public-facing URLs (the live app and generated drop
@@ -21,7 +21,7 @@ When deployment changes:
 
 ## Production Model
 
-Drip has only Local and Prod environments. See `docs/DEVELOPMENT.md` for the
+Drip has only Local and Prod environments. See `references/docs/DEVELOPMENT.md` for the
 local model.
 
 Prod is:
@@ -92,9 +92,9 @@ docs; private identifiers remain forbidden.
 
 ## References
 
-- `docs/DEVELOPMENT.md`: local development and worktree model.
-- `docs/CONVEX.md`: Convex-specific deploy wrapper and CLI guidance.
-- `docs/VERCEL.md`: Vercel-specific project, env, and CLI guidance.
-- `docs/SANDBOX.md`: base snapshot update flow using
+- `references/docs/DEVELOPMENT.md`: local development and worktree model.
+- `references/docs/CONVEX.md`: Convex-specific deploy wrapper and CLI guidance.
+- `references/docs/VERCEL.md`: Vercel-specific project, env, and CLI guidance.
+- `references/docs/SANDBOX.md`: base snapshot update flow using
   `pnpm run setup:base-snapshot`, local `.env`, and Convex
   `BASE_SANDBOX_IMAGE` env vars.

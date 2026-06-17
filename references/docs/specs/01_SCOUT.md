@@ -7,7 +7,7 @@ original fashion merchandise.
 Scout stops at discovery. It does not design products, run ads, post to Convex,
 or build storefronts.
 
-![Scout architecture](whiteboard/scout_architecture.svg)
+![Scout architecture](../../whiteboard/scout_architecture.svg)
 
 ```mermaid
 flowchart LR
@@ -62,15 +62,15 @@ the cultural moments.
 
 | Layer | File | Responsibility |
 | --- | --- | --- |
-| Scout skill | [`sandbox/codex-agent/.agents/skills/scout/SKILL.md`](../sandbox/codex-agent/.agents/skills/scout/SKILL.md) | End-to-end Scout workflow, subagent orchestration, final judgment, output contract. |
-| X skill | [`sandbox/codex-agent/.agents/skills/x-trends/SKILL.md`](../sandbox/codex-agent/.agents/skills/x-trends/SKILL.md) | Generic X public-data API guidance and compact signal shape. |
-| Exa skill | [`sandbox/codex-agent/.agents/skills/exa-search/SKILL.md`](../sandbox/codex-agent/.agents/skills/exa-search/SKILL.md) | Generic, query-agnostic Exa Search API guidance and compact evidence shape. |
-| X subagent | [`sandbox/codex-agent/.codex/agents/x-researcher.toml`](../sandbox/codex-agent/.codex/agents/x-researcher.toml) | Evidence-only X trend and recent-post researcher. |
-| Exa subagent | [`sandbox/codex-agent/.codex/agents/exa-researcher.toml`](../sandbox/codex-agent/.codex/agents/exa-researcher.toml) | Evidence-only source-backed web researcher. |
-| Codex sandbox config | [`sandbox/codex-agent/.codex/config.toml`](../sandbox/codex-agent/.codex/config.toml) | Sets sandbox defaults and registers subagents; project skills are discovered from `.agents/skills`. |
-| Runner | [`sandbox/runner/codex.ts`](../sandbox/runner/codex.ts) | Runs Codex SDK, passes research env, and streams generic Codex events/results. |
-| Base snapshot setup | [`scripts/setup_base_snapshot.ts`](../scripts/setup_base_snapshot.ts) | Copies and smoke-tests the sandbox runtime payload. |
-| Sandbox guide | [`docs/SANDBOX.md`](SANDBOX.md) | Runtime, env, and base snapshot map. |
+| Scout skill | [`agent/codex-agent/.agents/skills/scout/SKILL.md`](../../../agent/codex-agent/.agents/skills/scout/SKILL.md) | End-to-end Scout workflow, subagent orchestration, final judgment, output contract. |
+| X skill | [`agent/codex-agent/.agents/skills/x-trends/SKILL.md`](../../../agent/codex-agent/.agents/skills/x-trends/SKILL.md) | Generic X public-data API guidance and compact signal shape. |
+| Exa skill | [`agent/codex-agent/.agents/skills/exa-search/SKILL.md`](../../../agent/codex-agent/.agents/skills/exa-search/SKILL.md) | Generic, query-agnostic Exa Search API guidance and compact evidence shape. |
+| X subagent | [`agent/codex-agent/.codex/agents/x-researcher.toml`](../../../agent/codex-agent/.codex/agents/x-researcher.toml) | Evidence-only X trend and recent-post researcher. |
+| Exa subagent | [`agent/codex-agent/.codex/agents/exa-researcher.toml`](../../../agent/codex-agent/.codex/agents/exa-researcher.toml) | Evidence-only source-backed web researcher. |
+| Codex sandbox config | [`agent/codex-agent/.codex/config.toml`](../../../agent/codex-agent/.codex/config.toml) | Sets sandbox defaults and registers subagents; project skills are discovered from `.agents/skills`. |
+| Runner | [`agent/runner/codex.ts`](../../../agent/runner/codex.ts) | Runs Codex SDK, passes research env, and streams generic Codex events/results. |
+| Base snapshot setup | [`scripts/setup_base_snapshot.ts`](../../../scripts/setup_base_snapshot.ts) | Copies and smoke-tests the sandbox runtime payload. |
+| Sandbox guide | [`references/docs/SANDBOX.md`](../SANDBOX.md) | Runtime, env, and base snapshot map. |
 
 ## Important Boundaries
 
@@ -145,7 +145,7 @@ should verify the file exists, parses, and matches the expected schema.
 ## Updating The Base Image
 
 Scout lives inside the sandbox agent payload. After changing files under
-`sandbox/codex-agent/` or `sandbox/runner/`, recreate the base image before
+`agent/codex-agent/` or `agent/runner/`, recreate the base image before
 black-box sandbox testing. The setup command syncs `BASE_SANDBOX_IMAGE` into
 local `.env`, selected Convex, and prod Convex:
 

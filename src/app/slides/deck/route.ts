@@ -5,7 +5,7 @@ export const dynamic = "force-static";
 
 export async function GET() {
   const html = await readFile(
-    path.join(process.cwd(), "slides", "index.html"),
+    path.join(process.cwd(), "references", "slides", "index.html"),
     "utf8",
   );
   return new Response(html, {

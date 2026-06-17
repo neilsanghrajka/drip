@@ -11,7 +11,7 @@ The output should feel like beautiful fashion product work: real-looking caps,
 socks, tees, hoodies, bundles, or product-on-model shots. It should not look
 like a website, ecommerce page, landing page, or ad dashboard.
 
-![Fashion Designer architecture](whiteboard/fashion_designer_architecture.svg)
+![Fashion Designer architecture](../../whiteboard/fashion_designer_architecture.svg)
 
 ```mermaid
 flowchart LR
@@ -81,16 +81,16 @@ writing, and JSON validation.
 
 | Layer | File | Responsibility |
 | --- | --- | --- |
-| Fashion Designer skill | [`sandbox/codex-agent/.agents/skills/fashion-designer/SKILL.md`](../sandbox/codex-agent/.agents/skills/fashion-designer/SKILL.md) | End-to-end Designer workflow, product direction, subagent orchestration, final review set, output contract. |
-| Imagegen skill | [`sandbox/codex-agent/.codex/skills/.system/imagegen/SKILL.md`](../sandbox/codex-agent/.codex/skills/.system/imagegen/SKILL.md) | Official Codex image-generation workflow and asset handling rules. |
-| Cap subagent | [`sandbox/codex-agent/.codex/agents/cap-designer.toml`](../sandbox/codex-agent/.codex/agents/cap-designer.toml) | Cap concept and product mock image generation. |
-| Sock subagent | [`sandbox/codex-agent/.codex/agents/sock-designer.toml`](../sandbox/codex-agent/.codex/agents/sock-designer.toml) | Sock concept and product mock image generation. |
-| Apparel subagent | [`sandbox/codex-agent/.codex/agents/apparel-designer.toml`](../sandbox/codex-agent/.codex/agents/apparel-designer.toml) | Tees, hoodies, bundles, and product-on-model mock image generation. |
-| Reviewer subagent | [`sandbox/codex-agent/.codex/agents/fashion-reviewer.toml`](../sandbox/codex-agent/.codex/agents/fashion-reviewer.toml) | Visual QA, rejection, curation, and focused regeneration requests. |
-| Codex sandbox config | [`sandbox/codex-agent/.codex/config.toml`](../sandbox/codex-agent/.codex/config.toml) | Sets sandbox defaults and registers subagents; project skills are discovered from `.agents/skills` and system skills from `.codex/skills`. |
-| Runner | [`sandbox/runner/codex.ts`](../sandbox/runner/codex.ts) | Runs Codex SDK, passes run env, and streams generic Codex events/results. |
-| Base snapshot setup | [`scripts/setup_base_snapshot.ts`](../scripts/setup_base_snapshot.ts) | Copies and smoke-tests the sandbox runtime payload. |
-| Sandbox guide | [`docs/SANDBOX.md`](SANDBOX.md) | Runtime, env, and base snapshot map. |
+| Fashion Designer skill | [`agent/codex-agent/.agents/skills/fashion-designer/SKILL.md`](../../../agent/codex-agent/.agents/skills/fashion-designer/SKILL.md) | End-to-end Designer workflow, product direction, subagent orchestration, final review set, output contract. |
+| Imagegen skill | [`agent/codex-agent/.codex/skills/.system/imagegen/SKILL.md`](../../../agent/codex-agent/.codex/skills/.system/imagegen/SKILL.md) | Official Codex image-generation workflow and asset handling rules. |
+| Cap subagent | [`agent/codex-agent/.codex/agents/cap-designer.toml`](../../../agent/codex-agent/.codex/agents/cap-designer.toml) | Cap concept and product mock image generation. |
+| Sock subagent | [`agent/codex-agent/.codex/agents/sock-designer.toml`](../../../agent/codex-agent/.codex/agents/sock-designer.toml) | Sock concept and product mock image generation. |
+| Apparel subagent | [`agent/codex-agent/.codex/agents/apparel-designer.toml`](../../../agent/codex-agent/.codex/agents/apparel-designer.toml) | Tees, hoodies, bundles, and product-on-model mock image generation. |
+| Reviewer subagent | [`agent/codex-agent/.codex/agents/fashion-reviewer.toml`](../../../agent/codex-agent/.codex/agents/fashion-reviewer.toml) | Visual QA, rejection, curation, and focused regeneration requests. |
+| Codex sandbox config | [`agent/codex-agent/.codex/config.toml`](../../../agent/codex-agent/.codex/config.toml) | Sets sandbox defaults and registers subagents; project skills are discovered from `.agents/skills` and system skills from `.codex/skills`. |
+| Runner | [`agent/runner/codex.ts`](../../../agent/runner/codex.ts) | Runs Codex SDK, passes run env, and streams generic Codex events/results. |
+| Base snapshot setup | [`scripts/setup_base_snapshot.ts`](../../../scripts/setup_base_snapshot.ts) | Copies and smoke-tests the sandbox runtime payload. |
+| Sandbox guide | [`references/docs/SANDBOX.md`](../SANDBOX.md) | Runtime, env, and base snapshot map. |
 
 ## Important Boundaries
 
@@ -231,7 +231,7 @@ images through the real sandbox path.
 ## Updating The Base Image
 
 Fashion Designer lives inside the sandbox agent payload. After changing files
-under `sandbox/codex-agent/` or `sandbox/runner/`, recreate the base image
+under `agent/codex-agent/` or `agent/runner/`, recreate the base image
 before black-box sandbox testing. The setup command syncs `BASE_SANDBOX_IMAGE`
 into local `.env`, selected Convex, and prod Convex:
 

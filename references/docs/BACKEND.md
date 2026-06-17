@@ -55,7 +55,7 @@ flowchart LR
 ```
 
 The sandbox runtime is separate from the Drip app repo. Only the prepared
-`sandbox/` runtime payload is copied into the Vercel Sandbox base image. App
+`agent/` runtime payload is copied into the Vercel Sandbox base image. App
 source stays in `src/`.
 
 ## Data Model Diagram

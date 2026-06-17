@@ -15,6 +15,6 @@ Documentation map for Drip.
 | [VERCEL.md](VERCEL.md) | Vercel project rules: hosting, project linking, deploy policy, and production env ownership. |
 | [DEVELOPMENT.md](DEVELOPMENT.md) | How to run and test Drip locally, including parallel worktree setups. |
 | [DEPLOYMENT.md](DEPLOYMENT.md) | The production deploy workflow and how production is verified. |
-| [WHITEBOARD.md](WHITEBOARD.md) | The index of raw whiteboard images in `whiteboard/`. |
+| [WHITEBOARD.md](WHITEBOARD.md) | The index of raw whiteboard images in `../whiteboard/`. |
 | [META_ADS_CLI.md](META_ADS_CLI.md) | The Meta Ads CLI proof: real but paused ad objects under operator control. |
-| [../AGENTS.md](../AGENTS.md) | Operating rules for coding agents working in this repo. |
+| [../../AGENTS.md](../../AGENTS.md) | Operating rules for coding agents working in this repo. |

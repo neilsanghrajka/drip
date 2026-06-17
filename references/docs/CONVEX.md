@@ -11,8 +11,8 @@ behavior, and Convex CLI/plugin usage.
 When Convex setup changes:
 
 1. Update this document if a durable Convex rule changes.
-2. Update `docs/DEVELOPMENT.md` if the local workflow changes.
-3. Update `docs/DEPLOYMENT.md` if the production deploy or verification flow
+2. Update `references/docs/DEVELOPMENT.md` if the local workflow changes.
+3. Update `references/docs/DEPLOYMENT.md` if the production deploy or verification flow
    changes.
 4. Update `.env.example` in the same change if any env var is added, renamed,
    removed, or moved.
@@ -40,7 +40,7 @@ browser-to-Convex health check.
 
 Drip has only Local and Prod environments. In Local, Convex work uses throwaway
 Convex dev deployments selected by ignored `.env` files. See
-`docs/DEVELOPMENT.md` for the full local workflow and worktree diagram.
+`references/docs/DEVELOPMENT.md` for the full local workflow and worktree diagram.
 
 Convex plugin guidance for signed-in development is: use a real Convex cloud
 dev deployment. Anonymous/local-only Convex is only for users with no Convex
@@ -81,7 +81,7 @@ CONVEX_DEPLOY_KEY=
 Do not manually set `NEXT_PUBLIC_CONVEX_URL` or
 `NEXT_PUBLIC_CONVEX_SITE_URL` in Vercel for the normal production flow. The
 Convex deploy wrapper injects public Convex URLs into the Next.js production
-build. See `docs/DEPLOYMENT.md`.
+build. See `references/docs/DEPLOYMENT.md`.
 
 Sandbox runtime config is duplicated intentionally: the selected default/dev
 Convex deployment and the prod Convex deployment both store

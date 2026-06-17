@@ -7,7 +7,7 @@ drop website with a shareable live URL.
 Builder stops at the drop page. It does not discover trends, design the full
 product catalog, run ads, or add checkout logic.
 
-![Builder architecture](whiteboard/builder_architecture.png)
+![Builder architecture](../../whiteboard/builder_architecture.png)
 
 ## TL;DR
 
@@ -43,7 +43,7 @@ preview URLs can render inside the Drip app and be shared without Vercel SSO.
 ## Architecture
 
 The raw whiteboard reference for the teammate flow is
-[`whiteboard/developer_flow.jpg`](whiteboard/developer_flow.jpg). The generated
+[`whiteboard/developer_flow.jpg`](../../whiteboard/developer_flow.jpg). The generated
 architecture image above is the current Vercel-only plan.
 
 ```mermaid
@@ -94,15 +94,15 @@ flowchart LR
 
 | Layer | File | Responsibility |
 | --- | --- | --- |
-| Builder skill | `sandbox/codex-agent/.agents/skills/builder/SKILL.md` | End-to-end Builder workflow, final page judgment, subagent orchestration, output contract. |
-| Frontend skill | `sandbox/codex-agent/.agents/skills/frontend-skill/SKILL.md` | Visual art-direction rules for striking one-page sites. |
-| Imagegen skill | `sandbox/codex-agent/.codex/skills/.system/imagegen/SKILL.md` | Official Codex image-generation workflow for product angle assets. |
-| Site builder subagent | `sandbox/codex-agent/.codex/agents/drop-site-builder.toml` | Static HTML/CSS/JS page creation and product angle generation. |
-| Site reviewer subagent | `sandbox/codex-agent/.codex/agents/drop-site-reviewer.toml` | Browser QA with `agent-browser`, desktop 16:10/16:9 screenshots, overflow metrics, right-edge clipping checks, visual and functional checks. |
-| Site deployer subagent | `sandbox/codex-agent/.codex/agents/drop-site-deployer.toml` | Vercel CLI deployment and live URL verification. |
-| Runner | `sandbox/runner/codex.ts` | Passes Builder deploy env into Codex; remains generic. |
+| Builder skill | `agent/codex-agent/.agents/skills/builder/SKILL.md` | End-to-end Builder workflow, final page judgment, subagent orchestration, output contract. |
+| Frontend skill | `agent/codex-agent/.agents/skills/frontend-skill/SKILL.md` | Visual art-direction rules for striking one-page sites. |
+| Imagegen skill | `agent/codex-agent/.codex/skills/.system/imagegen/SKILL.md` | Official Codex image-generation workflow for product angle assets. |
+| Site builder subagent | `agent/codex-agent/.codex/agents/drop-site-builder.toml` | Static HTML/CSS/JS page creation and product angle generation. |
+| Site reviewer subagent | `agent/codex-agent/.codex/agents/drop-site-reviewer.toml` | Browser QA with `agent-browser`, desktop 16:10/16:9 screenshots, overflow metrics, right-edge clipping checks, visual and functional checks. |
+| Site deployer subagent | `agent/codex-agent/.codex/agents/drop-site-deployer.toml` | Vercel CLI deployment and live URL verification. |
+| Runner | `agent/runner/codex.ts` | Passes Builder deploy env into Codex; remains generic. |
 | Base snapshot setup | `scripts/setup_base_snapshot.ts` | Installs Vercel CLI and agent-browser CLI in the base image. |
-| Sandbox guide | `docs/SANDBOX.md` | Runtime, env, and base snapshot map. |
+| Sandbox guide | `references/docs/SANDBOX.md` | Runtime, env, and base snapshot map. |
 
 ## Page Contract
 

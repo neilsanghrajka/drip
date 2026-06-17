@@ -18,7 +18,7 @@ const repoRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "..",
 );
-const sandboxPayloadRoot = path.join(repoRoot, "sandbox");
+const sandboxPayloadRoot = path.join(repoRoot, "agent");
 const runnerSourceRoot = path.join(sandboxPayloadRoot, "runner");
 const codexAgentSourceRoot = path.join(sandboxPayloadRoot, "codex-agent");
 const sandboxRoot = "/vercel/sandbox";
@@ -221,7 +221,7 @@ function readConfig(env: EnvMap, runnerPackageJson: PackageJson): SetupConfig {
 
   const packageManagerSpec = runnerPackageJson.packageManager;
   if (!packageManagerSpec?.startsWith("pnpm@")) {
-    throw new Error("sandbox/runner/package.json must declare a pnpm packageManager.");
+    throw new Error("agent/runner/package.json must declare a pnpm packageManager.");
   }
 
   assertRunnerDependencies(runnerPackageJson);
@@ -273,7 +273,7 @@ function assertRunnerDependencies(packageJson: PackageJson) {
     "vercel",
   ]) {
     if (!deps[name]) {
-      throw new Error(`sandbox/runner/package.json must include ${name}.`);
+      throw new Error(`agent/runner/package.json must include ${name}.`);
     }
   }
 }

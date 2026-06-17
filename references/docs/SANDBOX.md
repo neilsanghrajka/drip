@@ -62,11 +62,11 @@ sequenceDiagram
 
 ## Runtime Payload
 
-Only `sandbox/` is copied into the Vercel Sandbox base snapshot.
+Only `agent/` is copied into the Vercel Sandbox base snapshot.
 
 ```text
 repo/
-  sandbox/
+  agent/
     runner/
       index.ts
       config.ts
@@ -148,11 +148,11 @@ than per-run dependency bootstrap. If Meta's official Ads CLI docs change the
 package/auth model, update the setup script, `$meta-ads-cli` skill, and smoke
 checks together.
 
-![Codex agent runtime base image](whiteboard/codex_agent_runtime.png)
+![Codex agent runtime base image](../whiteboard/codex_agent_runtime.png)
 
 ```mermaid
 flowchart LR
-  Payload["repo sandbox/"]
+  Payload["repo agent/"]
   Setup["pnpm run setup:base-snapshot"]
   Image["BASE_SANDBOX_IMAGE"]
   Runner["/vercel/sandbox/runner"]
@@ -258,13 +258,13 @@ protection disabled so immutable preview URLs can be embedded and shared.
 
 Builder-specific base image additions:
 
-- `vercel` CLI is installed through `sandbox/runner/package.json`, keeping
+- `vercel` CLI is installed through `agent/runner/package.json`, keeping
   `/vercel/sandbox/runner/node_modules/.bin` on Codex's `PATH`.
 - `agent-browser` CLI and its browser dependency are installed in the base
   image.
-- `frontend-skill` is copied into `sandbox/codex-agent/.agents/skills/`.
+- `frontend-skill` is copied into `agent/codex-agent/.agents/skills/`.
 - Builder, site-builder, site-reviewer, and site-deployer skill/subagent files
-  live in `sandbox/codex-agent/`.
+  live in `agent/codex-agent/`.
 
 ## Performance Marketer Meta Ads
 
@@ -356,8 +356,8 @@ named drop sandbox is created from `BASE_SANDBOX_IMAGE` when the first stage
 starts; later stages may resume that same named sandbox state for the same drop.
 Base-image validation belongs to this setup command and sandbox smoke tests.
 
-The setup command creates a fresh sandbox, copies only `sandbox/runner` and
-`sandbox/codex-agent`, installs runner dependencies, verifies runner imports and
+The setup command creates a fresh sandbox, copies only `agent/runner` and
+`agent/codex-agent`, installs runner dependencies, verifies runner imports and
 agent config/skill files, verifies Drip app files are absent, snapshots the
 sandbox, starts a fork from that snapshot, repeats the smoke checks, updates
 `.env`, selected Convex, and prod Convex to the new `BASE_SANDBOX_IMAGE`, then
@@ -473,7 +473,7 @@ successful run.
 
 | Boundary | Rule |
 | --- | --- |
-| Drip repo source | Not part of the base image. Only `sandbox/` is copied. |
+| Drip repo source | Not part of the base image. Only `agent/` is copied. |
 | Runner token | Plaintext exists only in the runner command env; Convex stores only the hash. |
 | Public reads | `sandboxRuns.getSandboxRun` removes `ingestTokenHash`. |
 | Event stream | Events are currently loose and SDK-shaped; broader exposure needs a future redaction/visibility policy. |
@@ -484,30 +484,30 @@ successful run.
 
 | Path | What to inspect |
 | --- | --- |
-| `sandbox/runner/*` | Runner process, Codex SDK loop, Convex ingest client, and runner-local dependency manifest. |
-| `sandbox/codex-agent/.codex/config.toml` | Sandbox-only Codex defaults and agent registration; project skills are discovered from `.agents/skills`. |
-| `sandbox/codex-agent/.codex/agents/sandbox-verifier.toml` | Custom subagent definition for sandbox verification. |
-| `sandbox/codex-agent/.codex/agents/x-researcher.toml` | Custom subagent definition for X trend signal collection. |
-| `sandbox/codex-agent/.codex/agents/exa-researcher.toml` | Custom subagent definition for Exa cultural context collection. |
-| `sandbox/codex-agent/.codex/agents/cap-designer.toml` | Custom subagent definition for cap concept and mock image generation. |
-| `sandbox/codex-agent/.codex/agents/sock-designer.toml` | Custom subagent definition for sock concept and mock image generation. |
-| `sandbox/codex-agent/.codex/agents/apparel-designer.toml` | Custom subagent definition for apparel concept and mock image generation. |
-| `sandbox/codex-agent/.codex/agents/fashion-reviewer.toml` | Custom subagent definition for Fashion Designer image curation, rejection, and regeneration requests. |
-| `sandbox/codex-agent/.codex/agents/drop-site-builder.toml` | Custom subagent definition for Builder static site creation and product image angle generation. |
-| `sandbox/codex-agent/.codex/agents/drop-site-reviewer.toml` | Custom subagent definition for Builder browser review with `agent-browser`. |
-| `sandbox/codex-agent/.codex/agents/drop-site-deployer.toml` | Custom subagent definition for Builder Vercel preview deployment and HTTP verification. |
-| `sandbox/codex-agent/.codex/agents/facebook-ad-copywriter.toml` | Custom subagent definition for Performance Marketer ad naming and copy. |
-| `sandbox/codex-agent/.codex/agents/facebook-ad-operator.toml` | Custom subagent definition for Performance Marketer paused Facebook ad object creation. |
-| `sandbox/codex-agent/.codex/skills/.system/imagegen/SKILL.md` | Official Codex image generation skill copied into the sandbox `CODEX_HOME` layout. |
-| `sandbox/codex-agent/.agents/skills/agent-browser/SKILL.md` | Browser automation skill stub copied into the agent workspace. |
-| `sandbox/codex-agent/.agents/skills/builder/SKILL.md` | Builder orchestration skill and structured output contract. |
-| `sandbox/codex-agent/.agents/skills/frontend-skill/SKILL.md` | Frontend art-direction skill used by Builder site creation. |
-| `sandbox/codex-agent/.agents/skills/scout/SKILL.md` | Scout orchestration skill and structured output contract. |
-| `sandbox/codex-agent/.agents/skills/meta-ads-cli/SKILL.md` | Meta Ads CLI usage, runtime env, and safety rules for sandbox agents. |
-| `sandbox/codex-agent/.agents/skills/fashion-designer/SKILL.md` | Fashion Designer orchestration skill and structured output contract. |
-| `sandbox/codex-agent/.agents/skills/performance-marketer/SKILL.md` | Performance Marketer orchestration skill and structured output contract. |
-| `sandbox/codex-agent/.agents/skills/x-trends/SKILL.md` | Instruction-only X public-data research skill. |
-| `sandbox/codex-agent/.agents/skills/exa-search/SKILL.md` | Instruction-only generic Exa Search API skill. |
+| `agent/runner/*` | Runner process, Codex SDK loop, Convex ingest client, and runner-local dependency manifest. |
+| `agent/codex-agent/.codex/config.toml` | Sandbox-only Codex defaults and agent registration; project skills are discovered from `.agents/skills`. |
+| `agent/codex-agent/.codex/agents/sandbox-verifier.toml` | Custom subagent definition for sandbox verification. |
+| `agent/codex-agent/.codex/agents/x-researcher.toml` | Custom subagent definition for X trend signal collection. |
+| `agent/codex-agent/.codex/agents/exa-researcher.toml` | Custom subagent definition for Exa cultural context collection. |
+| `agent/codex-agent/.codex/agents/cap-designer.toml` | Custom subagent definition for cap concept and mock image generation. |
+| `agent/codex-agent/.codex/agents/sock-designer.toml` | Custom subagent definition for sock concept and mock image generation. |
+| `agent/codex-agent/.codex/agents/apparel-designer.toml` | Custom subagent definition for apparel concept and mock image generation. |
+| `agent/codex-agent/.codex/agents/fashion-reviewer.toml` | Custom subagent definition for Fashion Designer image curation, rejection, and regeneration requests. |
+| `agent/codex-agent/.codex/agents/drop-site-builder.toml` | Custom subagent definition for Builder static site creation and product image angle generation. |
+| `agent/codex-agent/.codex/agents/drop-site-reviewer.toml` | Custom subagent definition for Builder browser review with `agent-browser`. |
+| `agent/codex-agent/.codex/agents/drop-site-deployer.toml` | Custom subagent definition for Builder Vercel preview deployment and HTTP verification. |
+| `agent/codex-agent/.codex/agents/facebook-ad-copywriter.toml` | Custom subagent definition for Performance Marketer ad naming and copy. |
+| `agent/codex-agent/.codex/agents/facebook-ad-operator.toml` | Custom subagent definition for Performance Marketer paused Facebook ad object creation. |
+| `agent/codex-agent/.codex/skills/.system/imagegen/SKILL.md` | Official Codex image generation skill copied into the sandbox `CODEX_HOME` layout. |
+| `agent/codex-agent/.agents/skills/agent-browser/SKILL.md` | Browser automation skill stub copied into the agent workspace. |
+| `agent/codex-agent/.agents/skills/builder/SKILL.md` | Builder orchestration skill and structured output contract. |
+| `agent/codex-agent/.agents/skills/frontend-skill/SKILL.md` | Frontend art-direction skill used by Builder site creation. |
+| `agent/codex-agent/.agents/skills/scout/SKILL.md` | Scout orchestration skill and structured output contract. |
+| `agent/codex-agent/.agents/skills/meta-ads-cli/SKILL.md` | Meta Ads CLI usage, runtime env, and safety rules for sandbox agents. |
+| `agent/codex-agent/.agents/skills/fashion-designer/SKILL.md` | Fashion Designer orchestration skill and structured output contract. |
+| `agent/codex-agent/.agents/skills/performance-marketer/SKILL.md` | Performance Marketer orchestration skill and structured output contract. |
+| `agent/codex-agent/.agents/skills/x-trends/SKILL.md` | Instruction-only X public-data research skill. |
+| `agent/codex-agent/.agents/skills/exa-search/SKILL.md` | Instruction-only generic Exa Search API skill. |
 | `scripts/setup_base_snapshot.ts` | Base snapshot creation, copy rules, install, smoke, Convex env sync, and previous snapshot cleanup. |
 | `src/convex/schema.ts` | `sandboxRuns` and `sandboxRunEvents` table shape. |
 | `src/convex/sandboxRuns.ts` | Control-plane queries/mutations and runner token checks. |
