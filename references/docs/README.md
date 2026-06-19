@@ -2,7 +2,7 @@
 
 Documentation map for Drip.
 
-| Doc | Read this to understand |
+| Doc or skill | Read this to understand |
 | --- | --- |
 | [PRD.md](PRD.md) | The product: what Drip promises and how the four-teammate drop workflow fits together. |
 | [BACKEND.md](BACKEND.md) | The backend map: Convex data model, APIs, sandbox execution path, and artifact persistence. |
@@ -16,5 +16,5 @@ Documentation map for Drip.
 | [DEVELOPMENT.md](DEVELOPMENT.md) | How to run and test Drip locally, including parallel worktree setups. |
 | [DEPLOYMENT.md](DEPLOYMENT.md) | The production deploy workflow and how production is verified. |
 | [WHITEBOARD.md](WHITEBOARD.md) | The index of raw whiteboard images in `../whiteboard/`. |
-| [META_ADS_CLI.md](META_ADS_CLI.md) | The Meta Ads CLI proof: real but paused ad objects under operator control. |
+| [../../.agents/skills/meta-ads-cli/SKILL.md](../../.agents/skills/meta-ads-cli/SKILL.md) | The Meta Ads CLI proof: real but paused ad objects under operator control. |
 | [../../AGENTS.md](../../AGENTS.md) | Operating rules for coding agents working in this repo. |

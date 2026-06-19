@@ -190,7 +190,7 @@ To self-deploy: `pnpm exec vercel login`, link with `pnpm exec vercel link --yes
 | [`references/docs/BACKEND.md`](references/docs/BACKEND.md) | Convex data model, drop pipeline state machine, events, replay |
 | [`references/docs/SANDBOX.md`](references/docs/SANDBOX.md) | The Vercel Sandbox + Codex SDK execution layer |
 | [`references/docs/CONVEX.md`](references/docs/CONVEX.md) / [`references/docs/VERCEL.md`](references/docs/VERCEL.md) | Platform rules for the two backends |
-| [`references/docs/META_ADS_CLI.md`](references/docs/META_ADS_CLI.md) | The Meta Ads CLI the Performance Marketer drives |
+| [`.agents/skills/meta-ads-cli/SKILL.md`](.agents/skills/meta-ads-cli/SKILL.md) | The Meta Ads CLI the Performance Marketer drives |
 | [`references/docs/WHITEBOARD.md`](references/docs/WHITEBOARD.md) | The real whiteboard photos behind the architecture |
 
 **Want to run it yourself?**
@@ -199,6 +199,16 @@ To self-deploy: `pnpm exec vercel login`, link with `pnpm exec vercel link --yes
 | --- | --- |
 | [`references/docs/DEVELOPMENT.md`](references/docs/DEVELOPMENT.md) | Local setup, worktrees, env scoping |
 | [`references/docs/DEPLOYMENT.md`](references/docs/DEPLOYMENT.md) | Production deploys and verification |
+
+## Skill map
+
+| Skill | Kind | For |
+| --- | --- | --- |
+| [`agent-browser`](.agents/skills/agent-browser/) | Third-party | Browser automation and app QA |
+| [`shadcn`](.agents/skills/shadcn/) | Third-party | shadcn/ui component work |
+| [`meta-ads-cli`](.agents/skills/meta-ads-cli/) | Custom | Drip Meta Ads CLI safety and paused-ad recipe |
+| `$frontend-skill` | Built-in | Frontend art direction for Builder |
+| `$image-gen` | Built-in | Product image generation |
 
 ## Repo layout
 
