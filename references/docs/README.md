@@ -16,5 +16,5 @@ Documentation map for Drip.
 | [DEVELOPMENT.md](DEVELOPMENT.md) | How to run and test Drip locally, including parallel worktree setups. |
 | [DEPLOYMENT.md](DEPLOYMENT.md) | The production deploy workflow and how production is verified. |
 | [WHITEBOARD.md](WHITEBOARD.md) | The index of raw whiteboard images in `../whiteboard/`. |
-| [../../.agents/skills/meta-ads-cli/SKILL.md](../../.agents/skills/meta-ads-cli/SKILL.md) | The Meta Ads CLI proof: real but paused ad objects under operator control. |
+| [`$meta-ads-cli`](../../.agents/skills/meta-ads-cli/SKILL.md) | The Meta Ads CLI proof: real but paused ad objects under operator control. |
 | [../../AGENTS.md](../../AGENTS.md) | Operating rules for coding agents working in this repo. |
