@@ -206,7 +206,7 @@ To self-deploy: `pnpm exec vercel login`, link with `pnpm exec vercel link --yes
 | --- | --- | --- |
 | [`$agent-browser`](.agents/skills/agent-browser/) | Third-party | Browser automation and app QA |
 | [`$shadcn`](.agents/skills/shadcn/) | Third-party | shadcn/ui component work |
-| [`$meta-ads-cli`](.agents/skills/meta-ads-cli/) | Custom | Drip Meta Ads CLI safety and paused-ad recipe |
+| [`$meta-ads-cli`](.agents/skills/meta-ads-cli/) | Custom | Creating & Managing meta ads |
 | `$frontend-skill` | Built-in | Frontend art direction for Builder |
 | `$image-gen` | Built-in | Product image generation |
 
