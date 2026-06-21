@@ -90,6 +90,12 @@ Real outputs from a production campaign (the Week 2 **"June Circuit"** drop). Sc
   </tr>
 </table>
 
+## Built with the Codex app
+
+<p align="center">
+  <img src="references/whiteboard/codex-build-loop.png" width="980" alt="How Drip was built: an autonomous Codex loop that orchestrates Scout, Designer, and Backend threads from PRD, UI designs, and architecture context — wired to coding-agent instructions, self-verification, and third-party connectors" />
+</p>
+
 ## How it works
 
 ```
