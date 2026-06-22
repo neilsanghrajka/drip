@@ -2,6 +2,10 @@
   <img src="references/uimocks/team-banner.png" alt="Drip's four AI teammates: Scout, Fashion Designer, Builder, Performance Marketer" width="100%" />
 </p>
 
+<p align="center">
+  <img src="references/whiteboard/skill-map-banner.png" alt="Drip's skill map: each teammate is an entry skill that spawns subagents drawing on reusable tool skills" width="100%" />
+</p>
+
 <h1 align="center">Drip — meet your AI e-commerce team, powered by the OpenAI Codex SDK</h1>
 
 <p align="center">
